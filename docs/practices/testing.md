@@ -163,8 +163,8 @@ def test_run_sql_with_non_select_returns_error(metrics_db, query):
 
 ```bash
 make test                         # default suite: unit + integration
-uv run pytest -m "not integration"   # unit tests only
+make test PYTEST_ARGS='-m "not integration and not live"' # unit tests only
 uv run pytest -m live             # paid provider checks, on request
-uv run pytest --cov=incidents_agent --cov-report=term-missing
+make test PYTEST_ARGS='--cov=incidents_agent --cov-report=term-missing'
 uv run pytest tests/tools/test_run_sql.py -k non_select   # one test while working
 ```

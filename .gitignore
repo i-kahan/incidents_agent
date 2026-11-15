@@ -34,3 +34,6 @@ planning/review*.md
 
 # Third-party reference kept on disk only (CC-BY 3.0; see CLAUDE.md for the source)
 docs/style/google_pyguide.md
+
+# RCAEval download in progress
+/RE2-OB.zip
