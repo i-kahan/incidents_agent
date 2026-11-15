@@ -27,7 +27,7 @@ view. Ends with an empty but working package that every later phase builds on.
       request and on pushes to `main`, on the pinned Python version, with the `uv`
       cache. It has no secrets, never runs `live` tests, and dataset-dependent tests
       skip.
-- [ ] Owner enables the required `lint-and-test` check on `main` before merging.
+- [x] Require the GitHub Actions `lint-and-test` check on `main` before merging.
 - [x] Add the MIT `LICENSE` for the repo.
 - [x] `NOTICE.md`: RCAEval's code and dataset licences, as found in its repository and
       dataset page, and the papers to cite. Nothing from the dataset is committed.
