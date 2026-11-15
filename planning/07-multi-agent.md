@@ -23,6 +23,9 @@ See [`flowchart-multi-agent.svg`](flowchart-multi-agent.svg).
       evidence — not the lead's or testers' reasoning — runs one check that could
       disprove it, and returns "holds" or "disproved" with evidence.
 - [ ] One prompt per role in the versioned prompts module; hashes recorded per run.
+- [ ] The context policy applies per role, since each role has its own conversation.
+      `dependency_graph` is available to every role. Only the lead writes data
+      requests and recommended actions, from the merged ledger.
 - [ ] The skeptic's model is configurable separately, so it can differ from the lead's.
       For the single-versus-multi comparison every role uses the same model as the
       single agent; a different skeptic model is a separate, labelled configuration.

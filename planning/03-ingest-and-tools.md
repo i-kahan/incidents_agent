@@ -42,6 +42,10 @@ work the same on an RCAEval case and on an arbitrary upload, with no LLM involve
       path, text.
 - [ ] Catalog builder: per table, the columns, types, row count, time column, time range
       and three sample rows; per document, its title, type, size and outline.
+- [ ] Relationship detection: columns that describe who talks to whom — caller and
+      callee, source and destination, or a span id with a parent span id — are
+      identified by name and by value overlap, and recorded in the catalog with a
+      confidence. Tables with none are recorded as having none.
 - [ ] Limits, all configurable and all reported when hit: size per file, number of
       files, total size, rows scanned per query, query time, and result size.
       Unsupported or unreadable files are recorded as skipped with the reason; ingest of
@@ -67,7 +71,13 @@ work the same on an RCAEval case and on an arbitrary upload, with no LLM involve
 - [ ] Document chunks are citable: a chunk read through a tool counts as evidence in
       the ledger like any other tool result.
 - [ ] `find_onset`: estimate when the incident started from change points in numeric
-      columns and in error-line counts, for inputs with no known time.
+      columns and in error-line counts, for inputs with no known time. Its accuracy is
+      measured against RCAEval's known start times in Phase 06, at no cost.
+- [ ] `dependency_graph`: when the catalog has relationship columns, return the edges
+      between components with call counts, and error rate and latency before and after
+      the incident time per edge; optionally only the neighbourhood of one component.
+      When there is no relationship data it says so explicitly, so the agent knows
+      direction cannot be established from the files.
 - [ ] Tool-call log: every call recorded with an id, arguments, result size and duration.
 - [ ] Tool results carry a stable locator for what they returned: table and row keys
       or aggregate expression and time window for queries, chunk ids for documents. The
@@ -92,6 +102,11 @@ work the same on an RCAEval case and on an arbitrary upload, with no LLM involve
 - [ ] Integration test: a folder with no usable timestamps ingests cleanly, is flagged,
       and time-window tools refuse it with a clear error.
 - [ ] Tests for name collisions, each limit, and redaction of planted fake secrets.
+- [ ] Dependency tests: caller/callee columns, span and parent-span ids, a table with
+      no relationship data, and a cycle.
+- [ ] Injection plumbing test: a log line and a document paragraph containing
+      instructions addressed to the agent come back only inside the marked data field,
+      byte for byte, never in any other part of a tool result.
 - [ ] Integration test (skipped when the dataset is absent): ingest one real RE2-OB case.
 - [ ] Update `flowchart-system-overview.svg` if the tool list changed.
 
@@ -170,6 +185,19 @@ work the same on an RCAEval case and on an arbitrary upload, with no LLM involve
 * **Context/Constraint:** The SQL is written by a model reading untrusted log text.
 * **Trade-off:** No temporary tables or multi-statement scripts, so some analyses take
   more calls.
+
+#### Decision 7: A dependency tool, generic over column roles
+
+* **Decision:** One tool builds a component graph from whatever relationship columns
+  the catalog found, and reports how each edge changed across the incident time.
+* **Context/Constraint:** Telling a root cause from a victim needs direction: who calls
+  whom. With only SQL, the agent has to rediscover the topology from raw rows in every
+  run, spending tool calls it needs elsewhere, and often does not. RCAEval's own
+  toolkit ships a call-graph tool for the same reason.
+* **Trade-off:** This is the most benchmark-friendly tool in the set, since RCAEval's
+  traces fit it exactly, so it weakens the "nothing is shaped to the benchmark" claim.
+  It is kept generic (roles are detected, not assumed), it returns nothing when the
+  data has no relationships, and its effect is measurable by switching it off.
 
 ## 4. Constraints
 

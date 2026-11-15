@@ -16,6 +16,14 @@ planning docs. Nothing is written in the report before it is true.
 - [ ] Score against BARO, and multi-source BARO if it ran, on the same 60 cases, each
       against the held-out answers subset, with pair-resampled intervals and paired
       differences. State the difference in inputs between each baseline and the agent.
+- [ ] Run the single-call baseline on the same 60 cases, from the `final` reserve, and
+      include it in the paired comparison.
+- [ ] Report agreement with BARO's top answer on the held-out cases, with accuracy split
+      by agree and differ.
+- [ ] Report `find_onset`'s error on the held-out cases (free).
+- [ ] Quote the noise estimate from Phase 06 beside every difference reported.
+- [ ] Record the model identifiers actually served during the final run, and check they
+      match those served during tuning; a mismatch is stated in the report.
 - [ ] Run `failure_report.py` on the held-out results; write up the failure categories.
 - [ ] Run the field set once with the frozen configuration; report the counts in their
       own table with the stated limits.
@@ -31,6 +39,7 @@ planning docs. Nothing is written in the report before it is true.
 - [ ] `make lint` and `make test` clean; no skipped tests other than `live` and
       dataset-dependent ones, each explained.
 - [ ] Search for stray debug code, TODOs and secrets; `.env` untracked.
+- [ ] CI is green on the final commit, and `main` requires it.
 - [ ] Fresh-clone rehearsal: follow only the written instructions on a clean checkout —
       install, configure one provider, export data, dry-run eval, start the app.
 - [ ] Update every phase file's status to its true final state.
@@ -41,7 +50,11 @@ planning docs. Nothing is written in the report before it is true.
       `README.md` and `REPORT.md`.
 - [ ] Write `REPORT.md` by aggregation (see `00` §6): how to run, what was built and
       what's left, results, trade-offs, AI tools used.
-- [ ] Write `README.md`: what the project is, one diagram, the headline table, quickstart.
+- [ ] State the known limits in `REPORT.md`, taken from §10 of
+      [`future-improvements.md`](future-improvements.md), and link that document as
+      the roadmap.
+- [ ] Write `README.md`: what the project is, one diagram, the headline table,
+      quickstart, the licence, and attribution for RCAEval with the papers to cite.
 - [ ] Read-through as a reviewer: can every decision and number be traced to
       evidence in the repo? Flag anything shaky.
 

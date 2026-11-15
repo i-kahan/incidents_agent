@@ -23,6 +23,15 @@ view. Ends with an empty but working package that every later phase builds on.
       `.env.example` listing `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`.
 - [ ] Add `config/models.yaml` with placeholder entries for the three providers.
 - [ ] Add `config/budget.yaml` with the default limit ($15 total, $1 safety margin).
+- [ ] CI: `.github/workflows/ci.yml` runs `make lint` and `make test` on every pull
+      request and on pushes to `main`, on the pinned Python version, with the `uv`
+      cache. It has no secrets, never runs `live` tests, and dataset-dependent tests
+      skip. The owner enables "require status checks to pass" on `main` in GitHub.
+- [ ] `LICENSE` for the repo (see the open item below).
+- [ ] `NOTICE.md`: RCAEval's code and dataset licences, as found in its repository and
+      dataset page, and the papers to cite. Nothing from the dataset is committed.
+- [ ] `README.md` stub: one paragraph on what the project is, and a pointer to
+      `DESIGN.md` and `planning/`. The full README is written in Phase 10.
 - [ ] Install RCAEval; record the installed version and pin it. Try the lighter `core`
       extra first, since only its export, BARO and scoring are needed. If its
       dependencies conflict with LangGraph or LiteLLM, isolate it in its own `uv`
@@ -69,6 +78,16 @@ view. Ends with an empty but working package that every later phase builds on.
   machine matches. The dataset is large and not ours to redistribute.
 * **Trade-off:** A fresh clone needs a download step before the first eval.
 
+#### Decision 4: CI enforces the gate the PR checklist describes
+
+* **Decision:** Lint, type checks and the default test suite run automatically on every
+  PR, and `main` requires them to pass.
+* **Context/Constraint:** The PR practices say "green before merge". With several
+  streams merging in parallel, a rule that depends on each author remembering to run
+  two commands will eventually be skipped.
+* **Trade-off:** CI cannot run anything that needs a key or the dataset, so paid paths
+  and benchmark-dependent tests are still checked only locally.
+
 ## 4. Constraints
 *Fixed from outside this phase. Listed with their source and implication.*
 
@@ -81,6 +100,9 @@ view. Ends with an empty but working package that every later phase builds on.
 **⚠️ OPEN — Python version:** RCAEval's README mentions a Python 3.14 default
 environment; whether its agent extra installs cleanly alongside LangGraph and LiteLLM on
 one version is unverified. First checklist item.
+
+**⚠️ OPEN — Licence:** the repo is public and has no licence, which means nobody else
+may legally reuse it. MIT is proposed as the default; the owner decides.
 
 **Resolved — Git remote:** the repo has a GitHub remote (`origin`), so PRs are opened
 there using `.github/pull_request_template.md`.

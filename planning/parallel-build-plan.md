@@ -38,7 +38,7 @@ shared files where it can collide with a neighbour.
 
 | Stream | Needs | Notes |
 |---|---|---|
-| **01 Foundation** | — | Single stream on purpose: it creates `pyproject.toml`, the `Makefile`, `config/`, the package skeleton and the smoke gate that every other stream builds on. Splitting it produces conflicts in exactly those files. |
+| **01 Foundation** | — | Single stream on purpose: it creates `pyproject.toml`, the `Makefile`, `config/`, the package skeleton, CI and the smoke gate that every other stream builds on. Splitting it produces conflicts in exactly those files. |
 
 ### Wave 2
 
@@ -65,7 +65,8 @@ label. That part is sequential.
 | **03 Model-assisted classifier** | 03, 04 | all of wave 3 | `ingest/` |
 
 06-B needs only RCAEval, the split and prediction files, which BARO already produces in
-wave 2, so it does not wait for the agent. 06-D needs only ingest, to check that the
+wave 2, so it does not wait for the agent. The same holds for the agreement statistic
+and for `eval_onset.py`, which needs only `find_onset` from Phase 03. 06-D needs only ingest, to check that the
 generated cases load.
 
 Inside 05, the ledger (Workstream A) and the graph (B) are sequential: the graph is
@@ -76,7 +77,7 @@ schema is fixed.
 
 | Stream | Needs | Parallel with | Shared files |
 |---|---|---|---|
-| **06-A/C Runner and scripts** (`run_eval.py`, `compare_models.py`, `failure_report.py`) | 05, 06-B | 08, 09 | `Makefile`, `scripts/` |
+| **06-A/C Runner and scripts** (`run_eval.py`, `compare_models.py`, `failure_report.py`, the single-call baseline) | 05, 06-B | 08, 09 | `Makefile`, `scripts/` |
 | **08 Upload app, single mode**, including the past-runs viewer | 05 | 06, 09 | `Makefile` |
 | **09 Memory store, retrieval, tool and frozen mode** | 05 | 06, 08 | `tools/` registry |
 
@@ -89,7 +90,7 @@ as the trajectory schema is fixed.
 | Stream | Needs | Parallel with | Shared files |
 |---|---|---|---|
 | **07 Multi-agent** | 05 merged; 06 runner | 08 and 09 leftovers | `agent/prompts.py`, run state |
-| **08 Role lanes and feedback form** | 08 from wave 4; role tags in the trajectory (07); memory store (09) | 07 once its trajectory tags are agreed | `app/` |
+| **08 Role lanes, feedback form, add-files-and-continue** | 08 from wave 4; role tags in the trajectory (07); memory store (09) | 07 once its trajectory tags are agreed | `app/` |
 | **09 Memory in multi mode, seeding script** | 09 from wave 4; 07 for the lead-only rule; 02 for tuning answers | 07, 08 | `agent/` |
 
 The two leftover streams depend on small, nameable pieces of 07 (the role tag in the
@@ -123,7 +124,7 @@ still being built. That is the main way to shorten the critical path.
 
 | Item | Why |
 |---|---|
-| **Paid runs** | One shared budget, and each run's result decides the next. Order: pilot → tuning passes → ablation → single versus multi → model comparison → final run (Phase 06, Decision 6). Parallel workers *within* one run are fine; the spend guard admits their calls one reservation at a time. |
+| **Paid runs** | One shared budget, and each run's result decides the next. Order: pilot → noise check → tuning passes → single-call baseline → field set → ablation → single versus multi → model comparison → final run (Phase 06, Decision 6). Parallel workers *within* one run are fine; the spend guard admits their calls one reservation at a time. |
 | **Split before labels** | The split must be locked before anything reads a labelled result, or held-out cases influence the design. |
 | **Phase 01** | It creates the files every other stream edits. |
 | **05 before 07** | Both edit the prompts module and the run state; 07's testers reuse 05's investigate function. 07 starts after 05 is merged. |

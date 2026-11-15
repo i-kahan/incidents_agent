@@ -112,10 +112,14 @@ Every paid use is ranked in Phase 06, Decision 6. The final held-out run is firs
 money is held in a named reserve in the spend guard; everything else is spent in priority
 order and dropped from the bottom if the budget runs out.
 
+**After this plan:** what to build once Phases 01–10 are done, and the known limits of
+this plan, are in [`future-improvements.md`](future-improvements.md).
+
 ## 4. Decision Log (summary — details live in the phase files)
 
 | Decision | Choice | Phase |
 |---|---|---|
+| CI | Lint, type checks and the default tests on every PR; required on `main` | 01 |
 | Tooling | `uv` for environments, `ruff` for lint and format, `mypy` (strict) for types, `pytest` for tests | 01 |
 | Workflow | One feature branch and one PR per phase (or workstream); squash merge | 01 |
 | Benchmark target | RCAEval RE2, Online Boutique, unless the headroom study says otherwise | 02 |
@@ -124,10 +128,12 @@ order and dropped from the bottom if the budget runs out.
 | Baselines | BARO, plus multi-source BARO if it runs, to separate better reasoning from richer inputs | 02 |
 | Storage for dropped files | One DuckDB database per run, read-only, external access disabled | 03 |
 | Tool surface | A few generic tools (SQL, text search, window comparison) instead of RCAEval-specific ones | 03 |
+| Dependencies | One tool builds a component graph from detected relationship columns; says so when there are none | 03 |
 | Documents | Chunked by structure (headings, hunks, sections), keyword-searched, citable by chunk id | 03 |
 | Choosing the chunking | Deterministic rules; one small model call, from a fixed menu, only for ambiguous files | 03 |
 | Own tools vs. RCAEval's `CaseToolkit` | Own tools; RCAEval's reference agent is a baseline, not a foundation | 03 |
 | Model access | LiteLLM; OpenAI, Anthropic and Google configured by the owner in `config/models.yaml` | 04 |
+| Reproducibility of models | Pinned ids where possible; the served model identifier recorded on every call | 04 |
 | Unknown-price models | Refused unless a price override is set, so the spend guard always works | 04 |
 | Budget amount | Configuration (`config/budget.yaml`, overridable per invocation), recorded in every run; never coded | 04 |
 | Spend guard | Admission rule: reserve worst-case cost before each call, settle after; named reserve for the final run | 04 |
@@ -136,13 +142,20 @@ order and dropped from the bottom if the budget runs out.
 | Evidence quality | Reported separately from citation validity, by a manual audit of a sample | 05, 06 |
 | Forced verification | At least one check that could disprove the top hypothesis; its capacity is reserved before investigation | 05 |
 | Confidence | Qualitative level with reasons; no number unless calibrated | 05 |
+| Context | Old tool results trimmed to digests; ledger and trajectory hold the record; prompt caching where available | 04, 05 |
+| Missing data | Unsettled diagnoses list specific data requests; a run can continue after files are added | 05, 08 |
+| Outcomes | `no_fault_found` is a valid answer, distinct from inconclusive | 05 |
+| Recommended actions | Tied to a hypothesis, with a risk level and a way to verify; audited by rubric | 05, 06 |
 | Scoring | RCAEval's official evaluator for headline numbers; own statistics layered on top | 06 |
 | Run caching | Keyed by a fingerprint of model settings, prompts, tools, limits, mode, source, case contents and memory snapshot | 06 |
 | Held-out gate | Applied to the resolved case list, so no option or script can bypass it | 06 |
 | Uncertainty | Intervals and paired differences bootstrapped by service–fault pair | 06 |
 | Budget | Every paid use ranked; the final run's money reserved first | 06 |
 | Model comparison | `run_eval.py` runs one configuration; `compare_models.py` aggregates several | 06 |
-| Upload-path evidence | Six hand-built non-RCAEval incidents, scored deterministically, reported separately as counts | 06 |
+| Baseline ladder | BARO, multi-source BARO, a single model call, the plain loop; plus agreement with BARO's top answer | 06 |
+| Run-to-run noise | Measured once on a small sample and quoted with every comparison | 04, 06 |
+| Onset detection | `find_onset` scored against RCAEval's known start times, at no cost | 06 |
+| Upload-path evidence | Seven hand-built non-RCAEval cases (six incidents, one healthy; one with a planted instruction), scored deterministically, reported separately as counts | 06 |
 | Multi-agent shape | Lead, parallel hypothesis testers, independent skeptic; split by hypothesis, not by data source | 07 |
 | Multi-agent comparison | Same total budget per case as the single agent; equal-budget result is the headline | 07 |
 | Architecture for the final run | Multi only if the lower bound of its paired 95% interval for top-1 gain on tuning is above zero; otherwise single | 07 |
@@ -158,6 +171,7 @@ Open items, flagged **⚠️ OPEN** in the phase files:
   unchecked.
 - **Target setting** (02): confirmed or changed once BARO's RE2-OB scores are measured.
 - **Models to compare** (04, 06): the owner supplies keys and model IDs.
+- **Licence** (01): the public repo has none; MIT is proposed.
 
 ## 5. Constraints (summary)
 

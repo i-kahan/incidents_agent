@@ -63,7 +63,7 @@ text{font-family:-apple-system,Helvetica,Arial,sans-serif}
 <g class="c-teal"><rect x="90" y="472" width="260" height="52" rx="8" stroke-width="0.5"/><text class="th" x="220" y="489" text-anchor="middle" dominant-baseline="central">Report</text><text class="ts" x="220" y="507" text-anchor="middle" dominant-baseline="central">ranked diagnosis + evidence</text></g>
 
 <!-- Right column: tools, model layer, providers, memory -->
-<g class="c-teal"><rect x="450" y="324" width="210" height="52" rx="8" stroke-width="0.5"/><text class="th" x="555" y="341" text-anchor="middle" dominant-baseline="central">Tools</text><text class="ts" x="555" y="359" text-anchor="middle" dominant-baseline="central">SQL · search · compare · docs</text></g>
+<g class="c-teal"><rect x="450" y="324" width="210" height="52" rx="8" stroke-width="0.5"/><text class="th" x="555" y="341" text-anchor="middle" dominant-baseline="central">Tools</text><text class="ts" x="555" y="359" text-anchor="middle" dominant-baseline="central">SQL · search · compare · graph</text></g>
 <line x1="356" y1="350" x2="444" y2="350" class="arr" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
 <line x1="555" y1="324" x2="555" y2="188" class="arr" marker-end="url(#arrow)"/>
 <g class="c-coral"><rect x="450" y="398" width="210" height="52" rx="8" stroke-width="0.5"/><text class="th" x="555" y="415" text-anchor="middle" dominant-baseline="central">Model layer · LiteLLM</text><text class="ts" x="555" y="433" text-anchor="middle" dominant-baseline="central">spend guard · budget cap</text></g>

@@ -14,6 +14,16 @@ agent can call with any configured model, and a guard that makes overspending im
       missing is skipped with a notice, not an error.
 - [ ] Chat client wrapping LiteLLM: temperature 0, tool calling, bounded retries with
       backoff on transient errors, a per-call output-token cap.
+- [ ] Rate limits: a concurrency cap per provider, `Retry-After` honoured, backoff with
+      jitter. A rate-limited attempt is not a case failure, but every attempt still
+      reserves through the spend guard.
+- [ ] Served-model record: each call stores the model identifier the provider returned,
+      the request id and the time. `config/models.yaml` uses pinned or dated model ids
+      wherever a provider offers them, and the loader warns on a floating alias.
+- [ ] Prompt caching where the provider supports it through LiteLLM: the system prompt,
+      tool schemas and catalog briefing form a stable prefix, in that order. Cost
+      accounting uses the cached-token price. Support is confirmed per provider and
+      recorded here; where it is absent, nothing else changes.
 - [ ] Cost accounting per call from token usage and price (LiteLLM's table or the
       override). A model with no known price is refused.
 - [ ] Spend guard as an admission rule. Before a call is sent, an upper bound on its
@@ -47,7 +57,8 @@ agent can call with any configured model, and a guard that makes overspending im
       processes.
 - [ ] Per-run budget object: token, cost and call counters the agent can check.
 - [ ] `scripts/check_models.py`: lists configured models, whether each is usable, its
-      price, and makes one tiny live call per usable model on request.
+      price, whether its id is pinned, and makes one tiny live call per usable model on
+      request, reporting the model identifier actually served.
 - [ ] A scripted fake client for tests: returns queued responses and tool calls.
 - [ ] Unit tests: config validation, missing keys, price override, reservation and
       settlement arithmetic, refusal at the limit, a limit read from configuration and overridden per invocation,
@@ -57,6 +68,9 @@ agent can call with any configured model, and a guard that makes overspending im
       failing fake.
 - [ ] Concurrency test: two workers compete for a remaining balance that covers one
       call; exactly one is admitted and the total never exceeds the limit.
+- [ ] Tests with the fake: `Retry-After` is honoured, the per-provider cap holds under
+      parallel calls, a served model id different from the configured one is recorded
+      and warned about, and cached-token pricing is applied.
 - [ ] One `live` test per provider (opt-in, a few tokens each).
 
 ## 3. Architectural Decisions & Trade-offs
@@ -95,13 +109,25 @@ agent can call with any configured model, and a guard that makes overspending im
   call. Because the limit is configurable, raising it is one edit; that is deliberate,
   and every result records the limit it ran under so a quiet increase is visible.
 
-#### Decision 4: Temperature 0, no repeated sampling
+#### Decision 4: Temperature 0, one run per configuration, noise measured once
 
 * **Decision:** Every call uses temperature 0 and each case is run once per
-  configuration.
+  configuration. Run-to-run variation is measured once, on a small sample, by the noise
+  check in Phase 06, and that figure is quoted beside every comparison.
 * **Context/Constraint:** The budget allows a handful of full passes, not repeats.
-* **Trade-off:** Run-to-run variance is not measured. The report states this and relies
-  on bootstrap intervals over cases instead.
+  Temperature 0 does not make a provider deterministic, so without any measurement a
+  difference between two prompts cannot be told from noise.
+* **Trade-off:** The noise estimate comes from few cases and one model, and is assumed
+  to carry over to other configurations.
+
+#### Decision 5: Record what was served, not only what was asked for
+
+* **Decision:** Every call records the provider's reported model identifier, and model
+  ids are pinned where the provider allows.
+* **Context/Constraint:** A floating alias can start pointing at a different model
+  between the tuning runs and the final run, changing results with no change in the
+  repo.
+* **Trade-off:** Pinned ids need updating by hand, and not every provider offers them.
 
 ## 4. Constraints
 

@@ -29,16 +29,27 @@ folder of files the agent has never seen.
       In multi mode, one lane per role so parallel testers are readable.
 - [ ] Report view: root cause, fault type, confidence, evidence items each linked to the
       tool call behind them (document evidence shows the cited chunk with its heading), recommended actions, total cost and time.
+- [ ] Recommended actions shown with their risk level and how to verify each, read-only
+      checks first.
+- [ ] Data requests shown when the diagnosis is provisional or inconclusive, each with
+      the hypothesis it would settle.
+- [ ] "Add files and continue": more files can be added to a finished run. The page
+      shows what the new files added to the catalog and the estimated cost, then
+      continues the same run with its ledger; the report shows what changed between
+      the first answer and the continued one.
 - [ ] Charts of the metrics cited as evidence.
 - [ ] Past-runs viewer: pick any saved trajectory under `runs/` and replay its steps,
       ledger and report without calling a model.
 - [ ] Markdown download of the report.
-- [ ] Clear states for: no usable model, budget exhausted, inconclusive result, run error.
+- [ ] Clear states for: no usable model, budget exhausted, inconclusive result, no fault
+      found, run error.
 - [ ] Feedback form on the report (was the diagnosis correct; what fixed it) — wired to
       memory in Phase 09; stored locally until then.
 - [ ] Report rendering lives in a plain function outside Streamlit, with unit tests.
 - [ ] Integration test: the app's run function end to end on the synthetic fixture
       folder with the fake client.
+- [ ] Integration test with the fake client: a run that ends with data requests is
+      continued after a file is added, and the second report reflects the new table.
 - [ ] Manual check in a browser: one benchmark case and two field-set cases, one of
       them the config-diff case.
 - [ ] Update `flowchart-system-overview.svg` if the entry points changed.

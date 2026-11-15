@@ -88,7 +88,8 @@ amended one, so the change is visible.
 
 - **Squash merge.** One commit per PR on `main`, with the PR title as its summary and
   the TL;DR as its body.
-- **Green before merge.** Lint and tests pass on the final commit.
+- **Green before merge.** CI runs lint, type checks and the default tests on every PR,
+  and `main` requires them to pass on the final commit.
 - **Delete the branch** after merging.
 - **Paid runs are never triggered by merging.** Evaluations that cost money are run
   deliberately and their results committed in a PR of their own or with the change that

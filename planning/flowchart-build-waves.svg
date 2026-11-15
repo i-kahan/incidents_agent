@@ -1,4 +1,4 @@
-<svg width="100%" viewBox="0 0 680 700" role="img" xmlns="http://www.w3.org/2000/svg"><title>Build waves: what can be built in parallel</title><desc>Six waves of work, each row built in parallel. Wave 1: phase 01 Foundation alone. Wave 2: 02 Baseline and split, 03 Ingest and tools, 04 Model layer. Wave 3: 05 Agent, 06 Scoring and statistics, 06 Field cases, 03 Classifier. Wave 4: 06 Runner and scripts, 08 App in single mode, 09 Memory store. Wave 5: 07 Multi-agent, 08 Lanes and feedback, 09 Memory in multi mode. Wave 6: 10 Verification and report alone. Paid runs are not parallel and go in priority order: pilot, tuning, ablation, single versus multi, model comparison, final run. The critical path is 01, 03, 05, 06 runner, 07, 10.</desc>
+<svg width="100%" viewBox="0 0 680 700" role="img" xmlns="http://www.w3.org/2000/svg"><title>Build waves: what can be built in parallel</title><desc>Six waves of work, each row built in parallel. Wave 1: phase 01 Foundation alone. Wave 2: 02 Baseline and split, 03 Ingest and tools, 04 Model layer. Wave 3: 05 Agent, 06 Scoring and statistics, 06 Field cases, 03 Classifier. Wave 4: 06 Runner and scripts, 08 App in single mode, 09 Memory store. Wave 5: 07 Multi-agent, 08 Lanes and feedback, 09 Memory in multi mode. Wave 6: 10 Verification and report alone. Paid runs are not parallel and go in priority order: pilot, noise check, tuning, baselines, ablation, single versus multi, model comparison, final run. The critical path is 01, 03, 05, 06 runner, 07, 10.</desc>
 <style>
 :root{--ink:#2C2C2A;--sub:#5F5E5A;--line:#8A8A86;--bg:#ffffff}
 @media (prefers-color-scheme: dark){:root{--ink:#EDEDEA;--sub:#B4B2A9;--line:#6b6b68;--bg:#141414}}
@@ -71,7 +71,7 @@ text{font-family:-apple-system,Helvetica,Arial,sans-serif}
 <!-- Paid runs -->
 <text class="ts" x="50" y="572">Not parallel · paid runs, in priority order</text>
 <rect x="50" y="582" width="580" height="44" rx="8" class="dashed-container" stroke-width="0.5" stroke-dasharray="4 4"/>
-<text class="ts" x="340" y="604" text-anchor="middle" dominant-baseline="central">Pilot → Tuning → Ablation → Single vs multi → Model comparison → Final run</text>
+<text class="ts" x="340" y="604" text-anchor="middle" dominant-baseline="central">Pilot → Noise check → Tuning → Baselines → Ablation → Single vs multi → Models → Final run</text>
 
 <!-- Legend -->
 <g class="c-teal"><rect x="50" y="660" width="10" height="10" rx="2" stroke-width="0.5"/></g><text class="ts" x="66" y="665" dominant-baseline="central">Platform</text>
