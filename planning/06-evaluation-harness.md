@@ -1,0 +1,221 @@
+# Phase 6: Evaluation Harness
+
+**Status:** Not started
+
+## 1. Objective
+Build the machinery that turns the agent into numbers: a cached, resumable runner over
+RCAEval cases, official scoring plus statistics, a model-comparison script, an ablation,
+and a failure report. Together with the agent this is where the project's claims are
+proven. Ends with tuning-set results for the agent against BARO, across models.
+
+See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
+
+## 2. Next Steps (Checklist)
+
+**Workstream A — Runner (`eval/runner.py`, `scripts/run_eval.py`)**
+- [ ] Adapter: an RCAEval case folder plus `task.json` → an agent task (files, fault
+      start time, candidate lists). The answers path is never passed in.
+- [ ] Run cache keyed by a fingerprint of everything that can change the output: the
+      resolved model settings (model string, temperature, token caps), prompts, tool
+      schemas, limits, ablation flags, agent mode, a hash of the agent, tools and ingest
+      source, a hash of the case's files, the memory flag and the frozen memory
+      snapshot's hash. A cached case is never re-run or re-paid.
+- [ ] Each cache key is claimed by one worker at a time (lock file), so parallel workers
+      or two scripts cannot pay for the same case twice.
+- [ ] Dry-run results (fake client) are written to a separate location and can never be
+      read as real results.
+- [ ] Parallel execution with a worker limit. A run is described by a frozen manifest
+      (cases, configuration fingerprint, git commit); resuming continues only the
+      unfinished cases of that manifest.
+- [ ] Failure protocol, fixed in advance: a case that errors is retried once; a case
+      that still has no result is logged with its error and scored as a miss. It is
+      never dropped from the denominator.
+- [ ] Writes `predictions.jsonl` in RCAEval's format, including `usage` and the
+      trajectory. An inconclusive case is written with an empty `ranks` list.
+- [ ] Each tool call in the exported trajectory carries factual target metadata — the
+      services or components its query actually filtered on or returned — so RCAEval's
+      `Inspected@root` can be computed for generic SQL and document calls. Reported with
+      the caveat that touching a service says little about diagnosis quality.
+- [ ] `--cases tuning|heldout|all|<ids>`, `--model`, `--limit`, `--memory`, `--dry-run`
+      (fake client, no spend), and a printed cost estimate before any paid run.
+- [ ] Held-out gate applied after case selection: any run whose resolved case list
+      contains a held-out case — through `heldout`, `all`, explicit ids, or
+      `compare_models.py` — is refused without `--final`. A `--final` run draws on the
+      `final` reserve and is logged with timestamp, manifest and git commit.
+
+**Workstream B — Scoring and statistics (`eval/scoring.py`, `eval/stats.py`)**
+- [ ] Call RCAEval's evaluator with the answers subset that matches the cases run,
+      never the full answers file for a partial run, and assert that the evaluator's
+      case count equals the number of cases intended.
+- [ ] Parse its JSON summary and per-case output for accuracy at top 1, 3 and 5 at
+      service and indicator level.
+- [ ] Evaluator contract test on a tiny fixture (three cases, hand-written answers):
+      a service-only rank scores at service level but not indicator level; a
+      `service_indicator` rank scores at both; an empty `ranks` is a miss; a missing
+      case is a miss; a subset scored against a matching subset has no phantom misses;
+      `Inspected@root` appears when target metadata is present. Pin the RCAEval version
+      once this passes.
+- [ ] Bootstrap confidence intervals for each headline metric, resampling
+      service–fault pairs, not individual cases.
+- [ ] Paired comparison of two prediction sets on the same cases: paired bootstrap of
+      the difference, resampled by pair, with the interval level fixed at 95%; McNemar's
+      test at top 1 reported as secondary.
+- [ ] From the trajectories: citation-validity rate, share of runs by final status
+      (verified / provisional / inconclusive), stop reasons, realised cost and wall time.
+- [ ] Manual support audit: for a fixed, seeded sample of 15 tuning reports, check by
+      hand whether each cited observation actually supports its claim. Reported as its
+      own number beside citation validity.
+
+**Workstream C — Scripts**
+- [ ] `scripts/compare_models.py`: runs the listed models on the same cases (through
+      the cache) and prints one table — accuracy with intervals, cost per case, tokens,
+      tool calls, wall time, paired difference against BARO — with BARO as a free row.
+      Writes the table as Markdown and CSV under `results/`.
+- [ ] `scripts/failure_report.py`: per-case table — fault type, rank of the true answer,
+      steps used, whether the root service was inspected, forced or not — and counts by
+      failure category.
+- [ ] `make eval` and `make compare` targets.
+
+**Workstream D — Field set (`evalsets/field/`)**
+- [ ] Six hand-built incidents that do not look like RCAEval (two already built in
+      Phase 03; this adds four), each generated by a
+      seeded script so the files are reproducible and small enough to commit:
+      a web server with a bad deploy; a batch job that fills a disk; a database with
+      lock contention; a queue whose consumer crashes; a failure explained only by a
+      config diff; and one where the most anomalous component is a victim, not the cause.
+- [ ] Each case mixes file types: at least one table, one log and one document.
+- [ ] Gold answer per case: root-cause component with accepted aliases, fault category,
+      and the evidence a correct diagnosis should cite.
+- [ ] Deterministic scorer for free-text answers: normalised alias match within the
+      agent's top-k ranks; fault category match; whether the gold evidence was
+      retrieved; and, separately, whether it was cited in the final report.
+- [ ] `--cases field` in `run_eval.py`; results reported as counts out of six, in their
+      own table, never merged with RCAEval numbers.
+- [ ] The same six folders double as integration fixtures for ingest and the app, run
+      with the fake client at no cost.
+
+**Experiments (paid — run in this order, each recorded in §5)**
+- [ ] Pilot: five tuning cases with the default cheap model. Record actual cost per
+      case and compare with what the final-run allocation implies ($0.05 at the default
+      limit). If it is higher,
+      lower the result cap or the tool-call limit, or pick a cheaper model, before any
+      larger run; record what was changed.
+- [ ] Set the `final` reserve in the spend guard to the pilot's cost per case times 60,
+      with a margin, before running anything else.
+- [ ] First full pass on the tuning set.
+- [ ] Iterate on prompts and tool descriptions using the failure report; tuning set only.
+- [ ] Ablation: ledger and verify both off versus both on, tuning set. This is a joint
+      ablation and is reported as one; it does not show which of the two helps. Separate
+      arms are run only from savings.
+- [ ] Model comparison across the configured cheap models, tuning set.
+- [ ] Field set with the selected configuration; repeated after any change to ingest,
+      document handling or `find_onset`.
+
+**Tests**
+- [ ] Unit tests: cache key changes when and only when configuration changes; resume
+      skips completed cases; prediction-file format; statistics on hand-computed examples.
+- [ ] Integration test: a full dry run over three fixture cases with the fake client,
+      scored by RCAEval's evaluator against a fixture answers file.
+- [ ] Test that the agent task built by the adapter contains no path to the answers file.
+- [ ] Update `flowchart-eval-harness.svg` if the pipeline changed.
+
+## 3. Architectural Decisions & Trade-offs
+
+#### Decision 1: Official scoring, own statistics
+
+* **Decision:** Headline accuracy comes from `rcaeval-agent evaluate`, unchanged.
+  Confidence intervals and paired tests are computed separately from its per-case output.
+* **Context/Constraint:** Numbers are only comparable with published ones if they come
+  from the same scoring code. RCAEval reports point estimates only.
+* **Trade-off:** A dependency on RCAEval's output format; a small parsing layer to keep
+  working across its versions.
+
+#### Decision 2: Everything paid is cached
+
+* **Decision:** A run is identified by what could change its output, and stored. The
+  comparison script and the ablation read from the same cache.
+* **Context/Constraint:** The default budget covers a handful of full passes. Paying twice for the same
+  case and configuration is the easiest way to run out.
+* **Trade-off:** A stale cache can hide a change that was not part of the key. The key
+  includes a hash of the prompts and tool schemas to prevent this, and `--no-cache`
+  exists for deliberate re-runs.
+
+#### Decision 3: One-configuration runner, separate comparison layer
+
+* **Decision:** `run_eval.py` runs exactly one configuration; `compare_models.py`
+  aggregates several.
+* **Context/Constraint:** The single-run path is used constantly while iterating and
+  must stay simple. Comparison is a reporting concern.
+* **Trade-off:** Two scripts instead of one.
+
+#### Decision 4: The held-out set is locked by what a run contains, not by its name
+
+* **Decision:** The gate looks at the resolved list of case ids. Any held-out case in
+  it requires `--final`, whichever option or script selected it.
+* **Context/Constraint:** The value of held-out numbers is that nothing was tuned on
+  them. A gate on the word `heldout` is bypassed by `--cases all`, by explicit ids and
+  by the comparison script, any of which could end that quietly.
+* **Trade-off:** One extra flag to type for the final run.
+
+#### Decision 5: A small hand-built field set, reported separately
+
+* **Decision:** Six synthetic incidents in non-RCAEval shapes measure the upload path.
+  Their results are shown as counts in a separate table with their limits stated.
+* **Context/Constraint:** Every RCAEval number describes one data layout. Without
+  something else, nothing is known about how the agent does on files it was not built
+  around, which is the product's actual use.
+* **Trade-off:** The cases are written by the same person who builds the agent, so they
+  are easier and more biased than real incidents, and six is too few for a rate or an
+  interval. They show whether the path works and catch regressions; they do not prove
+  accuracy. There is no held-out half, so the set is also used while developing.
+* **Rejected alternatives:** an LLM judge for the free-text answers. It would handle
+  phrasing better than alias matching, but adds cost and a second source of noise to a
+  six-case result; the alias list is short enough to maintain by hand.
+
+#### Decision 6: Budget allocation, in priority order, with the final run reserved
+
+* **Decision:** Every paid use is ranked. The final run's money is set aside in the
+  spend guard first; everything else is spent in order, and what does not fit is dropped
+  from the bottom. Allocations are shares of the configured limit
+  (`config/budget.yaml`); the table shows them at the default limit of $14 ($15 total
+  less a $1 margin). Amounts are revised once the pilot gives a measured cost per case.
+
+  | Priority | Use | Cases | At the default limit |
+  |---|---|---|---|
+  | 1 | Final held-out run (reserved) | 60 | $3.00 |
+  | 2 | Pilot | 5 | $0.30 |
+  | 3 | Overheads: live tests, model checks, ingest fallback, retries | — | $0.30 |
+  | 4 | Tuning iterations | 30 × several passes | $2.40 |
+  | 5 | Field set | 6 × a few passes | $0.50 |
+  | 6 | Ablation (joint) | 30 × 1 extra configuration | $1.50 |
+  | 7 | Single versus multi-agent (Phase 07) | 30 × 1 extra configuration | $1.50 |
+  | 8 | Model comparison | 30 × extra models | $2.00 |
+  | 9 | Memory experiment (Phase 09) | 60 | $2.50 |
+  | | **Total** | | **$14.00** |
+  | 10 | Secondary held-out run of the non-selected mode | 60 | from savings |
+  | 11 | RCAEval's reference LLM agent baseline | 60 | from savings |
+  | 12 | Separate ledger-only and verify-only ablation arms | 30 × 2 | from savings |
+
+* **Context/Constraint:** The guard stops everything at the configured limit. At the
+  default, the final allocation implies $0.05 per case, which is tight for 15 tool calls with growing context; it is
+  an assumption until the pilot tests it. Without a reserve, overruns in tuning,
+  ablation or model comparison would be paid out of the final run.
+* **Trade-off:** At the default limit, iteration is limited to a few passes on 30
+  cases. A higher limit first funds the lower priorities in order, then repeated runs. If the pilot shows a
+  higher cost per case, the reserve grows and the lower priorities are cut first.
+
+## 4. Constraints
+
+* **Predictions format and scoring rules.** *Source: RCAEval `docs/AGENTS.md`.*
+  **Implication:** a case with no prediction is a miss; malformed lines stop the
+  evaluation, so the runner validates before writing.
+* **A script to compare models.** *Source: owner.* **Implication:** `compare_models.py`
+  is a first-class deliverable with its own tests.
+* **Small sample.** *Source: the dataset.* **Implication:** no comparison is reported
+  without an interval.
+
+## 5. Verification evidence
+*Result tables, costs and the git commit of each paid run go here.*
+
+## 6. AI-use notes (feeds `REPORT.md`)
+*Filled in as the work happens.*

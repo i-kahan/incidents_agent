@@ -1,0 +1,36 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# IDE and OS
+.idea/
+.vscode/
+.DS_Store
+
+# Benchmark data and exports (re-created by a make target; includes the answers files)
+data/
+agent_tasks/
+
+# Run outputs: trajectories, predictions, spend ledger, incident memory
+runs/
+
+# Local working documents
+/review*.md
+planning/review*.md
+
+# Third-party reference kept on disk only (CC-BY 3.0; see CLAUDE.md for the source)
+docs/style/google_pyguide.md

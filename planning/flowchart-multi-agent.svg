@@ -1,0 +1,78 @@
+<svg width="100%" viewBox="0 0 680 630" role="img" xmlns="http://www.w3.org/2000/svg"><title>Multi-agent investigation: lead, hypothesis testers and independent skeptic</title><desc>The lead investigator makes a first pass and proposes hypotheses, then sends one brief to each of up to three hypothesis testers. Each tester works on one hypothesis with a few tool calls and a clean context, in parallel, and writes a verdict with grounded evidence to the shared hypothesis ledger. The independent skeptic receives only the top hypothesis and its evidence, with a fresh context, and tries to disprove it. If the hypothesis is disproved, the run returns to the lead once. If it holds, the lead ranks the hypotheses and reports a diagnosis with evidence. All agents share one tool-call and cost budget equal to the single agent's.</desc>
+<style>
+:root{--ink:#2C2C2A;--sub:#5F5E5A;--line:#8A8A86;--bg:#ffffff}
+@media (prefers-color-scheme: dark){:root{--ink:#EDEDEA;--sub:#B4B2A9;--line:#6b6b68;--bg:#141414}}
+svg{background:var(--bg)}
+text{font-family:-apple-system,Helvetica,Arial,sans-serif}
+.ts{font-size:12px;font-weight:400;fill:var(--sub)}
+.th{font-size:14px;font-weight:500;fill:var(--ink)}
+.arr{stroke:var(--line);stroke-width:1.5;fill:none}
+.c-gray rect{fill:#F1EFE8;stroke:#888780}
+.c-gray text.th{fill:#2C2C2A}
+.c-gray text.ts{fill:#5F5E5A}
+.c-purple rect{fill:#EEEDFE;stroke:#7F77DD}
+.c-purple text.th{fill:#3C3489}
+.c-purple text.ts{fill:#534AB7}
+.c-teal rect{fill:#E1F5EE;stroke:#1D9E75}
+.c-teal text.th{fill:#085041}
+.c-teal text.ts{fill:#0F6E56}
+.c-coral rect{fill:#FAECE7;stroke:#D85A30}
+.c-coral text.th{fill:#712B13}
+.c-coral text.ts{fill:#993C1D}
+@media (prefers-color-scheme: dark){
+.c-gray rect{fill:#444441;stroke:#B4B2A9}
+.c-gray text.th{fill:#F1EFE8}
+.c-gray text.ts{fill:#D3D1C7}
+.c-purple rect{fill:#3C3489;stroke:#AFA9EC}
+.c-purple text.th{fill:#EEEDFE}
+.c-purple text.ts{fill:#CECBF6}
+.c-teal rect{fill:#085041;stroke:#5DCAA5}
+.c-teal text.th{fill:#E1F5EE}
+.c-teal text.ts{fill:#9FE1CB}
+.c-coral rect{fill:#712B13;stroke:#F0997B}
+.c-coral text.th{fill:#FAECE7}
+.c-coral text.ts{fill:#F5C4B3}
+}
+</style>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="var(--line)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<!-- Lead -->
+<g class="c-purple"><rect x="220" y="30" width="240" height="56" rx="8" stroke-width="0.5"/><text class="th" x="340" y="48" text-anchor="middle" dominant-baseline="central">Lead investigator</text><text class="ts" x="340" y="66" text-anchor="middle" dominant-baseline="central">first pass · proposes hypotheses</text></g>
+
+<!-- Fan-out to testers -->
+<path d="M340 86 L340 122 L130 122 L130 154" class="arr" marker-end="url(#arrow)"/>
+<line x1="340" y1="122" x2="340" y2="154" class="arr" marker-end="url(#arrow)"/>
+<path d="M340 122 L550 122 L550 154" class="arr" marker-end="url(#arrow)"/>
+<text class="ts" x="348" y="104" dominant-baseline="central">one brief each</text>
+
+<g class="c-teal"><rect x="40" y="160" width="180" height="56" rx="8" stroke-width="0.5"/><text class="th" x="130" y="178" text-anchor="middle" dominant-baseline="central">Tester 1</text><text class="ts" x="130" y="196" text-anchor="middle" dominant-baseline="central">one hypothesis each</text></g>
+<g class="c-teal"><rect x="250" y="160" width="180" height="56" rx="8" stroke-width="0.5"/><text class="th" x="340" y="178" text-anchor="middle" dominant-baseline="central">Tester 2</text><text class="ts" x="340" y="196" text-anchor="middle" dominant-baseline="central">clean context · parallel</text></g>
+<g class="c-teal"><rect x="460" y="160" width="180" height="56" rx="8" stroke-width="0.5"/><text class="th" x="550" y="178" text-anchor="middle" dominant-baseline="central">Tester 3</text><text class="ts" x="550" y="196" text-anchor="middle" dominant-baseline="central">a few tool calls</text></g>
+
+<!-- Verdicts into ledger -->
+<path d="M130 216 L130 308 L174 308" class="arr" marker-end="url(#arrow)"/>
+<line x1="340" y1="216" x2="340" y2="274" class="arr" marker-end="url(#arrow)"/>
+<path d="M550 216 L550 308 L506 308" class="arr" marker-end="url(#arrow)"/>
+<text class="ts" x="348" y="246" dominant-baseline="central">verdicts</text>
+<g class="c-coral"><rect x="180" y="280" width="320" height="56" rx="8" stroke-width="0.5"/><text class="th" x="340" y="298" text-anchor="middle" dominant-baseline="central">Shared hypothesis ledger</text><text class="ts" x="340" y="316" text-anchor="middle" dominant-baseline="central">every claim cites a tool call</text></g>
+
+<!-- Skeptic -->
+<line x1="340" y1="336" x2="340" y2="394" class="arr" marker-end="url(#arrow)"/>
+<text class="ts" x="348" y="366" dominant-baseline="central">top hypothesis + evidence only</text>
+<g class="c-purple"><rect x="220" y="400" width="240" height="56" rx="8" stroke-width="0.5"/><text class="th" x="340" y="418" text-anchor="middle" dominant-baseline="central">Independent skeptic</text><text class="ts" x="340" y="436" text-anchor="middle" dominant-baseline="central">fresh context · tries to disprove</text></g>
+
+<!-- Back to lead -->
+<path d="M460 428 L662 428 L662 58 L466 58" class="arr" marker-end="url(#arrow)"/>
+<text class="ts" x="561" y="414" text-anchor="middle" dominant-baseline="central">disproved · once</text>
+
+<!-- Report -->
+<line x1="340" y1="456" x2="340" y2="504" class="arr" marker-end="url(#arrow)"/>
+<text class="ts" x="348" y="480" dominant-baseline="central">holds</text>
+<g class="c-purple"><rect x="220" y="510" width="240" height="56" rx="8" stroke-width="0.5"/><text class="th" x="340" y="528" text-anchor="middle" dominant-baseline="central">Lead: rank and report</text><text class="ts" x="340" y="546" text-anchor="middle" dominant-baseline="central">ranked diagnosis + evidence</text></g>
+
+<!-- Legend -->
+<g class="c-purple"><rect x="40" y="600" width="10" height="10" rx="2" stroke-width="0.5"/></g><text class="ts" x="56" y="605" dominant-baseline="central">Lead and skeptic</text>
+<g class="c-teal"><rect x="176" y="600" width="10" height="10" rx="2" stroke-width="0.5"/></g><text class="ts" x="192" y="605" dominant-baseline="central">Testers</text>
+<g class="c-coral"><rect x="260" y="600" width="10" height="10" rx="2" stroke-width="0.5"/></g><text class="ts" x="276" y="605" dominant-baseline="central">Run state</text>
+<text class="ts" x="360" y="605" dominant-baseline="central">One shared budget, equal to the single agent's</text>
+</svg>
