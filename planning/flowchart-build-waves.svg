@@ -1,0 +1,82 @@
+<svg width="100%" viewBox="0 0 680 700" role="img" xmlns="http://www.w3.org/2000/svg"><title>Build waves: what can be built in parallel</title><desc>Six waves of work, each row built in parallel. Wave 1: phase 01 Foundation alone. Wave 2: 02 Baseline and split, 03 Ingest and tools, 04 Model layer. Wave 3: 05 Agent, 06 Scoring and statistics, 06 Field cases, 03 Classifier. Wave 4: 06 Runner and scripts, 08 App in single mode, 09 Memory store. Wave 5: 07 Multi-agent, 08 Lanes and feedback, 09 Memory in multi mode. Wave 6: 10 Verification and report alone. Paid runs are not parallel and go in priority order: pilot, tuning, ablation, single versus multi, model comparison, final run. The critical path is 01, 03, 05, 06 runner, 07, 10.</desc>
+<style>
+:root{--ink:#2C2C2A;--sub:#5F5E5A;--line:#8A8A86;--bg:#ffffff}
+@media (prefers-color-scheme: dark){:root{--ink:#EDEDEA;--sub:#B4B2A9;--line:#6b6b68;--bg:#141414}}
+svg{background:var(--bg)}
+text{font-family:-apple-system,Helvetica,Arial,sans-serif}
+.ts{font-size:12px;font-weight:400;fill:var(--sub)}
+.th{font-size:14px;font-weight:500;fill:var(--ink)}
+.arr{stroke:var(--line);stroke-width:1.5;fill:none}
+.dashed-container{fill:none;stroke:var(--line)}
+.c-gray rect{fill:#F1EFE8;stroke:#888780}
+.c-gray text.th{fill:#2C2C2A}
+.c-purple rect{fill:#EEEDFE;stroke:#7F77DD}
+.c-purple text.th{fill:#3C3489}
+.c-teal rect{fill:#E1F5EE;stroke:#1D9E75}
+.c-teal text.th{fill:#085041}
+.c-coral rect{fill:#FAECE7;stroke:#D85A30}
+.c-coral text.th{fill:#712B13}
+.crit rect{stroke-width:2}
+@media (prefers-color-scheme: dark){
+.c-gray rect{fill:#444441;stroke:#B4B2A9}
+.c-gray text.th{fill:#F1EFE8}
+.c-purple rect{fill:#3C3489;stroke:#AFA9EC}
+.c-purple text.th{fill:#EEEDFE}
+.c-teal rect{fill:#085041;stroke:#5DCAA5}
+.c-teal text.th{fill:#E1F5EE}
+.c-coral rect{fill:#712B13;stroke:#F0997B}
+.c-coral text.th{fill:#FAECE7}
+}
+</style>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="var(--line)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<!-- Wave 1 -->
+<text class="ts" x="50" y="30">Wave 1</text>
+<g class="c-gray crit"><rect x="250" y="40" width="180" height="40" rx="8" stroke-width="0.5"/><text class="th" x="340" y="60" text-anchor="middle" dominant-baseline="central">01 Foundation</text></g>
+<line x1="340" y1="84" x2="340" y2="104" class="arr" marker-end="url(#arrow)"/>
+
+<!-- Wave 2 -->
+<text class="ts" x="50" y="120">Wave 2 · after 01</text>
+<g class="c-coral"><rect x="50" y="130" width="180" height="40" rx="8" stroke-width="0.5"/><text class="th" x="140" y="150" text-anchor="middle" dominant-baseline="central">02 Baseline + split</text></g>
+<g class="c-teal crit"><rect x="250" y="130" width="180" height="40" rx="8" stroke-width="0.5"/><text class="th" x="340" y="150" text-anchor="middle" dominant-baseline="central">03 Ingest + tools</text></g>
+<g class="c-teal"><rect x="450" y="130" width="180" height="40" rx="8" stroke-width="0.5"/><text class="th" x="540" y="150" text-anchor="middle" dominant-baseline="central">04 Model layer</text></g>
+<line x1="340" y1="174" x2="340" y2="194" class="arr" marker-end="url(#arrow)"/>
+
+<!-- Wave 3 -->
+<text class="ts" x="50" y="210">Wave 3 · after 02, 03, 04</text>
+<g class="c-purple crit"><rect x="50" y="220" width="135" height="40" rx="8" stroke-width="0.5"/><text class="th" x="117" y="240" text-anchor="middle" dominant-baseline="central">05 Agent</text></g>
+<g class="c-coral"><rect x="198" y="220" width="135" height="40" rx="8" stroke-width="0.5"/><text class="th" x="265" y="240" text-anchor="middle" dominant-baseline="central">06 Scoring</text></g>
+<g class="c-coral"><rect x="346" y="220" width="135" height="40" rx="8" stroke-width="0.5"/><text class="th" x="413" y="240" text-anchor="middle" dominant-baseline="central">06 Field cases</text></g>
+<g class="c-teal"><rect x="494" y="220" width="136" height="40" rx="8" stroke-width="0.5"/><text class="th" x="562" y="240" text-anchor="middle" dominant-baseline="central">03 Classifier</text></g>
+<line x1="340" y1="264" x2="340" y2="284" class="arr" marker-end="url(#arrow)"/>
+
+<!-- Wave 4 -->
+<text class="ts" x="50" y="300">Wave 4 · after 05</text>
+<g class="c-coral crit"><rect x="50" y="310" width="180" height="40" rx="8" stroke-width="0.5"/><text class="th" x="140" y="330" text-anchor="middle" dominant-baseline="central">06 Runner + scripts</text></g>
+<g class="c-teal"><rect x="250" y="310" width="180" height="40" rx="8" stroke-width="0.5"/><text class="th" x="340" y="330" text-anchor="middle" dominant-baseline="central">08 App · single mode</text></g>
+<g class="c-teal"><rect x="450" y="310" width="180" height="40" rx="8" stroke-width="0.5"/><text class="th" x="540" y="330" text-anchor="middle" dominant-baseline="central">09 Memory store</text></g>
+<line x1="340" y1="354" x2="340" y2="374" class="arr" marker-end="url(#arrow)"/>
+
+<!-- Wave 5 -->
+<text class="ts" x="50" y="390">Wave 5 · after the runner</text>
+<g class="c-purple crit"><rect x="50" y="400" width="180" height="40" rx="8" stroke-width="0.5"/><text class="th" x="140" y="420" text-anchor="middle" dominant-baseline="central">07 Multi-agent</text></g>
+<g class="c-teal"><rect x="250" y="400" width="180" height="40" rx="8" stroke-width="0.5"/><text class="th" x="340" y="420" text-anchor="middle" dominant-baseline="central">08 Lanes + feedback</text></g>
+<g class="c-teal"><rect x="450" y="400" width="180" height="40" rx="8" stroke-width="0.5"/><text class="th" x="540" y="420" text-anchor="middle" dominant-baseline="central">09 Memory · multi</text></g>
+<line x1="340" y1="444" x2="340" y2="464" class="arr" marker-end="url(#arrow)"/>
+
+<!-- Wave 6 -->
+<text class="ts" x="50" y="480">Wave 6 · after everything</text>
+<g class="c-gray crit"><rect x="230" y="490" width="220" height="40" rx="8" stroke-width="0.5"/><text class="th" x="340" y="510" text-anchor="middle" dominant-baseline="central">10 Verification + report</text></g>
+
+<!-- Paid runs -->
+<text class="ts" x="50" y="572">Not parallel · paid runs, in priority order</text>
+<rect x="50" y="582" width="580" height="44" rx="8" class="dashed-container" stroke-width="0.5" stroke-dasharray="4 4"/>
+<text class="ts" x="340" y="604" text-anchor="middle" dominant-baseline="central">Pilot → Tuning → Ablation → Single vs multi → Model comparison → Final run</text>
+
+<!-- Legend -->
+<g class="c-teal"><rect x="50" y="660" width="10" height="10" rx="2" stroke-width="0.5"/></g><text class="ts" x="66" y="665" dominant-baseline="central">Platform</text>
+<g class="c-purple"><rect x="136" y="660" width="10" height="10" rx="2" stroke-width="0.5"/></g><text class="ts" x="152" y="665" dominant-baseline="central">Agent</text>
+<g class="c-coral"><rect x="206" y="660" width="10" height="10" rx="2" stroke-width="0.5"/></g><text class="ts" x="222" y="665" dominant-baseline="central">Evaluation</text>
+<g class="c-gray"><rect x="304" y="660" width="10" height="10" rx="2" stroke-width="0.5"/></g><text class="ts" x="320" y="665" dominant-baseline="central">Setup / wrap-up</text>
+<g class="c-gray crit"><rect x="440" y="659" width="12" height="12" rx="2"/></g><text class="ts" x="458" y="665" dominant-baseline="central">Thick border: critical path</text>
+</svg>

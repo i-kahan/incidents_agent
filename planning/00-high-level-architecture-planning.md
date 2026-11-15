@@ -46,6 +46,7 @@ Diagrams (kept in this folder, see §8):
 | [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg) | The single agent's nodes, the ledger, limits and the grounding check |
 | [`flowchart-multi-agent.svg`](flowchart-multi-agent.svg) | The lead, the hypothesis testers and the independent skeptic |
 | [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg) | From the dataset to the comparison table |
+| [`flowchart-build-waves.svg`](flowchart-build-waves.svg) | Which phases and workstreams can be built in parallel |
 
 ## 2. Guiding Principles
 
@@ -89,6 +90,22 @@ comparison between the two architectures needs it, and the single agent must exi
 first as the baseline. The app (08) follows so it can show either mode. Memory (09)
 comes last among the features because it plugs into both modes and into the app's
 feedback form.
+
+### What can be built in parallel
+
+Several phases do not depend on each other, and three of them (06, 08, 09) have parts
+that can start early. The work falls into six waves; paid runs, the split and the
+05-before-07 order stay sequential. The full breakdown, by workstream, with the
+contracts that make it safe, is in [`parallel-build-plan.md`](parallel-build-plan.md).
+
+| Wave | In parallel | Needs first |
+|---|---|---|
+| 1 | 01 | — |
+| 2 | 02 · 03 (deterministic part) · 04 | 01 |
+| 3 | 05 · 06 scoring · 06 field-set cases · 03 classifier | 02, 03, 04 |
+| 4 | 06 runner · 08 single mode · 09 store and retrieval | 05 |
+| 5 | 07 · 08 lanes and feedback · 09 multi mode and seeding | 06 runner; wave 4 |
+| 6 | 10 | all |
 
 **There is no deadline; the budget is the limit.** Every feature in the plan is built.
 Every paid use is ranked in Phase 06, Decision 6. The final held-out run is first and its
@@ -191,7 +208,7 @@ work is real.
 
 ## 8. Architecture Diagrams
 
-The four SVGs in §1 are hand-written and versioned with the code.
+The five SVGs in §1 are hand-written and versioned with the code.
 
 - **Style:** one shared palette and font, light and dark themes via
   `prefers-color-scheme`, a `<title>` and `<desc>` for accessibility, and a legend.
