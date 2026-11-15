@@ -1,6 +1,6 @@
 # Phase 1: Foundation & Environment
 
-**Status:** In progress
+**Status:** Ready for review
 
 ## 1. Objective
 Get a clean, reproducible project skeleton: dependencies installed, lint and tests
@@ -23,11 +23,12 @@ view. Ends with an empty but working package that every later phase builds on.
       `.env.example` listing `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`.
 - [x] Add `config/models.yaml` with placeholder entries for the three providers.
 - [x] Add `config/budget.yaml` with the default limit ($15 total, $1 safety margin).
-- [ ] CI: `.github/workflows/ci.yml` runs `make lint` and `make test` on every pull
+- [x] CI: `.github/workflows/ci.yml` runs `make lint` and `make test` on every pull
       request and on pushes to `main`, on the pinned Python version, with the `uv`
       cache. It has no secrets, never runs `live` tests, and dataset-dependent tests
-      skip. The owner enables "require status checks to pass" on `main` in GitHub.
-- [x] `LICENSE` for the repo (see the open item below).
+      skip.
+- [ ] Owner enables the required `lint-and-test` check on `main` before merging.
+- [x] Add the MIT `LICENSE` for the repo.
 - [x] `NOTICE.md`: RCAEval's code and dataset licences, as found in its repository and
       dataset page, and the papers to cite. Nothing from the dataset is committed.
 - [x] `README.md` stub: one paragraph on what the project is, and a pointer to
@@ -36,8 +37,8 @@ view. Ends with an empty but working package that every later phase builds on.
       extra first, since only its export, BARO and scoring are needed. If its
       dependencies conflict with LangGraph or LiteLLM, isolate it in its own `uv`
       dependency group or environment and call it through its CLI.
-- [ ] Export RE2-OB with `rcaeval-agent export`; record the download size and case count.
-- [ ] Open three cases by hand and record the actual columns of `metrics.csv`,
+- [x] Export RE2-OB with `rcaeval-agent export`; record the download size and case count.
+- [x] Open three cases by hand and record the actual columns of `metrics.csv`,
       `logs.csv` and `traces.csv` in Phase 03's file.
 - [x] One smoke test (`tests/test_package.py`) so `make test` and `make lint` are green.
 - [x] Cold smoke gate, before any agent code: export one case, run RCAEval's BARO
@@ -120,7 +121,14 @@ there using `.github/pull_request_template.md`.
 - The four architecture diagrams and build-waves diagram were checked. The
   evaluator diagram now identifies trajectories as agent output.
 - Git ignore rules cover raw data, the export and answers, the temporary ZIP,
-  and run outputs. The RE2-OB results are reserved for Phase 02.
+  and run outputs.
+- A clean local clone passed the locked install, lint, the three tests, coverage,
+  and the synthetic smoke check. GitHub Actions also passed `lint-and-test`.
+- `make export` downloaded the Zenodo archive (1,191,025,569 bytes) and wrote
+  90 anonymised cases. The extracted raw files totalled 8,662,327,689 bytes.
+  The blind manifest and case directories matched. The sibling answers file
+  was verified by its path. The first three CSV headers are in
+  [Phase 03](03-ingest-and-tools.md#5-dataset-notes).
 
 ## 6. AI-use notes (feeds `REPORT.md`)
 

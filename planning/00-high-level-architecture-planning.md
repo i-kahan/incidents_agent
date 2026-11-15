@@ -70,7 +70,7 @@ Diagrams (kept in this folder, see §8):
 
 | # | Phase file | Depends on | Status |
 |---|---|---|---|
-| 01 | [Foundation & Environment](01-foundation-and-environment.md) | — | In progress |
+| 01 | [Foundation & Environment](01-foundation-and-environment.md) | — | Ready for review |
 | 02 | [Baseline & Headroom Study](02-baseline-and-headroom-study.md) | 01 | Not started |
 | 03 | [Ingest & Tools](03-ingest-and-tools.md) | 01 (its optional model fallback: 04) | Not started |
 | 04 | [Model Layer](04-model-layer.md) | 01 | Not started |
