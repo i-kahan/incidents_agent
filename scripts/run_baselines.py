@@ -14,6 +14,7 @@ import sys
 from collections.abc import Callable
 from collections.abc import Mapping
 
+from incidents_agent.eval import answers
 from incidents_agent.eval import rcaeval_bridge
 from incidents_agent.eval import split as split_lib
 
@@ -77,7 +78,7 @@ def _headline(summary: Mapping[str, object]) -> str:
 
 def score_sides(
     model: str, ranks: Mapping[str, list[str]], split: split_lib.Split
-) -> None:
+) -> dict[str, object]:
     """Write one model's predictions per side and score each side.
 
     Args:
@@ -115,6 +116,7 @@ def score_sides(
     _write_json(RESULTS_DIR / f'{model}_heldout.json', heldout)
     print(f'{model} tuning:   {_headline(tuning)}')
     print(f'{model} held-out: {_headline(heldout)}')
+    return tuning
 
 
 def main() -> None:
@@ -129,15 +131,42 @@ def main() -> None:
 
     baro = _rank_all(case_ids, rcaeval_bridge.baro_ranks, 'baro')
     mmbaro = _rank_all(case_ids, rcaeval_bridge.mmbaro_ranks, 'mmbaro')
-    runs = {'baro': baro, 'mmbaro': mmbaro}
+    guarded = _rank_all(
+        case_ids, rcaeval_bridge.guarded_baro_ranks, 'guarded_baro'
+    )
+    runs = {'baro': baro, 'mmbaro': mmbaro, 'guarded_baro': guarded}
     for model, ranks in list(runs.items()):
         kept = _candidates_only(ranks)
         if kept != ranks:
             runs[f'{model}_candidates'] = kept
+    tuning_summaries = {}
     for model, ranks in runs.items():
         path = RUNS_DIR / f'{model}.predictions.jsonl'
         rcaeval_bridge.write_predictions(path, ranks, model)
-        score_sides(model, ranks, split)
+        tuning_summaries[model] = score_sides(model, ranks, split)
+    baro_service = tuning_summaries['baro']['service']
+    guarded_service = tuning_summaries['guarded_baro']['service']
+    if not isinstance(baro_service, dict) or not isinstance(
+        guarded_service, dict
+    ):
+        raise ValueError('Baseline service scores are missing')
+    selected = (
+        'baro'
+        if baro_service['AC@1'] > guarded_service['AC@1']
+        else 'guarded_baro'
+    )
+    reference = {
+        'baseline': selected,
+        'selected_on': 'full tuning service AC@1',
+        'tuning_ids': list(split.tuning),
+        'split_sha256': answers.file_sha256(
+            _ROOT / 'splits' / f'{DATASET}.json'
+        ),
+        'predictions_sha256': answers.file_sha256(
+            RUNS_DIR / f'{selected}.tuning.predictions.jsonl'
+        ),
+    }
+    _write_json(RESULTS_DIR / 'reference_baseline.json', reference)
 
 
 if __name__ == '__main__':
