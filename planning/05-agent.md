@@ -93,10 +93,13 @@ See [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg).
       cost figure, and the final report, as JSON under `runs/`.
 - [x] Ablation switch in the agent configuration: `ledger` and `verify` on or off; off
       gives a plain tool-calling loop with the same tools.
-- [ ] Resumable runs: state is checkpointed at each node. `continue_run` takes a saved
+- [x] Resumable runs: state is checkpointed at each node. `continue_run` takes a saved
       run plus added files: it re-ingests additively, writes a "what changed" briefing,
       carries the ledger and its evidence over, and continues under a fresh
       per-continuation budget. The result is the same run with a continuation index.
+      *(`agent/continuation.py`. Earlier files are hard-linked, not copied, into
+      `inputs/c<n>/` beside the added ones; an added name already in the run is
+      refused.)*
 
 **Workstream D — Walking skeleton**
 - [ ] `scripts/investigate.py <folder>`: ingest, run the agent, write a cited Markdown
@@ -112,7 +115,7 @@ See [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg).
 - [x] Graph tests with the scripted fake client: happy path, forced submit at the call
       limit, verify still runs when investigation used its whole share, forced submit at the cost cap, verify failure sending the run back,
       invalid `submit` names rejected, tool error surfaced and survived.
-- [ ] More graph tests with the fake: a trimmed result is still citable and can be
+- [x] More graph tests with the fake: a trimmed result is still citable and can be
       re-read; `no_fault_found` is reachable and finalises correctly; a continuation
       keeps earlier evidence valid and sees the added tables; data requests appear
       only for open or undecided hypotheses.
@@ -268,3 +271,6 @@ See [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg).
   checkpoints, `run_investigation`) and 13 graph tests, including the injection test.
   A verdict must cite a call made during the check; a refuted hypothesis is rejected;
   verify runs at most twice and the run returns to investigate at most once.
+- Step 5 (continuation): Claude Code wrote `agent/continuation.py` and its tests;
+  checkpoints now keep a catalog summary so the "what changed" briefing is computed
+  by diffing catalogs.

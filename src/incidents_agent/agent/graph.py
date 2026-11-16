@@ -35,6 +35,7 @@ from incidents_agent.agent import report
 from incidents_agent.agent import results
 from incidents_agent.agent import state
 from incidents_agent.agent import trajectory
+from incidents_agent.ingest import schema as ingest_schema
 from incidents_agent.llm import contracts
 
 VERIFY_NAME = 'record_verification'
@@ -76,6 +77,7 @@ class RunState:
         session: Shared run state for the loop.
         conversation: Message history.
         catalog_has_dependencies: Whether dependency data was detected.
+        catalog: Summary of the ingested catalog, for continuations.
         run_dir: Folder for the run record, or None to keep it in memory.
         continuation: Continuation index.
         opening: First user message of this pass.
@@ -92,6 +94,7 @@ class RunState:
     conversation: context.Conversation
     catalog_has_dependencies: bool
     run_dir: Path | None
+    catalog: dict[str, object] = dataclasses.field(default_factory=dict)
     continuation: int = 0
     opening: str = START_MESSAGE
     submission: dict[str, object] | None = None
@@ -118,6 +121,7 @@ class RunState:
             'task': session.task.to_dict(),
             'config': session.config.to_dict(),
             'briefing': session.briefing,
+            'catalog': self.catalog,
             'budget': session.budget.to_dict(),
             'ledger': (
                 None if session.ledger is None else session.ledger.to_dict()
@@ -472,7 +476,7 @@ def new_run_id(task: state.Task) -> str:
     return f'{task.case_id or "upload"}-{stamp}-{uuid.uuid4().hex[:6]}'
 
 
-def _session(
+def build_session(
     task: state.Task,
     client: contracts.ModelClient,
     agent_config: config.AgentConfig,
@@ -485,6 +489,25 @@ def _session(
     continuation: int,
     clock: Callable[[], float],
 ) -> investigate.Session:
+    """Build a session over an ingested folder with a fresh budget.
+
+    Call ids continue from the store, so a continued run never reuses one.
+
+    Args:
+        task: The task.
+        client: Model client.
+        agent_config: Agent configuration.
+        ingested: The ingested folder.
+        run: Spend-guard run identity.
+        record: Trajectory.
+        store: Result store, empty or carried over.
+        book: Ledger over `store`, or None when ablated.
+        continuation: Continuation index.
+        clock: Monotonic clock.
+
+    Returns:
+        The session, with its briefing built.
+    """
     registry = tools.create_default_registry(
         ingested, first_call_number=store.next_call_number()
     )
@@ -501,6 +524,21 @@ def _session(
         record=record,
         briefing=prompts.briefing(task, ingested.catalog, agent_config),
     )
+
+
+def catalog_summary(catalog: ingest_schema.Catalog) -> dict[str, object]:
+    """Return the table and document inventory kept in checkpoints."""
+    return {
+        'tables': {
+            table.name: {
+                'source_file': table.source_file,
+                'row_count': table.row_count,
+                'columns': len(table.columns),
+            }
+            for table in catalog.tables
+        },
+        'documents': sorted(doc.doc_id for doc in catalog.documents),
+    }
 
 
 def manifest(
@@ -565,7 +603,7 @@ def run_investigation(
             identifier,
         )
         store = results.ResultStore()
-        session = _session(
+        session = build_session(
             task,
             client,
             agent_config,
@@ -590,6 +628,7 @@ def run_investigation(
             context.Conversation(agent_config.context, store),
             prompts.has_dependency_data(ingested.catalog),
             run_dir,
+            catalog_summary(ingested.catalog),
         )
         build_graph(run)()
     finally:
