@@ -29,7 +29,7 @@ _MAX_TOKEN_HINTS = 8
 
 UPDATE_TOOL_NAME = 'update_hypotheses'
 
-_EVIDENCE_SCHEMA: dict[str, object] = {
+EVIDENCE_SCHEMA: dict[str, object] = {
     'type': 'array',
     'description': (
         'Observations from earlier tool calls in this run. Each needs the '
@@ -80,7 +80,7 @@ UPDATE_TOOL_SCHEMA: dict[str, object] = {
                         'type': 'string',
                         'description': 'Why, for reject.',
                     },
-                    'evidence': _EVIDENCE_SCHEMA,
+                    'evidence': EVIDENCE_SCHEMA,
                 },
                 'required': ['op'],
             },

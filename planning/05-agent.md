@@ -1,6 +1,6 @@
 # Phase 5: Agent
 
-**Status:** In progress — Workstream A and the investigate loop landed
+**Status:** In progress — Workstreams A and B landed; run record and skeleton next
 
 ## 1. Objective
 Build the investigating agent: it reads the catalog, forms hypotheses, tests them with
@@ -37,36 +37,36 @@ See [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg).
       evidence item from the current data.
 
 **Workstream B — Graph (`agent/graph.py`, `agent/prompts.py`)**
-- [ ] `orient` node: deterministic briefing from the catalog and task.
+- [x] `orient` node: deterministic briefing from the catalog and task.
 - [x] `investigate` node: model call with tools; loops until `submit` or a limit.
       Written as a function of (task, tool budget, ledger handle, message history) so
       Phase 07's hypothesis testers reuse it with a different brief.
-- [ ] `verify` node: the model must name and run one check that could disprove the top
+- [x] `verify` node: the model must name and run one check that could disprove the top
       hypothesis. The outcome is explicit — `supported`, `refuted` or `inconclusive` —
       and is stored with the evidence. On `refuted` the run returns to `investigate`
       once.
-- [ ] If a different hypothesis ends up on top after a refutation, it carries its own
+- [x] If a different hypothesis ends up on top after a refutation, it carries its own
       verification status. If nothing is left to verify it with, it is reported as
       `unverified`, not as verified by inheritance.
-- [ ] `report` node: structured output — ranked root causes, fault type, verification
+- [x] `report` node: structured output — ranked root causes, fault type, verification
       status, confidence as a qualitative level (low / medium / high) with the reasons
       for it, evidence, recommended actions. No numeric probability is shown unless it
       has been calibrated against results.
-- [ ] `no_fault_found` is a valid final outcome, distinct from `inconclusive`: the data
+- [x] `no_fault_found` is a valid final outcome, distinct from `inconclusive`: the data
       was examined and nothing abnormal was found. The briefing says so, so the agent
       is not pushed to name a culprit.
-- [ ] Recommended actions: each is tied to the hypothesis it addresses and carries a
+- [x] Recommended actions: each is tied to the hypothesis it addresses and carries a
       risk level (read-only check / reversible change / disruptive change) and how to
       tell whether it worked. Read-only checks are listed first.
-- [ ] Data requests: when the outcome is provisional or inconclusive, the report lists
+- [x] Data requests: when the outcome is provisional or inconclusive, the report lists
       the specific additional data that would settle it — what, from where, and which
       hypothesis it would confirm or refute. Each request is derived from an open or
       undecided ledger entry, not free-form.
-- [ ] When dependency data exists, the verify prompt asks for a check of direction:
+- [x] When dependency data exists, the verify prompt asks for a check of direction:
       whether the suspect is upstream of the other affected components.
 - [x] `submit` validation: with candidate lists present (benchmark), ranks must come
       from them; without (uploads), ranks are free text.
-- [ ] Limits per case: tool calls (15), model turns, wall time and cost. Verification
+- [x] Limits per case: tool calls (15), model turns, wall time and cost. Verification
       capacity is reserved before investigation starts — two tool calls and the model
       spend for `verify` and one bounded correction — so `investigate` can use only the
       remainder and the run can never reach `verify` with nothing left.
@@ -91,7 +91,7 @@ See [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg).
 **Workstream C — Run record**
 - [ ] Trajectory written per run: every model call, tool call, ledger change, token and
       cost figure, and the final report, as JSON under `runs/`.
-- [ ] Ablation switch in the agent configuration: `ledger` and `verify` on or off; off
+- [x] Ablation switch in the agent configuration: `ledger` and `verify` on or off; off
       gives a plain tool-calling loop with the same tools.
 - [ ] Resumable runs: state is checkpointed at each node. `continue_run` takes a saved
       run plus added files: it re-ingests additively, writes a "what changed" briefing,
@@ -109,14 +109,14 @@ See [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg).
 - [x] Unit tests for the ledger rules and the citation validity check: a failed call,
       an empty result, a value not present in the result, and a call from another run
       are each rejected.
-- [ ] Graph tests with the scripted fake client: happy path, forced submit at the call
+- [x] Graph tests with the scripted fake client: happy path, forced submit at the call
       limit, verify still runs when investigation used its whole share, forced submit at the cost cap, verify failure sending the run back,
       invalid `submit` names rejected, tool error surfaced and survived.
 - [ ] More graph tests with the fake: a trimmed result is still citable and can be
       re-read; `no_fault_found` is reachable and finalises correctly; a continuation
       keeps earlier evidence valid and sees the added tables; data requests appear
       only for open or undecided hypotheses.
-- [ ] Injection test with the fake: a tool result containing an instruction does not
+- [x] Injection test with the fake: a tool result containing an instruction does not
       change the tool set, the limits or the finalisation path. Whether a real model
       resists it is measured on the field set in Phase 06.
 - [ ] One `live` test: a single tuning case on the cheapest configured model.
@@ -224,6 +224,17 @@ See [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg).
   reflect. Ledger bookkeeping uses tool calls the investigation could have used; the
   ablation measures whether that pays.
 
+#### Decision 11: The graph is thin; run state and checkpoints are plain Python
+
+* **Decision:** LangGraph holds only the node order and the routing. Nodes act on one
+  `RunState` object, and state is written to `checkpoint.json` at every node exit,
+  atomically.
+* **Context/Constraint:** LangGraph's SQLite checkpointer is a separate package not in
+  the lockfile, and its saved form is tied to the framework. The ledger, results and
+  conversation already serialise to JSON for the trajectory.
+* **Trade-off:** LangGraph's own resume and time-travel features are not used;
+  `continue_run` resumes from the JSON checkpoint instead.
+
 #### Decision 10: Old results are digested in blocks
 
 * **Decision:** The last three data-tool results stay in full. When three more have
@@ -253,3 +264,7 @@ See [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg).
 - Step 3 (loop): Claude Code wrote `agent/executor.py`, `context.py`, `prompts.py`,
   `investigate.py`, `finalise.py`, a starting call number on `ToolRegistry`, and the
   loop and finalisation tests on the `victim_vs_cause` fixture with the scripted fake.
+- Step 4 (graph): Claude Code wrote `agent/graph.py` (nodes, routing, verify tool,
+  checkpoints, `run_investigation`) and 13 graph tests, including the injection test.
+  A verdict must cite a call made during the check; a refuted hypothesis is rejected;
+  verify runs at most twice and the run returns to investigate at most once.
