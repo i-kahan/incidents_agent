@@ -40,5 +40,4 @@ compare:
 	@exit 1
 
 app:
-	@printf '%s\n' 'make app becomes available in Phase 08.' >&2
-	@exit 1
+	uv run --locked streamlit run app/main.py --server.address 127.0.0.1 --server.headless true $(APP_ARGS)
