@@ -23,12 +23,27 @@ identifiers, and disambiguated with numeric suffixes if collisions still occur.
 
 ### Optional Model-Assisted Fallback
 
-When `enable_model_classification` is enabled and the deterministic rules fall
-below `classifier_confidence_threshold` (default `0.70`), a single fallback call
-may choose a `(kind, chunk_strategy)` pair from the fixed menu above using only
-the relative path and a bounded file sample. Choices are cached by SHA-256 file
-hash, and any response outside the fixed menu is rejected in favour of the
-deterministic default.
+When `enable_model_classification` is enabled, `classifier_client` is supplied
+(a Phase 04 `ModelClient`, such as `GuardedClient` or `ScriptedClient`), and
+the deterministic rules fall below `classifier_confidence_threshold` (default
+`0.70`), a single fallback call may choose a `(kind, chunk_strategy)` pair from
+the fixed menu above. The request passes only `relative_path` and a bounded
+`untrusted_sample` (up to 2,000 bytes) inside JSON data, while the system prompt
+treats the sample strictly as untrusted data.
+
+- **Spend guard and accounting:** Calls go through `ModelClient.complete(...)`
+  using `classifier_run` and `classifier_case_id` (defaulting to the folder
+  name during `ingest_folder`), reserving and settling against `SpendLedger`
+  with exact `Decimal` cost recorded in `FileClassification.model_cost_usd`.
+- **Caching and validation:** Valid menu choices are cached by SHA-256 file
+  hash (`classifier_cache`) and reused at zero cost. Malformed or out-of-menu
+  responses are rejected in favour of the deterministic default without caching,
+  while retaining any settled call cost.
+- **Graceful degradation:** `BudgetRefused`, `BillingUncertain`,
+  `ModelUnavailable`, `ProviderError`, and `RetryDeferred` fall back to the
+  deterministic default. `BudgetRefused`, `BillingUncertain`, and
+  `ModelUnavailable` also stop further model fallback calls for the remaining
+  files in that `ingest_folder` run.
 
 ## 2. Time Detection and Normalisation
 

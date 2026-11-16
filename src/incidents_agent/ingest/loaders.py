@@ -1,5 +1,6 @@
 """Load dropped incident files into a read-only DuckDB database and catalog."""
 
+import dataclasses
 import datetime
 import decimal
 import math
@@ -321,6 +322,12 @@ def ingest_folder(
         raise FileNotFoundError(f'Input folder does not exist: {folder}')
 
     effective_config = config or schema.IngestConfig()
+    if effective_config.classifier_case_id is None:
+        default_case_id = folder.name or folder.resolve().name or 'ingest'
+        effective_config = dataclasses.replace(
+            effective_config,
+            classifier_case_id=default_case_id,
+        )
     limits = effective_config.limits
     target_dir = (
         workdir
@@ -416,6 +423,12 @@ def ingest_folder(
                     schema.SkippedFileEntry(rel_path, str(exc), size_bytes)
                 )
                 continue
+
+            if cls.fallback_halted:
+                effective_config = dataclasses.replace(
+                    effective_config,
+                    enable_model_classification=False,
+                )
 
             if cls.kind == 'document':
                 try:
