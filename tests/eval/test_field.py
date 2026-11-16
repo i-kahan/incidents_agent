@@ -95,7 +95,7 @@ def correct_prediction():
         'disk_full',
         'verified',
         (field.Observation('call_1', 'events.log', 'ERROR disk exhausted'),),
-        (field.Citation('call_1', 'disk exhausted'),),
+        (field.Citation('call_1', 'disk exhausted', 'events.log'),),
     )
 
 
@@ -200,3 +200,15 @@ def test_duplicate_field_cases_rejected():
     """Duplicates cannot inflate field success counts."""
     with pytest.raises(ValueError, match='Duplicate'):
         field.summarize([{'case_id': 'healthy'}] * 2)
+
+
+def test_citation_to_other_source_does_not_get_gold_credit(
+    gold, correct_prediction
+):
+    """A citation within a multi-source call must name the right source."""
+    prediction = dataclasses.replace(
+        correct_prediction,
+        citations=(field.Citation('call_1', 'disk exhausted', 'other.log'),),
+    )
+
+    assert field.score(gold, prediction)['all_evidence_cited'] is False
