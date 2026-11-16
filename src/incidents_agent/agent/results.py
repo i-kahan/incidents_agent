@@ -40,6 +40,9 @@ _ROW_KEYS = frozenset(
         'service',
         'serviceName',
         'pattern_template',
+        'incident_id',
+        'diagnosed_root_cause',
+        'rejected_root_cause',
     }
 )
 _CALL_NUMBER = re.compile(r'call_(\d+)$')

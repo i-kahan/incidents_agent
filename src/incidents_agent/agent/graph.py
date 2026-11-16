@@ -38,6 +38,7 @@ from incidents_agent.agent import state
 from incidents_agent.agent import trajectory
 from incidents_agent.ingest import schema as ingest_schema
 from incidents_agent.llm import contracts
+from incidents_agent.memory import store as incident_memory
 
 VERIFY_NAME = 'record_verification'
 CHECKPOINT_VERSION = 1
@@ -343,7 +344,12 @@ def _plain_verdict_errors(
             errors.append(f'evidence rejected: {error}')
         else:
             valid.append(ref)
-    if not any(ref.call_id in fresh for ref in valid):
+    if not any(
+        ref.call_id in fresh
+        and (stored := session.executor.store.get(ref.call_id)) is not None
+        and not stored.from_memory
+        for ref in valid
+    ):
         errors.append('the outcome must cite a tool call made for this check')
         return errors
     return []
@@ -481,6 +487,41 @@ def new_run_id(task: state.Task) -> str:
     return f'{task.case_id or "upload"}-{stamp}-{uuid.uuid4().hex[:6]}'
 
 
+def resolve_memory_store(
+    agent_config: config.AgentConfig,
+    *,
+    memory_store: incident_memory.MemoryStore | None = None,
+    memory_path: Path | None = None,
+    runs_dir: Path | None = None,
+) -> incident_memory.MemoryStore | None:
+    """Return the active memory store when enabled, else None.
+
+    Args:
+        agent_config: Agent configuration with `memory` and `memory_frozen`.
+        memory_store: Optional caller-supplied store instance.
+        memory_path: Optional explicit SQLite path when opening a store.
+        runs_dir: Optional parent runs directory used for default storage.
+
+    Returns:
+        Configured `MemoryStore`, or None when `agent_config.memory` is False.
+    """
+    if not agent_config.memory:
+        return None
+    if memory_store is not None:
+        if agent_config.memory_frozen and not memory_store.frozen:
+            return incident_memory.MemoryStore(memory_store.path, frozen=True)
+        return memory_store
+    default_path = (
+        runs_dir / 'memory.sqlite3'
+        if runs_dir is not None
+        else incident_memory.DEFAULT_PATH
+    )
+    return incident_memory.MemoryStore(
+        memory_path or default_path,
+        frozen=agent_config.memory_frozen,
+    )
+
+
 def build_session(
     task: state.Task,
     client: contracts.ModelClient,
@@ -493,6 +534,7 @@ def build_session(
     book: ledger.HypothesisLedger | None,
     continuation: int,
     clock: Callable[[], float],
+    memory_store: incident_memory.MemoryStore | None = None,
 ) -> investigate.Session:
     """Build a session over an ingested folder with a fresh budget.
 
@@ -509,12 +551,16 @@ def build_session(
         book: Ledger over `store`, or None when ablated.
         continuation: Continuation index.
         clock: Monotonic clock.
+        memory_store: Optional incident memory store for lookup tool wiring.
 
     Returns:
         The session, with its briefing built.
     """
     registry = tools.create_default_registry(
-        ingested, first_call_number=store.next_call_number()
+        ingested,
+        first_call_number=store.next_call_number(),
+        memory_store=memory_store,
+        run_id=run.id,
     )
     return investigate.Session(
         run=run,
@@ -547,10 +593,13 @@ def catalog_summary(catalog: ingest_schema.Catalog) -> dict[str, object]:
 
 
 def manifest(
-    session: investigate.Session, *, mode: str = 'single'
+    session: investigate.Session,
+    *,
+    mode: str = 'single',
+    memory_snapshot_hash: str | None = None,
 ) -> dict[str, object]:
     """Return the run manifest: what produced this run."""
-    return {
+    data: dict[str, object] = {
         'run_id': session.run_id,
         'reserve_name': session.run.reserve_name,
         'mode': mode,
@@ -561,6 +610,9 @@ def manifest(
         'trajectory_version': trajectory.TRAJECTORY_VERSION,
         'created_at': datetime.now(UTC).isoformat(),
     }
+    if memory_snapshot_hash is not None:
+        data['memory_snapshot_hash'] = memory_snapshot_hash
+    return data
 
 
 def run_investigation(
@@ -572,6 +624,8 @@ def run_investigation(
     run_id: str | None = None,
     reserve_name: str | None = None,
     clock: Callable[[], float] = time.monotonic,
+    memory_store: incident_memory.MemoryStore | None = None,
+    memory_path: Path | None = None,
 ) -> RunResult:
     """Run the agent on one task, end to end.
 
@@ -588,6 +642,8 @@ def run_investigation(
         run_id: Run id; a fresh one when None.
         reserve_name: Named spend reserve to draw on (the final run).
         clock: Monotonic clock, injectable for tests.
+        memory_store: Optional pre-opened incident memory store.
+        memory_path: Optional path to the incident memory SQLite file.
 
     Returns:
         The run id, its folder, its report and its events.
@@ -596,6 +652,12 @@ def run_investigation(
     run_dir = None if runs_dir is None else runs_dir / identifier
     if run_dir is not None:
         run_dir.mkdir(parents=True, exist_ok=False)
+    active_memory = resolve_memory_store(
+        agent_config,
+        memory_store=memory_store,
+        memory_path=memory_path,
+        runs_dir=runs_dir,
+    )
     workdir = (
         run_dir / 'db'
         if run_dir is not None
@@ -623,8 +685,12 @@ def run_investigation(
             ),
             continuation=0,
             clock=clock,
+            memory_store=active_memory,
         )
-        details = manifest(session)
+        snapshot = (
+            None if active_memory is None else active_memory.snapshot_hash()
+        )
+        details = manifest(session, memory_snapshot_hash=snapshot)
         if run_dir is not None:
             write_json(run_dir / 'manifest.json', details)
         record.record('run_start', manifest=details)
@@ -640,4 +706,10 @@ def run_investigation(
         ingested.close()
     if run.final is None:
         raise RuntimeError('The graph ended without reaching report')
+    if active_memory is not None and not active_memory.frozen:
+        active_memory.save(
+            incident_memory.build_record_from_run(
+                task, run.catalog, run.final, store
+            )
+        )
     return RunResult(identifier, run_dir, run.final, tuple(record.events))

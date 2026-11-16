@@ -89,6 +89,10 @@ def main() -> int:
     parser.add_argument('--model', help='model alias for this run')
     parser.add_argument('--budget-usd')
     parser.add_argument('--runs-dir')
+    parser.add_argument(
+        '--memory', action='store_true', help='enable incident memory'
+    )
+    parser.add_argument('--memory-path', help='SQLite path for incident memory')
     parser.add_argument('--continue-run', metavar='RUN_DIR')
     parser.add_argument('--add', action='append', default=[], metavar='PATH')
     args = parser.parse_args()
@@ -101,10 +105,16 @@ def main() -> int:
         parser.error('--continue-run needs at least one --add')
     try:
         settings = agent_config.load_agent_config(Path(args.config))
+        overrides: dict[str, object] = {}
         if args.model:
+            overrides['model_alias'] = args.model
+        if args.memory:
+            overrides['memory'] = True
+        if overrides:
             settings = agent_config.AgentConfig.from_dict(
-                {**settings.to_dict(), 'model_alias': args.model}
+                {**settings.to_dict(), **overrides}
             )
+        memory_path = Path(args.memory_path) if args.memory_path else None
         task = None if args.folder is None else _task(args)
         candidates = () if task is None else task.candidate_services
         model: contracts.ModelClient = (
@@ -118,6 +128,7 @@ def main() -> int:
                 [Path(path) for path in args.add],
                 model,
                 settings,
+                memory_path=memory_path,
             )
         elif task is not None:
             runs_dir = (
@@ -126,7 +137,11 @@ def main() -> int:
                 else (DRY_RUNS_DIR if args.fake else RUNS_DIR)
             )
             result = graph.run_investigation(
-                task, model, settings, runs_dir=runs_dir
+                task,
+                model,
+                settings,
+                runs_dir=runs_dir,
+                memory_path=memory_path,
             )
     except (config.ConfigError, OSError, ValueError) as exc:
         parser.error(str(exc))

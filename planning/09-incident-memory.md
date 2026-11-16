@@ -1,6 +1,6 @@
 # Phase 9: Incident Memory
 
-**Status:** Not started
+**Status:** Wave 4 complete (store, BM25 retrieval, `search_past_incidents` tool, frozen mode, and ledger/graph integration tested offline; app feedback wiring, multi-mode lead-only integration, and `seed_memory.py` / experiment remain for Wave 5).
 
 ## 1. Objective
 Give the agent a long-term record of past incidents it can consult for leads, without
@@ -11,23 +11,23 @@ app, and (budget permitting) an on-versus-off result.
 ## 2. Next Steps (Checklist)
 
 **Feature**
-- [ ] Store (`memory/store.py`): a local database file with one record per incident —
+- [x] Store (`memory/store.py`): a local database file with one record per incident —
       symptom summary, affected components, diagnosed root cause, fault type, key
       evidence, recommended actions, outcome (confirmed / rejected / unverified), what
       fixed it, and timestamps.
-- [ ] Record written at the end of every run when memory is on, as `unverified`.
-- [ ] Retrieval: BM25 over the symptom summary plus a boost for matching component names.
-- [ ] `search_past_incidents` tool, returning two separate lists. **Leads:** confirmed
+- [x] Record written at the end of every run when memory is on, as `unverified`.
+- [x] Retrieval: BM25 over the symptom summary plus a boost for matching component names.
+- [x] `search_past_incidents` tool, returning two separate lists. **Leads:** confirmed
       records only, with root cause and fix. **Counterevidence:** rejected diagnoses for
       similar symptoms, presented as "this was tried and was wrong". Unverified records
       are returned only when there is no confirmed match, in a third list marked as
       unchecked.
-- [ ] Only observations from the current run can support a hypothesis. A memory record
+- [x] Only observations from the current run can support a hypothesis. A memory record
       can suggest one or count against one; it is never an evidence item.
-- [ ] One configuration flag turns memory on; with it off, the tool is not offered.
-- [ ] A read-only (frozen) mode: lookups allowed, writes refused.
-- [ ] App feedback form updates the record's outcome and fix.
-- [ ] Ledger integration from Phase 05 confirmed: memory-origin hypotheses need current
+- [x] One configuration flag turns memory on; with it off, the tool is not offered.
+- [x] A read-only (frozen) mode: lookups allowed, writes refused.
+- [ ] App feedback form updates the record's outcome and fix. *(Store API `update_outcome` is ready; Streamlit UI wiring waits for Wave 5.)*
+- [x] Ledger integration from Phase 05 confirmed: memory-origin hypotheses need current
       evidence before they can be supported.
 
 **Experiment (only if budget remains)**
@@ -44,12 +44,12 @@ app, and (budget permitting) an on-versus-off result.
       cause, and how often the agent followed a wrong hit.
 
 **Tests**
-- [ ] Unit tests: record round trip, ranking on a small hand-built set, outcome updates,
+- [x] Unit tests: record round trip, ranking on a small hand-built set, outcome updates,
       frozen mode refuses writes, tool absent when the flag is off.
 - [ ] Test that `seed_memory.py` writes only tuning-case ids.
-- [ ] Graph test with the fake client: a memory-origin hypothesis with no current
+- [x] Graph test with the fake client: a memory-origin hypothesis with no current
       evidence cannot be marked supported.
-- [ ] Update `flowchart-system-overview.svg` if the memory wiring changed.
+- [x] Update `flowchart-system-overview.svg` if the memory wiring changed. *(Verified existing diagram already matches Wave 4 wiring.)*
 
 ## 3. Architectural Decisions & Trade-offs
 
@@ -112,4 +112,5 @@ app, and (budget permitting) an on-versus-off result.
 *Experiment table and tool-usage counts go here, if the experiment runs.*
 
 ## 6. AI-use notes (feeds `REPORT.md`)
-*Filled in as the work happens.*
+- Wave 4 (`feature/phase-09a-memory`): implemented `incidents_agent.memory.store` (`MemoryStore` over SQLite with `BEGIN IMMEDIATE` writes, `FrozenMemoryError`, `MemoryRecord`, `snapshot_hash()`, Okapi BM25 + component-boost search, `build_record_from_run`, and `search_past_incidents`), wired `search_past_incidents` into `ToolRegistry` behind `AgentConfig.memory`, enforced memory-evidence isolation in `HypothesisLedger` and verification checks, wired end-of-run `unverified` persistence in `run_investigation` and `continue_run`, added `--memory` / `--memory-path` to `scripts/investigate.py`, and added unit and integration tests in `tests/memory/test_store.py`.
+- Note: `memory/store.py` avoids importing `incidents_agent.tools` because `tools/__init__.py` imports `registry` eagerly; `registry.py` registers `search_past_incidents` directly against `memory/store.py`.

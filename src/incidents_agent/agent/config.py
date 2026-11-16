@@ -97,6 +97,9 @@ class AgentConfig:
         max_output_tokens: Output cap for each model call.
         ledger: Ablation switch for the hypothesis ledger.
         verify: Ablation switch for the verify step.
+        memory: Enable incident memory lookup and end-of-run recording.
+        memory_frozen: Keep incident memory read-only (lookups allowed,
+            writes refused).
         limits: Per-case limits.
         context: Context policy.
     """
@@ -105,6 +108,8 @@ class AgentConfig:
     max_output_tokens: int = 1024
     ledger: bool = True
     verify: bool = True
+    memory: bool = False
+    memory_frozen: bool = False
     limits: Limits = dataclasses.field(default_factory=Limits)
     context: ContextPolicy = dataclasses.field(default_factory=ContextPolicy)
 
@@ -127,6 +132,8 @@ class AgentConfig:
             'max_output_tokens': self.max_output_tokens,
             'ledger': self.ledger,
             'verify': self.verify,
+            'memory': self.memory,
+            'memory_frozen': self.memory_frozen,
             'limits': self.limits.to_dict(),
             'context': self.context.to_dict(),
         }
@@ -149,6 +156,8 @@ class AgentConfig:
             'max_output_tokens',
             'ledger',
             'verify',
+            'memory',
+            'memory_frozen',
             'limits',
             'context',
         }
@@ -163,12 +172,17 @@ class AgentConfig:
         for name in ('ledger', 'verify'):
             if not isinstance(data.get(name, True), bool):
                 raise llm_config.ConfigError(f'{name} must be true or false')
+        for name in ('memory', 'memory_frozen'):
+            if not isinstance(data.get(name, False), bool):
+                raise llm_config.ConfigError(f'{name} must be true or false')
         try:
             return cls(
                 model_alias=alias or '',
                 max_output_tokens=_int(data.get('max_output_tokens', 1024)),
                 ledger=bool(data.get('ledger', True)),
                 verify=bool(data.get('verify', True)),
+                memory=bool(data.get('memory', False)),
+                memory_frozen=bool(data.get('memory_frozen', False)),
                 limits=_limits(
                     llm_config.mapping(data.get('limits', {}), 'limits')
                 ),

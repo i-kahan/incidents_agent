@@ -5,6 +5,8 @@ model_alias: null
 max_output_tokens: 1024
 ledger: true
 verify: true
+memory: false
+memory_frozen: false
 limits:
   tool_calls: 15
   model_turns: 30
