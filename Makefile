@@ -1,4 +1,4 @@
-.PHONY: test lint format export split smoke eval compare app
+.PHONY: test lint format export split baselines headroom smoke eval compare app
 
 test:
 	uv run --locked --group benchmark pytest $(PYTEST_ARGS)
@@ -16,6 +16,12 @@ export:
 
 split:
 	uv run --locked python -m scripts.make_split
+
+baselines:
+	uv run --locked --group benchmark python -m scripts.run_baselines
+
+headroom:
+	uv run --locked --group benchmark python -m scripts.headroom_report
 
 smoke:
 	uv run --locked --group benchmark python -m scripts.benchmark_smoke
