@@ -1,4 +1,4 @@
-.PHONY: test lint format export split baselines headroom smoke eval compare app
+.PHONY: test lint format export split baselines headroom smoke investigate replay eval compare app
 
 test:
 	uv run --locked --group benchmark pytest $(PYTEST_ARGS)
@@ -25,6 +25,12 @@ headroom:
 
 smoke:
 	uv run --locked --group benchmark python -m scripts.benchmark_smoke
+
+investigate:
+	uv run --locked python -m scripts.investigate $(ARGS)
+
+replay:
+	uv run --locked python -m scripts.replay $(ARGS)
 
 eval compare:
 	@printf '%s\n' 'make $@ becomes available in Phase 06.' >&2

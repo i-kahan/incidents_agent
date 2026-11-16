@@ -74,7 +74,7 @@ Diagrams (kept in this folder, see §8):
 | 02 | [Baseline & Headroom Study](02-baseline-and-headroom-study.md) | 01 | Merged (#2, #6) |
 | 03 | [Ingest & Tools](03-ingest-and-tools.md) | 01 (its optional model fallback: 04) | Merged (#3, #5) |
 | 04 | [Model Layer](04-model-layer.md) | 01 | Offline checks complete |
-| 05 | [Agent](05-agent.md) | 03, 04 | Not started |
+| 05 | [Agent](05-agent.md) | 03, 04 | Built offline; live check waits for model ids and keys |
 | 06 | [Evaluation Harness](06-evaluation-harness.md) | 02, 05 | Not started |
 | 07 | [Multi-Agent Investigation](07-multi-agent.md) | 05, 06 | Not started |
 | 08 | [Upload App](08-upload-app.md) | 05, 07 | Not started |
