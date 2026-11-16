@@ -259,9 +259,21 @@ same order in all three cases.
     time, traceID, spanID, serviceName, methodName, operationName,
     startTimeMillis, startTime, duration, statusCode, parentSpanID
 
-The metrics loader must accept case-specific columns. Logs expose both
-`time` and `timestamp`. Traces expose `time`, `startTimeMillis`, and
-`startTime`. Header inspection establishes column names only.
+- Sampled values across the three cases show Unix seconds in metrics `time`.
+  Logs and traces use a clock string (`HH:MM`) in `time`. Logs provide Unix
+  nanoseconds in `timestamp`. Traces provide Unix milliseconds in
+  `startTimeMillis` and microseconds in `startTime`.
+- Each sampled blind case contains nine files and totals 72–98 MB. Traces
+  account for 50–74 MB and logs for 13–16 MB. Other files include raw metrics,
+  derived log and trace series, log templates, and task metadata. Use these
+  sizes when verifying ingest limits and memory use.
+- Raw metric headers contain `*_latency-50` and `*_latency-90`. RCAEval
+  excludes the former from `task.json` candidate indicators and exposes the
+  latter as `*_latency`. Preserve raw evidence names when mapping predictions.
+- The sampled traces contain `serviceName=frontendservice`, while candidate
+  services include `frontend` and the log container field can also hold
+  `frontend`. Derived trace series include `frontendservice_frontend`. Verify
+  aliases before joining or filtering across sources.
 
 ## 6. AI-use notes (feeds `REPORT.md`)
 *Filled in as the work happens.*

@@ -33,6 +33,9 @@ select = ["D", "E", "F", "I", "TID252"]
 [tool.ruff.lint.pydocstyle]
 convention = "google"
 
+[tool.ruff.lint.isort]
+force-single-line = true
+
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
 

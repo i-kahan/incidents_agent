@@ -4,8 +4,8 @@ An AI agent that investigates incidents from dropped files (logs, metrics, trace
 supporting data), forms and tests hypotheses, and reports a root cause with cited evidence.
 It is evaluated on the RCAEval benchmark against a statistical baseline.
 
-Status: design agreed, nothing implemented yet. Items marked *to confirm* depend on
-dataset details not yet inspected.
+See the [phase index](planning/00-high-level-architecture-planning.md#3-phase-index--dependencies)
+for implementation status.
 
 The build plan is in [`planning/`](planning/00-high-level-architecture-planning.md): a
 hub document, one file per phase, and the architecture diagrams. Working practices are
@@ -391,8 +391,9 @@ Phase-by-phase detail is in `planning/`.
   by scenario.
 - **Cost per case:** at the default limit the final-run allocation implies $0.05 per case, untested until a
   five-case pilot.
-- **To confirm at setup:** dataset download size, RCAEval's Python version requirement, the
-  exact log and trace columns, and the real cost per case.
+- **Setup evidence:** [Phase 01](planning/01-foundation-and-environment.md#5-verification-evidence)
+  records the Python and RCAEval versions, dataset size, and case count.
+  [Phase 03](planning/03-ingest-and-tools.md#5-dataset-notes) records the CSV headers.
 
 ### If the budget runs short
 

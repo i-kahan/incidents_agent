@@ -51,7 +51,8 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
 **Workstream B — Scoring and statistics (`eval/scoring.py`, `eval/stats.py`)**
 - [ ] Call RCAEval's evaluator with the answers subset that matches the cases run,
       never the full answers file for a partial run, and assert that the evaluator's
-      case count equals the number of cases intended.
+      case count equals the number of cases intended. For a subset of a full
+      task manifest, pass `--answers <subset>` and omit `--tasks`.
 - [ ] Parse its JSON summary and per-case output for accuracy at top 1, 3 and 5 at
       service and indicator level.
 - [ ] Evaluator contract test on a tiny fixture (three cases, hand-written answers):

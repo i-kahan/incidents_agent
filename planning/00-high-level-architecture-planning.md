@@ -167,11 +167,8 @@ this plan, are in [`future-improvements.md`](future-improvements.md).
 
 Open items, flagged **⚠️ OPEN** in the phase files:
 
-- **Python version and RCAEval install** (01): RCAEval's supported versions are
-  unchecked.
 - **Target setting** (02): confirmed or changed once BARO's RE2-OB scores are measured.
 - **Models to compare** (04, 06): the owner supplies keys and model IDs.
-- **Licence** (01): the public repo has none; MIT is proposed.
 
 ## 5. Constraints (summary)
 

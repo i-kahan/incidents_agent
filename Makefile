@@ -6,7 +6,7 @@ test:
 lint:
 	uv run --locked ruff check
 	uv run --locked ruff format --check
-	uv run --locked mypy
+	uv run --locked --group benchmark mypy
 
 format:
 	uv run --locked ruff format

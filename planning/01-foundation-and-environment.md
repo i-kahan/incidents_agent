@@ -41,9 +41,10 @@ view. Ends with an empty but working package that every later phase builds on.
 - [x] Open three cases by hand and record the actual columns of `metrics.csv`,
       `logs.csv` and `traces.csv` in Phase 03's file.
 - [x] One smoke test (`tests/test_package.py`) so `make test` and `make lint` are green.
-- [x] Cold smoke gate, before any agent code: export one case, run RCAEval's BARO
-      example on it, write a `predictions.jsonl`, and score it against a matching
-      one-case answers file. `make smoke` runs it at no cost.
+- [x] Cold smoke gate, before any agent code: export one synthetic case, run the
+      installed RCAEval BARO on it, and score its `predictions.jsonl` against
+      the matching one-case answers file. `make smoke` and CI exercise this
+      path offline after dependency installation.
 - [x] Check the four architecture SVGs against the scaffolded layout; fix any mismatch.
 - [x] Create the working branch `feature/phase-01-foundation`; keep `main` clean.
 
@@ -100,8 +101,10 @@ view. Ends with an empty but working package that every later phase builds on.
 
 **Resolved — Python and RCAEval:** Python 3.12 is pinned. RCAEval 1.12.0 with
 its `core` extra installs with the runtime and dev dependencies in the same uv
-environment. The `benchmark` group is opt-in. Phase 01 calls RCAEval via its CLI
-and adds no stubs or wrappers for untyped library APIs.
+environment. The `benchmark` group is opt-in and the Make targets select it
+when needed. Phase 01 uses the CLI for export and scoring. Its smoke runner
+has one targeted import suppression because RCAEval ships without type
+information. Add `types-PyYAML` alongside the first YAML loader in Phase 04.
 
 **Resolved — Licence:** The owner selected MIT for the project.
 `NOTICE.md` records the third-party sources and their distribution licenses.
@@ -114,7 +117,8 @@ there using `.github/pull_request_template.md`.
 - `uv sync --locked --group benchmark` installed the project and the benchmark
   tooling together on macOS arm64 with Python 3.12.12.
 - `make lint` passed Ruff lint, formatting, and strict mypy. `make test`
-  passed three tests, including two RCAEval CLI tests using synthetic data.
+  passed three tests, including blind export and end-to-end BARO integration
+  checks on synthetic data.
   Coverage reports 100% for the import-only package (zero executable statements).
 - `make smoke` exported and scored one synthetic case, with one matching BARO
   prediction and top-1 service accuracy of 1.00. The smoke check spent $0.
@@ -134,4 +138,7 @@ there using `.github/pull_request_template.md`.
 
 - Codex drafted the implementation plan, scaffolded the phase and ran the checks
   recorded above. The owner selected MIT and the synthetic smoke case.
+- Codex checked the Phase 01 review against the installed package and verified
+  dataset. The follow-up uses the installed metrics toolkit for BARO in both
+  CI and `make smoke`, and records the implications for later phases.
 - The owner records the outcome of the PR logic and quality reviews here.
