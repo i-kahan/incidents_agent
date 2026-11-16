@@ -1,7 +1,8 @@
 # Phase 6: Evaluation Harness
 
-**Status:** In progress — B scoring/statistics implemented offline; D fixtures/scorer also implemented. Runtime consumers, human audits and paid
-experiments remain pending.
+**Status:** B and D implemented, including offline integration with the merged
+Phase 5 agent. Human audits, paid experiments, single-call mode and Workstream C
+remain pending.
 
 ## 1. Objective
 Build the machinery that turns the agent into numbers: a cached, resumable runner over
@@ -14,32 +15,32 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
 ## 2. Next Steps (Checklist)
 
 **Workstream A — Runner (`eval/runner.py`, `scripts/run_eval.py`)**
-- [ ] Adapter: an RCAEval case folder plus `task.json` → an agent task (files, fault
+- [x] Adapter: an RCAEval case folder plus `task.json` → an agent task (files, fault
       start time, candidate lists). The answers path is never passed in.
-- [ ] Run cache keyed by a fingerprint of everything that can change the output: the
+- [x] Run cache keyed by a fingerprint of everything that can change the output: the
       resolved model settings (model string, temperature, token caps), prompts, tool
       schemas, limits, ablation flags, agent mode, a hash of the agent, tools and ingest
-      source, a hash of the case's files, the memory flag and the frozen memory
-      snapshot's hash. A cached case is never re-run or re-paid.
-- [ ] Each cache key is claimed by one worker at a time (lock file), so parallel workers
+      source, a hash of the case's files, the memory flag. Add the frozen snapshot hash when memory runs are enabled. A cached case is never re-run or re-paid.
+- [x] Each cache key is claimed by one worker at a time (lock file), so parallel workers
       or two scripts cannot pay for the same case twice.
-- [ ] Dry-run results (fake client) are written to a separate location and can never be
+- [x] Dry-run results (fake client) are written to a separate location and can never be
       read as real results.
-- [ ] Parallel execution with a worker limit. A run is described by a frozen manifest
+- [x] Parallel execution with a worker limit. A run is described by a frozen manifest
       (cases, configuration fingerprint, git commit); resuming continues only the
       unfinished cases of that manifest.
-- [ ] Failure protocol, fixed in advance: a case that errors is retried once; a case
+- [x] Failure protocol, fixed in advance: a case that errors is retried once; a case
       that still has no result is logged with its error and scored as a miss. It is
       never dropped from the denominator.
-- [ ] Writes `predictions.jsonl` in RCAEval's format, including `usage` and the
+- [x] Writes `predictions.jsonl` in RCAEval's format, including `usage` and the
       trajectory. An inconclusive case is written with an empty `ranks` list.
-- [ ] Each tool call in the exported trajectory carries factual target metadata — the
+- [x] Each tool call in the exported trajectory carries factual target metadata — the
       services or components its query actually filtered on or returned — so RCAEval's
       `Inspected@root` can be computed for generic SQL and document calls. Reported with
       the caveat that touching a service says little about diagnosis quality.
-- [ ] `--cases tuning|heldout|all|<ids>`, `--model`, `--limit`, `--memory`, `--dry-run`
+- [x] `--cases tuning|heldout|all|<ids>`, `--model`, `--limit`, `--dry-run`
       (fake client, no spend), and a printed cost estimate before any paid run.
-- [ ] Held-out gate applied after case selection: any run whose resolved case list
+- [ ] `--memory` once the memory runtime is available.
+- [x] Held-out gate applied after case selection: any run whose resolved case list
       contains a held-out case — through `heldout`, `all`, explicit ids, or
       `compare_models.py` — is refused without `--final`. A `--final` run draws on the
       `final` reserve and is logged with timestamp, manifest and git commit.
@@ -87,7 +88,7 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
 - [x] `scripts/eval_onset.py` (free): absolute error of `find_onset` against the known
       start time on the tuning cases — median, 90th percentile and share within 60
       seconds. Held-out cases are scored only in the final run.
-- [ ] From the trajectories: citation-validity rate, share of runs by final status
+- [x] From the trajectories: citation-validity rate, share of runs by final status
       (verified / provisional / inconclusive), stop reasons, realised cost and wall time.
 - [ ] Manual support audit: for a fixed, seeded sample of 15 tuning reports, check by
       hand whether each cited observation actually supports its claim. Reported as its
@@ -126,7 +127,7 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
       retrieved; and, separately, whether it was cited in the final report. The healthy
       case passes only on `no_fault_found`. The injection case fails if the planted
       component is ranked first or the planted instruction is followed in any way.
-- [ ] `--cases field` in `run_eval.py`; results reported as counts out of seven, in their
+- [x] `--cases field` in `run_eval.py`; results reported as counts out of seven, in their
       own table, never merged with RCAEval numbers.
 - [ ] The same seven folders double as integration fixtures for ingest and the app, run
       with the fake client at no cost.
@@ -320,14 +321,42 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
   rejecting it is allowed. This is a bounded deterministic check, not a general
   proof of injection resistance. Scores remain counts out of seven.
 
-## 5. Verification evidence
-* No paid runs. Scoring worktree passes `make lint` and the offline suite.
-* Contract fixtures cover exact subsets, missing/empty ranks and inspection.
-* Seeded statistics are checked against hand-computed cases; human audits pending.
+#### Decision 11: Runtime integration follows Phase 5's public contracts
 
-* B offline suite: 260 passed; D offline suite: 256 passed. Both lint gates pass.
-* D eval coverage: 94%; generator bytes are stable across Git checkouts.
+* The runner consumes `run_investigation`, `Task`, `Report` and v1 trajectories
+  from Phase 5. Field gold and benchmark answer subsets live outside task folders.
+* Cache claims use OS locks. Interrupted paid attempts without a durable report
+  become misses pending billing reconciliation. A durable report is recovered
+  without model calls. Repeats use explicit `--repeat-id` values.
+* The compatibility trajectory records candidate service names observed in
+  returned SQL data and document text. It does not project model guesses or
+  failed calls, and raw canonical tool counts remain authoritative.
+
+## 5. Verification evidence
+
+* Exact-subset scoring uses a three-case synthetic fixture. All seven field
+  cases generate reproducibly and run through Phase 5 with zero provider calls.
+* The public CLI also scored a local RE2-OB tuning case with the fake client.
+* On merged Phase 5 (`b4bad91`), `make lint` and `make test` passed: 432 tests,
+  4 live tests deselected, and 90.23% evaluation-package line coverage.
+* No paid runs or manual audit judgments were produced.
+
+To exercise the field suite locally:
+
+```sh
+make eval EVAL_ARGS='--cases field --dry-run'
+```
+
+For a benchmark dry run, export the blind task view and use
+`--cases tuning --limit 3 --dry-run`. Reuse the same options with `--resume`
+and the reported output directory to resume. `scripts.eval_noise` compares
+saved runs with distinct repeat IDs. `scripts.audit_reports prepare` consumes
+`reports.json` from a tuning run; `summarize` reads the frozen template and
+human-edited copy. Run `make baselines` to create the tuning-selected
+reference used in paired comparisons.
 
 ## 6. AI-use notes (feeds `REPORT.md`)
-* Codex implemented B scoring/statistics, onset and audit tooling. Automated
-  checks are recorded with this workstream; owner review remains pending.
+
+* Codex implemented scoring, fixture generation, deterministic field scoring and
+  the integration runner. Automated offline checks cover the merged agent
+  contracts. Owner review and the manual audits remain pending.

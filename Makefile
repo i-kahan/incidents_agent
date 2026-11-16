@@ -32,7 +32,10 @@ investigate:
 replay:
 	uv run --locked python -m scripts.replay $(ARGS)
 
-eval compare:
+eval:
+	uv run --locked --group benchmark python -m scripts.run_eval $(EVAL_ARGS)
+
+compare:
 	@printf '%s\n' 'make $@ becomes available in Phase 06.' >&2
 	@exit 1
 
