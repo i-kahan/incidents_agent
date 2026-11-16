@@ -13,7 +13,7 @@ def _write_csv(
     path: pathlib.Path, headers: list[str], rows: list[list[object]]
 ) -> None:
     with path.open('w', encoding='utf-8', newline='') as handle:
-        writer = csv.writer(handle)
+        writer = csv.writer(handle, lineterminator='\n')
         writer.writerow(headers)
         writer.writerows(rows)
 
@@ -386,7 +386,7 @@ def generate_additional(root: pathlib.Path) -> None:
             with (folder / table).open(
                 'w', newline='', encoding='utf-8'
             ) as output:
-                writer = csv.writer(output, delimiter='\t')
+                writer = csv.writer(output, delimiter='\t', lineterminator='\n')
                 writer.writerow(
                     ['timestamp', 'component', metric, 'errors', 'cpu_pct']
                 )
