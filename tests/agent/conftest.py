@@ -1,11 +1,15 @@
 """Shared fixtures for agent tests."""
 
+import pathlib
 from collections.abc import Callable
+from collections.abc import Iterator
 from collections.abc import Mapping
 
 import pytest
 
+from incidents_agent import ingest
 from incidents_agent.agent import results
+from tests.agent import scripted
 
 RUN_ID = 'run-test'
 
@@ -103,3 +107,15 @@ def store(make_store: MakeStore) -> results.ResultStore:
             'call_0004': ('search_past_incidents', MEMORY_RESULT),
         }
     )
+
+
+@pytest.fixture
+def field_ingest(
+    tmp_path: pathlib.Path,
+) -> Iterator[ingest.IngestResult]:
+    """Ingest the victim_vs_cause field case into a temporary database."""
+    ingested = ingest.ingest_folder(
+        scripted.FIELD_CASE, workdir=tmp_path / 'db'
+    )
+    yield ingested
+    ingested.close()
