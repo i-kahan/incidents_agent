@@ -180,6 +180,8 @@ def test_provider_wire_request_keeps_cap_prefix_and_tool_schema(
         if provider == 'openai':
             assert body['service_tier'] == 'default'
     serialized = json.dumps(body)
+    assert '"no_log"' not in serialized
+    assert '"no-log"' not in serialized
     assert serialized.index('Catalog') < serialized.index('Start')
     assert 'read_data' in serialized
     assert ('cache_control' in serialized) == (provider == 'anthropic')
