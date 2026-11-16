@@ -213,7 +213,67 @@ work the same on an RCAEval case and on an arbitrary upload, with no LLM involve
   without being shown.
 
 ## 5. Dataset notes
-*Actual columns of `metrics.csv`, `logs.csv` and `traces.csv`, recorded in Phase 01.*
+Phase 01 read only the CSV headers of the first three blind RE2-OB cases
+in manifest order. The 71 shared `metrics.csv` columns occurred in the
+same order in all three cases.
+
+    time, adservice_cpu, cartservice_cpu, checkoutservice_cpu,
+    currencyservice_cpu, emailservice_cpu, frontend_cpu, paymentservice_cpu,
+    productcatalogservice_cpu, recommendationservice_cpu, redis_cpu,
+    shippingservice_cpu, adservice_mem, cartservice_mem, checkoutservice_mem,
+    currencyservice_mem, emailservice_mem, frontend_mem, paymentservice_mem,
+    productcatalogservice_mem, recommendationservice_mem, redis_mem,
+    shippingservice_mem, adservice_diskio, emailservice_diskio,
+    recommendationservice_diskio, redis_diskio, adservice_socket,
+    cartservice_socket, checkoutservice_socket, currencyservice_socket,
+    emailservice_socket, frontend_socket, paymentservice_socket,
+    productcatalogservice_socket, recommendationservice_socket, redis_socket,
+    shippingservice_socket, adservice_workload, cartservice_workload,
+    checkoutservice_workload, currencyservice_workload, emailservice_workload,
+    frontend_workload, frontend-external_workload, paymentservice_workload,
+    productcatalogservice_workload, recommendationservice_workload,
+    shippingservice_workload, frontend_error, frontend-external_error,
+    adservice_latency-50, cartservice_latency-50, checkoutservice_latency-50,
+    currencyservice_latency-50, emailservice_latency-50, frontend_latency-50,
+    paymentservice_latency-50, productcatalogservice_latency-50,
+    recommendationservice_latency-50, shippingservice_latency-50,
+    adservice_latency-90, cartservice_latency-90, checkoutservice_latency-90,
+    currencyservice_latency-90, emailservice_latency-90, frontend_latency-90,
+    paymentservice_latency-90, productcatalogservice_latency-90,
+    recommendationservice_latency-90, shippingservice_latency-90
+
+| Blind case | Metric columns | Additional columns |
+|---|---:|---|
+| `re2-ob-0001` | 77 | `cartservice_diskio`, `currencyservice_diskio`, `frontend_diskio`, `paymentservice_diskio`, `productcatalogservice_diskio`, `adservice_error` |
+| `re2-ob-0002` | 75 | `cartservice_diskio`, `currencyservice_diskio`, `frontend_diskio`, `productcatalogservice_diskio` |
+| `re2-ob-0003` | 72 | `adservice_error` |
+
+`logs.csv` and `traces.csv` had identical headers across the three cases.
+
+- `logs.csv`
+
+    time, timestamp, container_name, message, level, req_path, error
+
+- `traces.csv`
+
+    time, traceID, spanID, serviceName, methodName, operationName,
+    startTimeMillis, startTime, duration, statusCode, parentSpanID
+
+- Sampled values across the three cases show Unix seconds in metrics `time`.
+  Logs and traces use a clock string (`HH:MM`) in `time`. Logs provide Unix
+  nanoseconds in `timestamp`. Traces provide Unix milliseconds in
+  `startTimeMillis` and microseconds in `startTime`.
+- Each sampled blind case contains nine files and totals 72–98 MB. Traces
+  account for 50–74 MB and logs for 13–16 MB. Other files include raw metrics,
+  derived log and trace series, log templates, and task metadata. Use these
+  sizes when verifying ingest limits and memory use.
+- Raw metric headers contain `*_latency-50` and `*_latency-90`. RCAEval
+  excludes the former from `task.json` candidate indicators and exposes the
+  latter as `*_latency`. Preserve raw evidence names when mapping predictions.
+- The sampled traces contain `serviceName=frontendservice`, while candidate
+  services include `frontend` and the log container field can also hold
+  `frontend`. Derived trace series include `frontendservice_frontend`. Verify
+  aliases before joining or filtering across sources.
 
 ## 6. AI-use notes (feeds `REPORT.md`)
 *Filled in as the work happens.*

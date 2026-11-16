@@ -1,6 +1,6 @@
 # Phase 1: Foundation & Environment
 
-**Status:** Not started
+**Status:** Ready for review
 
 ## 1. Objective
 Get a clean, reproducible project skeleton: dependencies installed, lint and tests
@@ -8,43 +8,45 @@ runnable, configuration files in place, and the RCAEval dataset exported as a bl
 view. Ends with an empty but working package that every later phase builds on.
 
 ## 2. Next Steps (Checklist)
-- [ ] Confirm RCAEval's supported Python versions and pin one in `.python-version`.
-- [ ] `uv init` the package (`src/incidents_agent/`), with `pyproject.toml` declaring
+- [x] Confirm RCAEval's supported Python versions and pin one in `.python-version`.
+- [x] `uv init` the package (`src/incidents_agent/`), with `pyproject.toml` declaring
       runtime dependencies and a `dev` group (pytest, pytest-cov, ruff, mypy).
-- [ ] Configure `ruff` in `pyproject.toml`: line length 80, Google docstring convention,
+- [x] Configure `ruff` in `pyproject.toml`: line length 80, Google docstring convention,
       import rules matching the style guide. Configure `ruff format`.
-- [ ] Configure `mypy` in `pyproject.toml`: strict mode over `src/`, `scripts/` and
+- [x] Configure `mypy` in `pyproject.toml`: strict mode over `src/`, `scripts/` and
       `app/`; tests checked without the untyped-definition rule. Record any library
       that needs a typed wrapper or stub.
-- [ ] Configure pytest in `pyproject.toml`: `tests/` path, the `integration` and `live`
+- [x] Configure pytest in `pyproject.toml`: `tests/` path, the `integration` and `live`
       markers, `live` deselected by default (see `docs/practices/testing.md`).
-- [ ] Add a `Makefile` with `test`, `lint` (ruff and mypy), `format`, `eval`, `compare`, `app` targets.
-- [ ] Extend the existing `.gitignore` if the scaffold adds new generated paths, and add
+- [x] Add a `Makefile` with `test`, `lint` (ruff and mypy), `format`, `eval`, `compare`, `app` targets.
+- [x] Extend the existing `.gitignore` if the scaffold adds new generated paths, and add
       `.env.example` listing `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY`.
-- [ ] Add `config/models.yaml` with placeholder entries for the three providers.
-- [ ] Add `config/budget.yaml` with the default limit ($15 total, $1 safety margin).
-- [ ] CI: `.github/workflows/ci.yml` runs `make lint` and `make test` on every pull
+- [x] Add `config/models.yaml` with placeholder entries for the three providers.
+- [x] Add `config/budget.yaml` with the default limit ($15 total, $1 safety margin).
+- [x] CI: `.github/workflows/ci.yml` runs `make lint` and `make test` on every pull
       request and on pushes to `main`, on the pinned Python version, with the `uv`
       cache. It has no secrets, never runs `live` tests, and dataset-dependent tests
-      skip. The owner enables "require status checks to pass" on `main` in GitHub.
-- [ ] `LICENSE` for the repo (see the open item below).
-- [ ] `NOTICE.md`: RCAEval's code and dataset licences, as found in its repository and
+      skip.
+- [x] Require the GitHub Actions `lint-and-test` check on `main` before merging.
+- [x] Add the MIT `LICENSE` for the repo.
+- [x] `NOTICE.md`: RCAEval's code and dataset licences, as found in its repository and
       dataset page, and the papers to cite. Nothing from the dataset is committed.
-- [ ] `README.md` stub: one paragraph on what the project is, and a pointer to
+- [x] `README.md` stub: one paragraph on what the project is, and a pointer to
       `DESIGN.md` and `planning/`. The full README is written in Phase 10.
-- [ ] Install RCAEval; record the installed version and pin it. Try the lighter `core`
+- [x] Install RCAEval; record the installed version and pin it. Try the lighter `core`
       extra first, since only its export, BARO and scoring are needed. If its
       dependencies conflict with LangGraph or LiteLLM, isolate it in its own `uv`
       dependency group or environment and call it through its CLI.
-- [ ] Export RE2-OB with `rcaeval-agent export`; record the download size and case count.
-- [ ] Open three cases by hand and record the actual columns of `metrics.csv`,
+- [x] Export RE2-OB with `rcaeval-agent export`; record the download size and case count.
+- [x] Open three cases by hand and record the actual columns of `metrics.csv`,
       `logs.csv` and `traces.csv` in Phase 03's file.
-- [ ] One smoke test (`tests/test_package.py`) so `make test` and `make lint` are green.
-- [ ] Cold smoke gate, before any agent code: export one case, run RCAEval's BARO
-      example on it, write a `predictions.jsonl`, and score it against a matching
-      one-case answers file. `make smoke` runs it at no cost.
-- [ ] Check the four architecture SVGs against the scaffolded layout; fix any mismatch.
-- [ ] Create the working branch `feature/phase-01-foundation`; keep `main` clean.
+- [x] One smoke test (`tests/test_package.py`) so `make test` and `make lint` are green.
+- [x] Cold smoke gate, before any agent code: export one synthetic case, run the
+      installed RCAEval BARO on it, and score its `predictions.jsonl` against
+      the matching one-case answers file. `make smoke` and CI exercise this
+      path offline after dependency installation.
+- [x] Check the four architecture SVGs against the scaffolded layout; fix any mismatch.
+- [x] Create the working branch `feature/phase-01-foundation`; keep `main` clean.
 
 ## 3. Architectural Decisions & Trade-offs
 
@@ -97,15 +99,46 @@ view. Ends with an empty but working package that every later phase builds on.
 * **Three providers, owner-supplied keys.** *Source: owner.* **Implication:** the
   skeleton ships `.env.example` and `config/models.yaml` with placeholders only.
 
-**⚠️ OPEN — Python version:** RCAEval's README mentions a Python 3.14 default
-environment; whether its agent extra installs cleanly alongside LangGraph and LiteLLM on
-one version is unverified. First checklist item.
+**Resolved — Python and RCAEval:** Python 3.12 is pinned. RCAEval 1.12.0 with
+its `core` extra installs with the runtime and dev dependencies in the same uv
+environment. The `benchmark` group is opt-in and the Make targets select it
+when needed. Phase 01 uses the CLI for export and scoring. Its smoke runner
+has one targeted import suppression because RCAEval ships without type
+information. Add `types-PyYAML` alongside the first YAML loader in Phase 04.
 
-**⚠️ OPEN — Licence:** the repo is public and has no licence, which means nobody else
-may legally reuse it. MIT is proposed as the default; the owner decides.
+**Resolved — Licence:** The owner selected MIT for the project.
+`NOTICE.md` records the third-party sources and their distribution licenses.
 
 **Resolved — Git remote:** the repo has a GitHub remote (`origin`), so PRs are opened
 there using `.github/pull_request_template.md`.
 
-## 5. AI-use notes (feeds `REPORT.md`)
-*Filled in as the work happens: where AI was used, what was accepted, modified, rejected.*
+## 5. Verification evidence
+
+- `uv sync --locked --group benchmark` installed the project and the benchmark
+  tooling together on macOS arm64 with Python 3.12.12.
+- `make lint` passed Ruff lint, formatting, and strict mypy. `make test`
+  passed three tests, including blind export and end-to-end BARO integration
+  checks on synthetic data.
+  Coverage reports 100% for the import-only package (zero executable statements).
+- `make smoke` exported and scored one synthetic case, with one matching BARO
+  prediction and top-1 service accuracy of 1.00. The smoke check spent $0.
+- The four architecture diagrams and build-waves diagram were checked. The
+  evaluator diagram now identifies trajectories as agent output.
+- Git ignore rules cover raw data, the export and answers, the temporary ZIP,
+  and run outputs.
+- A clean local clone passed the locked install, lint, the three tests, coverage,
+  and the synthetic smoke check. GitHub Actions also passed `lint-and-test`.
+- `make export` downloaded the Zenodo archive (1,191,025,569 bytes) and wrote
+  90 anonymised cases. The extracted raw files totalled 8,662,327,689 bytes.
+  The blind manifest and case directories matched. The sibling answers file
+  was verified by its path. The first three CSV headers are in
+  [Phase 03](03-ingest-and-tools.md#5-dataset-notes).
+
+## 6. AI-use notes (feeds `REPORT.md`)
+
+- Codex drafted the implementation plan, scaffolded the phase and ran the checks
+  recorded above. The owner selected MIT and the synthetic smoke case.
+- Codex checked the Phase 01 review against the installed package and verified
+  dataset. The follow-up uses the installed metrics toolkit for BARO in both
+  CI and `make smoke`, and records the implications for later phases.
+- The owner records the outcome of the PR logic and quality reviews here.

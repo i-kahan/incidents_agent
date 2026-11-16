@@ -22,7 +22,9 @@ Tests are written with the code, in the same PR. There is no later "testing phas
 
 - `make test` before every commit that touches Python, and before opening a PR.
 - The full default suite must pass on the final commit of every PR.
-- `integration` tests run in the default suite. `live` tests run only on request.
+- `make test` installs the `benchmark` group and runs the full unit and
+  integration suite. Use `uv run --group benchmark pytest` when invoking pytest
+  directly for that suite. `live` tests run only on request.
 
 **Coverage:** measured with `pytest-cov` and reported in each PR. The target is 85% line
 coverage for `ingest`, `tools`, `agent/ledger`, `llm` and `eval`. The Streamlit layer
@@ -163,8 +165,8 @@ def test_run_sql_with_non_select_returns_error(metrics_db, query):
 
 ```bash
 make test                         # default suite: unit + integration
-uv run pytest -m "not integration"   # unit tests only
+make test PYTEST_ARGS='-m "not integration and not live"' # unit tests only
 uv run pytest -m live             # paid provider checks, on request
-uv run pytest --cov=incidents_agent --cov-report=term-missing
+make test PYTEST_ARGS='--cov=incidents_agent --cov-report=term-missing'
 uv run pytest tests/tools/test_run_sql.py -k non_select   # one test while working
 ```

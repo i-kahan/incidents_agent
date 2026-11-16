@@ -1,0 +1,61 @@
+[project]
+name = "incidents-agent"
+version = "0.1.0"
+description = "Root-cause analysis for incidents with telemetry data"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "duckdb",
+    "langgraph",
+    "litellm",
+    "python-dotenv",
+    "pyyaml",
+    "streamlit",
+]
+
+[dependency-groups]
+dev = ["mypy", "pytest", "pytest-cov", "ruff"]
+benchmark = ["RCAEval[core]==1.12.0"]
+
+[build-system]
+requires = ["uv_build>=0.10.0,<0.11.0"]
+build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 80
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["D", "E", "F", "I", "TID252"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+force-single-line = true
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.format]
+quote-style = "single"
+indent-style = "space"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src", "scripts", "app", "tests"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--strict-markers -m 'not live'"
+markers = [
+    "integration: exercises a real component boundary",
+    "live: uses a real provider API and may incur a charge",
+]

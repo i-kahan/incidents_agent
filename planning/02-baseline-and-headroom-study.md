@@ -91,7 +91,9 @@ confirmed or changed by a rule written down before the numbers were seen.
   given only `agent_tasks/re2-ob/`; the answers files sit beside it, never inside it.
 * **The evaluator scores every case in the answers file it is given.** *Source:
   RCAEval `agent/predictions.py`.* **Implication:** a subset must be scored against a
-  subset answers file, or the missing cases count as misses.
+  subset answers file, or the missing cases count as misses. Pass `--answers`
+  with the subset file and omit `--tasks` when the task manifest covers all 90
+  cases. RCAEval requires an exact case-ID list match if `--tasks` is supplied.
 * **Closed answer vocabulary.** *Source: `task.json` candidate lists.* **Implication:**
   predictions must use exact names from those lists; there is no fuzzy matching.
 * **Fault start time is given.** *Source: `task.json` `inject_time`.* **Implication:**

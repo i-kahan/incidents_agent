@@ -1,0 +1,8 @@
+models:
+  haiku:
+    model: anthropic/<model-id>
+  gpt-small:
+    model: openai/<model-id>
+  gemini-small:
+    model: gemini/<model-id>
+default: haiku

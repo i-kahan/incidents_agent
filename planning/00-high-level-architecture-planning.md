@@ -70,7 +70,7 @@ Diagrams (kept in this folder, see §8):
 
 | # | Phase file | Depends on | Status |
 |---|---|---|---|
-| 01 | [Foundation & Environment](01-foundation-and-environment.md) | — | Not started |
+| 01 | [Foundation & Environment](01-foundation-and-environment.md) | — | Ready for review |
 | 02 | [Baseline & Headroom Study](02-baseline-and-headroom-study.md) | 01 | Not started |
 | 03 | [Ingest & Tools](03-ingest-and-tools.md) | 01 (its optional model fallback: 04) | Not started |
 | 04 | [Model Layer](04-model-layer.md) | 01 | Not started |
@@ -167,11 +167,8 @@ this plan, are in [`future-improvements.md`](future-improvements.md).
 
 Open items, flagged **⚠️ OPEN** in the phase files:
 
-- **Python version and RCAEval install** (01): RCAEval's supported versions are
-  unchecked.
 - **Target setting** (02): confirmed or changed once BARO's RE2-OB scores are measured.
 - **Models to compare** (04, 06): the owner supplies keys and model IDs.
-- **Licence** (01): the public repo has none; MIT is proposed.
 
 ## 5. Constraints (summary)
 
