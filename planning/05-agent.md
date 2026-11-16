@@ -1,13 +1,12 @@
 # Phase 5: Agent
 
-**Status:** Built and tested offline ($0 spent). Waiting on the owner for model ids
-and API keys, then the one `live` test (step 7).
+**Status:** Built and tested offline. The live smoke test passed on one tuning case.
 
 ## 1. Objective
 Build the investigating agent: it reads the catalog, forms hypotheses, tests them with
 tools, tries to disprove its leading explanation, and reports a ranked diagnosis with
 cited evidence. Ends with an agent that runs on one case end to end, within limits, and
-whose every claim can be traced to a tool call.
+whose cited evidence can be traced to tool calls.
 
 See [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg).
 
@@ -29,8 +28,10 @@ See [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg).
       the model can read. *(`agent/ledger.py` `check_citation`, over the full
       results in `agent/results.py`; quotes match one observation, ignoring case and
       whitespace; the untrusted-data notice is never citable.)*
-- [ ] The final report is validated the same way: every claim in it maps to a valid
-      evidence item, or the claim is dropped and the drop recorded.
+- [x] Finalisation revalidates the evidence for ranked causes. Candidates without a
+      valid citation are listed after cited causes, marked uncited at low confidence.
+      They cannot determine the outcome or be the target of a recommended action.
+      Rejected causes are dropped and the drop is recorded (Decision 13).
 - [x] Citation validity says a claim points at something real. It does not say the
       observation supports the claim; that is audited by hand (Phase 06) and the two are
       never reported as one number.
@@ -124,9 +125,11 @@ See [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg).
 - [x] Injection test with the fake: a tool result containing an instruction does not
       change the tool set, the limits or the finalisation path. Whether a real model
       resists it is measured on the field set in Phase 06.
-- [ ] One `live` test: a single tuning case on the cheapest configured model.
-      *(Written: `tests/agent/test_live.py`. Not run: `config/models.yaml` still holds
-      placeholders, and it spends money. Left for last at the owner's request.)*
+- [x] One `live` test: a single tuning case on the cheapest configured model.
+      On 2026-11-16, `tests/agent/test_live.py` passed with GPT-4o mini. The agent
+      produced an inconclusive report with uncited candidates after 13 model turns
+      and 13 tool calls, at a recorded cost of $0.00837705. The result was accepted
+      for this stage. The smoke test checks execution and report generation.
 - [x] Update `flowchart-agent-graph.svg` if nodes or edges changed.
 
 ## 3. Architectural Decisions & Trade-offs

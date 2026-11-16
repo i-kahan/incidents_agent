@@ -379,9 +379,9 @@ class LiteLLMTransport:
                     num_retries=0,
                     max_retries=0,
                     caching=False,
-                    no_log=True,
                     drop_params=False,
                     **output_arg,
+                    **{'no-log': True},
                 )
                 if wire.violation:
                     raise RuntimeError(wire.violation)
