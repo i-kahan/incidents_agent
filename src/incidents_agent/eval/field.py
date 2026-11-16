@@ -118,6 +118,7 @@ class Citation:
 
     call_id: str
     quote: str
+    source_file: str
 
 
 @dataclasses.dataclass(frozen=True)
@@ -163,6 +164,7 @@ def score(gold: Gold, prediction: Prediction) -> dict[str, object]:
         ]
         cited = any(
             citation.call_id == observation.call_id
+            and citation.source_file == required.source_file
             and _contains(citation.quote, required.quote)
             and _contains(observation.content, citation.quote)
             for observation in matching
@@ -184,8 +186,11 @@ def score(gold: Gold, prediction: Prediction) -> dict[str, object]:
             *prediction.action_components,
         )
     )
-    category_match = normalize(prediction.fault_category or '') == normalize(
-        gold.fault_category
+    category_match = (
+        healthy_pass
+        if healthy
+        else normalize(prediction.fault_category or '')
+        == normalize(gold.fault_category)
     )
     retrieved = all(item['retrieved'] for item in evidence)
     cited = all(item['cited'] for item in evidence)
