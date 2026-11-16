@@ -1,6 +1,7 @@
 """Catalog inspection and read-only SQL execution tools."""
 
 import dataclasses
+import json
 import pathlib
 import threading
 
@@ -77,6 +78,19 @@ class ToolContext:
     connection: duckdb.DuckDBPyConnection
     catalog: ingest_schema.Catalog
     db_path: pathlib.Path | None = None
+
+
+# describe_table returns column statistics a page at a time so that wide
+# tables (hundreds of metric columns) stay under the tool result cap.
+DESCRIBE_DEFAULT_MAX_COLUMNS = 20
+DESCRIBE_MAX_COLUMNS = 50
+# Room left for the fields the registry adds (call_id, tool, truncation flag,
+# redaction count) when a tool sizes its own output against the cap.
+_REGISTRY_OVERHEAD_CHARS = 300
+
+
+def _json_len(value: object) -> int:
+    return len(json.dumps(value, ensure_ascii=False))
 
 
 def error_result(
@@ -268,7 +282,19 @@ def list_tables(ctx: ToolContext, args: dict[str, object]) -> dict[str, object]:
 def describe_table(
     ctx: ToolContext, args: dict[str, object]
 ) -> dict[str, object]:
-    """Describe columns, summary statistics, time info, and sample rows."""
+    """Describe a page of columns with stats, time info, and sample rows.
+
+    Args:
+        ctx: Tool context with the catalog and connection.
+        args: `table` (required); `sample_rows` (0-10, default 3);
+            `column_pattern` (case-insensitive substring filter on column
+            names); `column_offset` and `max_columns` (default 20, at most
+            50) select the page of matching columns.
+
+    Returns:
+        Column statistics and sample rows for the selected columns, with
+        `summary.next_column_offset` set while more columns match.
+    """
     table_name = args.get('table')
     if not isinstance(table_name, str) or not table_name.strip():
         return error_result('invalid_args', 'table must be a non-empty string')
@@ -284,9 +310,28 @@ def describe_table(
         return error_result('invalid_args', 'sample_rows must be an integer')
     sample_count = max(0, min(10, raw_samples))
 
+    raw_offset = args.get('column_offset', 0)
+    if not isinstance(raw_offset, int) or isinstance(raw_offset, bool):
+        return error_result('invalid_args', 'column_offset must be an integer')
+    raw_max = args.get('max_columns', DESCRIBE_DEFAULT_MAX_COLUMNS)
+    if not isinstance(raw_max, int) or isinstance(raw_max, bool):
+        return error_result('invalid_args', 'max_columns must be an integer')
+    raw_pattern = args.get('column_pattern')
+    if raw_pattern is not None and not isinstance(raw_pattern, str):
+        return error_result('invalid_args', 'column_pattern must be a string')
+
+    matching = [
+        col
+        for col in entry.columns
+        if not raw_pattern or raw_pattern.lower() in col.name.lower()
+    ]
+    offset = max(0, raw_offset)
+    page_size = max(1, min(DESCRIBE_MAX_COLUMNS, raw_max))
+    page = matching[offset : offset + page_size]
+
     table_sql = time_detect.quote_ident(entry.name)
     col_stats: list[dict[str, object]] = []
-    for col in entry.columns:
+    for col in page:
         col_sql = time_detect.quote_ident(col.name)
         upper_dtype = col.dtype.upper()
         is_numeric = any(
@@ -347,10 +392,11 @@ def describe_table(
             )
 
     samples: list[dict[str, object]] = []
-    if sample_count > 0:
-        col_names = [col.name for col in entry.columns]
+    if sample_count > 0 and page:
+        col_names = [col.name for col in page]
+        select_list = ', '.join(time_detect.quote_ident(n) for n in col_names)
         rows = ctx.connection.execute(
-            f'SELECT * FROM {table_sql} LIMIT {sample_count}'
+            f'SELECT {select_list} FROM {table_sql} LIMIT {sample_count}'
         ).fetchall()
         for row in rows:
             samples.append(
@@ -360,23 +406,55 @@ def describe_table(
                 }
             )
 
-    return {
-        'ok': True,
-        'table': entry.name,
-        'source_file': entry.source_file,
-        'kind': entry.kind,
-        'row_count': entry.row_count,
-        'time_info': entry.time_info.to_dict(),
-        'relationships': [rel.to_dict() for rel in entry.relationships],
-        'columns': col_stats,
-        'untrusted_data': safety.wrap_untrusted_data({'sample_rows': samples}),
-        'locator': tool_schema.ToolLocator(
-            kind='table_schema',
-            table=entry.name,
-            columns=tuple(col.name for col in entry.columns),
-        ).to_dict(),
-        'target_components': [],
-    }
+    def _build(kept: int, sample_kept: int) -> dict[str, object]:
+        names = [col.name for col in page[:kept]]
+        end = offset + kept
+        return {
+            'ok': True,
+            'table': entry.name,
+            'source_file': entry.source_file,
+            'kind': entry.kind,
+            'row_count': entry.row_count,
+            'time_info': entry.time_info.to_dict(),
+            'relationships': [rel.to_dict() for rel in entry.relationships],
+            'summary': {
+                'column_count': len(entry.columns),
+                'matching_column_count': len(matching),
+                'column_pattern': raw_pattern,
+                'column_offset': offset,
+                'columns_returned': kept,
+                'next_column_offset': end if end < len(matching) else None,
+            },
+            'columns': col_stats[:kept],
+            'untrusted_data': safety.wrap_untrusted_data(
+                {
+                    'sample_rows': [
+                        {name: row[name] for name in names}
+                        for row in samples[:sample_kept]
+                    ]
+                }
+            ),
+            'locator': tool_schema.ToolLocator(
+                kind='table_schema', table=entry.name, columns=tuple(names)
+            ).to_dict(),
+            'target_components': [],
+        }
+
+    # Fit the page under the result cap here, so the generic cap never cuts
+    # columns and next_column_offset always points at the first column not
+    # returned: one sample row first, then fewer columns.
+    budget = ctx.catalog.limits.max_result_chars - _REGISTRY_OVERHEAD_CHARS
+    kept, sample_kept = len(page), len(samples)
+    result = _build(kept, sample_kept)
+    while _json_len(result) > budget:
+        if sample_kept > 1:
+            sample_kept = 1
+        elif kept > 1:
+            kept -= 1
+        else:
+            break
+        result = _build(kept, sample_kept)
+    return result
 
 
 def run_sql(ctx: ToolContext, args: dict[str, object]) -> dict[str, object]:

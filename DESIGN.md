@@ -64,7 +64,7 @@ can react to them.
 | Tool | Purpose |
 |---|---|
 | `list_tables` | Show the catalog |
-| `describe_table` | Columns, basic statistics, sample rows |
+| `describe_table` | Columns (a page at a time), basic statistics, sample rows |
 | `run_sql` | Read-only query with a row limit and timeout |
 | `search_text` | Regex over log text, grouped by message pattern, with counts before and after a time |
 | `compare_windows` | Rank numeric columns by how much they shift across a split time |

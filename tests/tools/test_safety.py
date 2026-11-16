@@ -8,6 +8,7 @@ import pytest
 from incidents_agent import ingest
 from incidents_agent import tools
 from incidents_agent.tools import safety
+from tests.tools import conftest
 
 
 @pytest.mark.parametrize(
@@ -118,3 +119,82 @@ def test_cap_result_size_truncates_single_oversized_string() -> None:
     assert capped['truncated'] is True
     assert tuple_cnt == 1
     assert cleaned_tuple == ['[REDACTED_SECRET]']
+
+
+def test_cap_result_size_trims_raw_data_before_response_structure() -> None:
+    """A long untrusted list is cut before a short structural one."""
+    tables_meta = [{'name': f'table_{i}', 'kind': 'metrics'} for i in range(7)]
+    outline = [{'heading': f'Section {i}', 'line': i} for i in range(200)]
+    payload = {
+        'ok': True,
+        'tables': tables_meta,
+        'untrusted_data': safety.wrap_untrusted_data({'outline': outline}),
+    }
+
+    capped = safety.cap_result_size(payload, max_chars=2_000)
+
+    assert len(json.dumps(capped, ensure_ascii=False)) <= 2_000
+    assert capped['tables'] == tables_meta
+    truncation = conftest.as_dict(capped['truncation'])
+    lists = conftest.as_dict_list(truncation['lists'])
+    assert lists[0]['path'] == 'untrusted_data.content.outline'
+    assert lists[0]['total'] == 200
+    kept = conftest.as_dict_list(conftest.untrusted_content(capped)['outline'])
+    assert lists[0]['kept'] == len(kept)
+
+
+def test_cap_result_size_trims_list_holding_most_characters() -> None:
+    """The list with the most characters goes first, not the longest one."""
+    many_small = list(range(300))
+    few_large = ['y' * 400 for _ in range(10)]
+    payload = {
+        'ok': True,
+        'untrusted_data': safety.wrap_untrusted_data(
+            {'ids': many_small, 'blobs': few_large}
+        ),
+    }
+
+    capped = safety.cap_result_size(payload, max_chars=3_000)
+
+    content = conftest.untrusted_content(capped)
+    assert content['ids'] == many_small
+    assert isinstance(content['blobs'], list)
+    assert len(content['blobs']) < 10
+
+
+def test_cap_result_size_never_trims_summary_or_locator() -> None:
+    """Summary and locator lists survive; truncation reports kept rows."""
+    columns = [f'column_{i}' for i in range(40)]
+    rows = [{'idx': i, 'msg': 'x' * 80} for i in range(200)]
+    payload = {
+        'ok': True,
+        'summary': {'columns': columns, 'row_count': 200},
+        'untrusted_data': safety.wrap_untrusted_data({'rows': rows}),
+        'locator': {'kind': 'sql_query', 'columns': columns},
+    }
+
+    capped = safety.cap_result_size(payload, max_chars=6_000)
+
+    assert len(json.dumps(capped, ensure_ascii=False)) <= 6_000
+    assert conftest.as_dict(capped['summary'])['columns'] == columns
+    assert conftest.as_dict(capped['locator'])['columns'] == columns
+    kept_rows = conftest.as_dict_list(
+        conftest.untrusted_content(capped)['rows']
+    )
+    truncation = conftest.as_dict(capped['truncation'])
+    assert truncation['lists'] == [
+        {
+            'path': 'untrusted_data.content.rows',
+            'kept': len(kept_rows),
+            'total': 200,
+        }
+    ]
+    assert kept_rows == rows[: len(kept_rows)]
+
+
+def test_cap_result_size_leaves_small_results_unmarked() -> None:
+    """A result under the cap gets truncated=False and no truncation key."""
+    capped = safety.cap_result_size({'ok': True, 'rows': [1, 2]}, 6_000)
+
+    assert capped['truncated'] is False
+    assert 'truncation' not in capped

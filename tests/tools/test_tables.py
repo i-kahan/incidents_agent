@@ -1,5 +1,6 @@
 """Unit tests for list_tables, describe_table, run_sql, and registry."""
 
+import json
 import pathlib
 
 import pytest
@@ -234,5 +235,96 @@ def test_registry_returns_error_for_unknown_tool_and_bad_args(
         assert bad_sql['ok'] is False
         assert conftest.as_dict(bad_sql['error'])['code'] == 'sql_error'
         assert tables.validate_readonly_sql('SELECT 1;') == 'SELECT 1'
+    finally:
+        ingested.close()
+
+
+def _make_wide_db(
+    tmp_path: pathlib.Path, n_cols: int
+) -> ingest_schema.IngestResult:
+    src = tmp_path / 'wide'
+    src.mkdir()
+    names = [
+        f'service_{i:03d}_container_cpu_usage_seconds' for i in range(n_cols)
+    ]
+    lines = ['time,' + ','.join(names)]
+    for row in range(5):
+        values = ','.join(
+            f'{row * 1.234567 + col:.6f}' for col in range(n_cols)
+        )
+        lines.append(f'{1700000000 + row * 10},{values}')
+    (src / 'wide.csv').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+    return ingest.ingest_folder(src, workdir=tmp_path / 'db')
+
+
+def test_describe_table_pages_wide_tables_without_cap_truncation(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Pages fit under the cap and together cover every column once."""
+    ingested = _make_wide_db(tmp_path, n_cols=150)
+    try:
+        reg = tools.create_default_registry(ingested)
+        cap = ingested.catalog.limits.max_result_chars
+        seen: list[str] = []
+        offset: object = 0
+        pages = 0
+
+        while offset is not None:
+            res = reg.call(
+                'describe_table',
+                {'table': 'wide', 'column_offset': offset, 'max_columns': 50},
+            )
+            pages += 1
+            assert res['ok'] is True
+            assert res['truncated'] is False
+            assert len(json.dumps(res, ensure_ascii=False)) <= cap
+            summary = conftest.as_dict(res['summary'])
+            columns = conftest.as_dict_list(res['columns'])
+            assert summary['columns_returned'] == len(columns)
+            seen.extend(str(col['name']) for col in columns)
+            offset = summary['next_column_offset']
+            assert pages < 200
+
+        all_names = [col.name for col in ingested.catalog.tables[0].columns]
+        assert seen == all_names
+        assert pages > 1
+    finally:
+        ingested.close()
+
+
+def test_describe_table_filters_columns_by_pattern(
+    tmp_path: pathlib.Path,
+) -> None:
+    """column_pattern narrows columns; an empty match returns no columns."""
+    ingested = _make_wide_db(tmp_path, n_cols=30)
+    try:
+        reg = tools.create_default_registry(ingested)
+
+        matched = reg.call(
+            'describe_table', {'table': 'wide', 'column_pattern': 'SERVICE_01'}
+        )
+        missing = reg.call(
+            'describe_table', {'table': 'wide', 'column_pattern': 'nothing'}
+        )
+
+        names = [
+            col['name'] for col in conftest.as_dict_list(matched['columns'])
+        ]
+        assert names == [
+            f'service_{i:03d}_container_cpu_usage_seconds'
+            for i in range(10, 20)
+        ]
+        assert (
+            conftest.as_dict(matched['summary'])['matching_column_count'] == 10
+        )
+        rows = conftest.as_dict_list(
+            conftest.untrusted_content(matched)['sample_rows']
+        )
+        assert all(set(row) == set(names) for row in rows)
+        assert missing['ok'] is True
+        assert missing['columns'] == []
+        assert (
+            conftest.as_dict(missing['summary'])['next_column_offset'] is None
+        )
     finally:
         ingested.close()
