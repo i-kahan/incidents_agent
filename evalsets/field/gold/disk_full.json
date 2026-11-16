@@ -1,0 +1,26 @@
+{
+  "schema_version": 2,
+  "case_id": "disk_full",
+  "root_cause_component": "batch-worker",
+  "accepted_aliases": [
+    "batch-worker",
+    "batch_worker",
+    "batch worker"
+  ],
+  "fault_category": "disk_exhaustion",
+  "onset_time_s": 1700003200,
+  "required_evidence": [
+    {
+      "source_file": "events.log",
+      "quote": "export task wrote 950MB temporary files; ENOSPC on /scratch"
+    },
+    {
+      "source_file": "operations.md",
+      "quote": "Batch exports write to /scratch"
+    },
+    {
+      "source_file": "storage.tsv",
+      "quote": "disk_used_pct"
+    }
+  ]
+}

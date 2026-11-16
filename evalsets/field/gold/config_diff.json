@@ -9,8 +9,18 @@
   "fault_category": "bad_config_change",
   "onset_time_s": 1700000200,
   "required_evidence": [
-    "AUTH_JWKS_TIMEOUT_MS",
-    "deploy_diff.patch",
-    "JWKS fetch timed out"
-  ]
+    {
+      "source_file": "deploy_diff.patch",
+      "quote": "AUTH_JWKS_TIMEOUT_MS"
+    },
+    {
+      "source_file": "app.log",
+      "quote": "JWKS fetch timed out"
+    },
+    {
+      "source_file": "runbook.md",
+      "quote": "below 50ms"
+    }
+  ],
+  "schema_version": 2
 }

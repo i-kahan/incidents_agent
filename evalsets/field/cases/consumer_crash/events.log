@@ -1,0 +1,9 @@
+1700005010 INFO queue-consumer health checks passed
+1700005200 ERROR queue-consumer consumer exited status=1 after schema version mismatch
+1700005210 ERROR queue-consumer consumer exited status=1 after schema version mismatch
+1700005220 ERROR queue-consumer consumer exited status=1 after schema version mismatch
+1700005230 ERROR queue-consumer consumer exited status=1 after schema version mismatch
+1700005240 ERROR queue-consumer consumer exited status=1 after schema version mismatch
+1700005250 ERROR queue-consumer consumer exited status=1 after schema version mismatch
+1700005260 ERROR queue-consumer consumer exited status=1 after schema version mismatch
+1700005270 ERROR queue-consumer consumer exited status=1 after schema version mismatch
