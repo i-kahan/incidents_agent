@@ -244,7 +244,8 @@ provide; nothing is hard-coded.
   and 5, at service and indicator level), always given the answers subset that matches
   the cases run. Confidence intervals and paired differences are bootstrapped by
   service–fault pair.
-- **Baselines, as a ladder:** BARO (metrics only); multi-source BARO if it runs in the
+- **Baselines, as a ladder:** BARO (metrics only); guarded BARO, which skips series that
+  are flat in the normal window; multi-source BARO if it runs in the
   pinned setup (all inputs, no model); a single model call given the same summary
   statistics (a model, no loop); and the plain tool loop (a loop, no ledger or verify).
   Each rung removes one explanation for a gain.
@@ -381,9 +382,11 @@ Phase-by-phase detail is in `planning/`.
 
 ## 12. Risks
 
-- **Little headroom:** BARO is strong on this benchmark (0.74 top-1 and 0.98 top-5 at
-  service level on RE1-OB per RCAEval's docs; RE2-OB not yet measured). If the agent
-  cannot beat it, the writeup reports that along with cost and failure analysis.
+- **Little headroom:** BARO is strong at top 3 to 5 (0.98 top-5 at service level on RE1-OB
+  per RCAEval's docs; 1.00 top-3 on the RE2-OB tuning cases). Its RE2-OB top-1 is
+  held down by one bursty series, so the comparison also uses a guarded BARO. If the
+  agent cannot beat the stronger of the two, the writeup reports that along with cost
+  and failure analysis.
 - **Generic tools may score lower** than tools built for RCAEval's format.
 - **Upload-path accuracy is weakly evidenced:** seven self-authored cases, reported as
   such.

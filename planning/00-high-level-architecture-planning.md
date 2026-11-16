@@ -71,7 +71,7 @@ Diagrams (kept in this folder, see §8):
 | # | Phase file | Depends on | Status |
 |---|---|---|---|
 | 01 | [Foundation & Environment](01-foundation-and-environment.md) | — | Ready for review |
-| 02 | [Baseline & Headroom Study](02-baseline-and-headroom-study.md) | 01 | In progress (split locked) |
+| 02 | [Baseline & Headroom Study](02-baseline-and-headroom-study.md) | 01 | Ready for review |
 | 03 | [Ingest & Tools](03-ingest-and-tools.md) | 01 (its optional model fallback: 04) | Not started |
 | 04 | [Model Layer](04-model-layer.md) | 01 | Not started |
 | 05 | [Agent](05-agent.md) | 03, 04 | Not started |
@@ -122,11 +122,12 @@ this plan, are in [`future-improvements.md`](future-improvements.md).
 | CI | Lint, type checks and the default tests on every PR; required on `main` | 01 |
 | Tooling | `uv` for environments, `ruff` for lint and format, `mypy` (strict) for types, `pytest` for tests | 01 |
 | Workflow | One feature branch and one PR per phase (or workstream); squash merge | 01 |
-| Benchmark target | RCAEval RE2, Online Boutique, unless the headroom study says otherwise | 02 |
+| Benchmark target | RCAEval RE2, Online Boutique, as exported; confirmed by the rule (BARO tuning top-1 0.00) | 02 |
 | Data split | Locked before any labelled result is examined; grouped by service–fault pair, 10 pairs (30 cases) tuning / 20 pairs (60 cases) held out | 02 |
 | Split file | Opaque group ids and the answers digest, no labels; created once, then only verified | 02 |
 | Benchmark target rule | Changed only if BARO's top-1 on tuning is 0.90 or higher, by a rule fixed in advance | 02 |
 | Baselines | BARO, plus multi-source BARO if it runs, to separate better reasoning from richer inputs | 02 |
+| Held-out scoring | In process through RCAEval's evaluator; headline numbers only, nothing per case or per fault | 02 |
 | Storage for dropped files | One DuckDB database per run, read-only, external access disabled | 03 |
 | Tool surface | A few generic tools (SQL, text search, window comparison) instead of RCAEval-specific ones | 03 |
 | Dependencies | One tool builds a component graph from detected relationship columns; says so when there are none | 03 |
@@ -153,7 +154,7 @@ this plan, are in [`future-improvements.md`](future-improvements.md).
 | Uncertainty | Intervals and paired differences bootstrapped by service–fault pair | 06 |
 | Budget | Every paid use ranked; the final run's money reserved first | 06 |
 | Model comparison | `run_eval.py` runs one configuration; `compare_models.py` aggregates several | 06 |
-| Baseline ladder | BARO, multi-source BARO, a single model call, the plain loop; plus agreement with BARO's top answer | 06 |
+| Baseline ladder | BARO, guarded BARO (skips zero-IQR series), multi-source BARO, a single model call, the plain loop; headline against the stronger BARO row at tuning top 1; plus agreement with its top answer | 06 |
 | Run-to-run noise | Measured once on a small sample and quoted with every comparison | 04, 06 |
 | Onset detection | `find_onset` scored against RCAEval's known start times, at no cost | 06 |
 | Upload-path evidence | Seven hand-built non-RCAEval cases (six incidents, one healthy; one with a planted instruction), scored deterministically, reported separately as counts | 06 |
@@ -168,7 +169,6 @@ this plan, are in [`future-improvements.md`](future-improvements.md).
 
 Open items, flagged **⚠️ OPEN** in the phase files:
 
-- **Target setting** (02): confirmed or changed once BARO's RE2-OB scores are measured.
 - **Models to compare** (04, 06): the owner supplies keys and model IDs.
 
 ## 5. Constraints (summary)

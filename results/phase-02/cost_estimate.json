@@ -1,0 +1,59 @@
+{
+  "measured_on": "30 tuning cases",
+  "probe_results": 240,
+  "mean_prompt_chars": 4619,
+  "result_chars_after_cap": {
+    "mean": 2124,
+    "median": 992,
+    "p90": 5145
+  },
+  "loop": {
+    "prompt_tokens": 1155,
+    "result_tokens": {
+      "typical": 531,
+      "heavy": 1287
+    },
+    "output_tokens_per_turn": 150,
+    "tool_calls": 15,
+    "chars_per_token": 4
+  },
+  "target_usd_per_case": 0.05,
+  "estimates": {
+    "claude-haiku-5-5": {
+      "typical": {
+        "input_tokens": 100200,
+        "uncached_usd": 0.0112,
+        "cached_usd": 0.0032
+      },
+      "heavy": {
+        "input_tokens": 190920,
+        "uncached_usd": 0.0203,
+        "cached_usd": 0.0052
+      }
+    },
+    "gpt-5.4-mini": {
+      "typical": {
+        "input_tokens": 100200,
+        "uncached_usd": 0.086,
+        "cached_usd": 0.026
+      },
+      "heavy": {
+        "input_tokens": 190920,
+        "uncached_usd": 0.154,
+        "cached_usd": 0.0404
+      }
+    },
+    "gemini/gemini-flash-latest": {
+      "typical": {
+        "input_tokens": 100200,
+        "uncached_usd": 0.0842,
+        "cached_usd": 0.0242
+      },
+      "heavy": {
+        "input_tokens": 190920,
+        "uncached_usd": 0.1522,
+        "cached_usd": 0.0386
+      }
+    }
+  }
+}
