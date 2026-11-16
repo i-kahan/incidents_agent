@@ -160,11 +160,14 @@ def score(
     """
     answers = RCAEval.agent.predictions.load_answers(str(answers_path))
     case_ids = [a['case_id'] for a in answers]
-    predictions = RCAEval.agent.predictions.load_predictions(
-        str(predictions_path), case_ids
-    )
+    try:
+        predictions = RCAEval.agent.predictions.load_predictions(
+            str(predictions_path), case_ids
+        )
+    except RCAEval.agent.predictions.PredictionsError as error:
+        raise ScoringError('; '.join(error.errors)) from error
     raw_summary, raw_rows = RCAEval.agent.predictions.evaluate(
-        answers, predictions
+        answers, predictions, predictions_path=str(predictions_path)
     )
     summary: dict[str, object] = dict(raw_summary)
     if summary['n_cases'] != expected_cases:
@@ -211,3 +214,31 @@ def tool_result_chars(
     for name, args in calls:
         case.call(name, dict(args))
     return [int(call['result_chars']) for call in case.calls]
+
+
+def service_name(name: str) -> str:
+    """Normalize a ranked name using the official service mapping."""
+    return str(RCAEval.benchmark.scoring.to_service(name.strip().lower()))
+
+
+def guarded_baro_ranks(case_dir: pathlib.Path) -> list[str]:
+    """Run unchanged BARO after dropping zero-IQR normal-window metrics."""
+    case = _case(case_dir)
+    frame = case.standard_metrics()
+    normal = frame[frame['time'] < case.inject_time]
+    if normal.empty:
+        raise ValueError('Guarded BARO needs a nonempty normal window')
+    eligible = [
+        name
+        for name in frame.columns
+        if name != 'time'
+        and normal[name].quantile(0.75) - normal[name].quantile(0.25) > 0
+    ]
+    if not eligible:
+        return []
+    result = _BARO.baro(
+        frame[['time', *eligible]],
+        case.inject_time,
+        dataset=case.task['dataset'],
+    )
+    return [str(name) for name in result['ranks']]

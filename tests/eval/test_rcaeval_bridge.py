@@ -1,5 +1,6 @@
 """Integration tests for the RCAEval baselines and evaluator wrappers."""
 
+import csv
 import json
 import math
 import pathlib
@@ -177,3 +178,23 @@ def test_score_with_wrong_expected_count_raises(
         rcaeval_bridge.score(
             answers, predictions, expected_cases=3, aggregate_only=True
         )
+
+
+@pytest.mark.integration
+def test_guarded_baro_excludes_bursty_zero_iqr(multisource_case):
+    """A mostly zero normal column cannot dominate a sustained shift."""
+    path = multisource_case / 'metrics.csv'
+    with path.open() as source:
+        rows = list(csv.DictReader(source))
+    for row in rows:
+        t = int(row['time'])
+        row['redis_diskio'] = str(100000 if t >= INJECT else int(t % 100 == 0))
+    with path.open('w') as output:
+        writer = csv.DictWriter(output, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+
+    ranks = rcaeval_bridge.guarded_baro_ranks(multisource_case)
+
+    assert ranks[0] == 'checkout_cpu'
+    assert 'redis_diskio' not in ranks
