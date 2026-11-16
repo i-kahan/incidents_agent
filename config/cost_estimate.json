@@ -1,0 +1,22 @@
+{
+  "_comment": "Inputs to the Phase 02 cost-per-case estimate. Prices come from LiteLLM's bundled price map, read offline.",
+  "models": [
+    "claude-haiku-5-5",
+    "gpt-5.4-mini",
+    "gemini/gemini-flash-latest"
+  ],
+  "tool_calls": 15,
+  "result_cap_chars": 6000,
+  "output_tokens_per_turn": 150,
+  "target_usd_per_case": 0.05,
+  "probe_calls": [
+    ["describe_case", {}],
+    ["list_metrics", {}],
+    ["rank_anomalies", {"modality": "metrics"}],
+    ["rank_anomalies", {"modality": "logs"}],
+    ["rank_anomalies", {"modality": "trace_latency"}],
+    ["search_logs", {}],
+    ["trace_summary", {}],
+    ["call_graph", {}]
+  ]
+}

@@ -52,7 +52,10 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
 - [ ] Call RCAEval's evaluator with the answers subset that matches the cases run,
       never the full answers file for a partial run, and assert that the evaluator's
       case count equals the number of cases intended. For a subset of a full
-      task manifest, pass `--answers <subset>` and omit `--tasks`.
+      task manifest, pass `--answers <subset>` and omit `--tasks`. The predictions
+      file must hold only that subset's cases: RCAEval rejects any other case id.
+      Phase 02's `incidents_agent.eval.rcaeval_bridge.score` already does this in
+      process.
 - [ ] Parse its JSON summary and per-case output for accuracy at top 1, 3 and 5 at
       service and indicator level.
 - [ ] Evaluator contract test on a tiny fixture (three cases, hand-written answers):

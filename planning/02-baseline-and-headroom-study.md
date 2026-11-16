@@ -1,6 +1,6 @@
 # Phase 2: Baseline & Headroom Study
 
-**Status:** In progress — split locked (Workstream A); baselines and headroom next
+**Status:** Ready for review — split in PR A (#2); baselines and headroom in PR B
 
 ## 1. Objective
 Fix the tuning and held-out split first, then measure what the statistical baselines
@@ -24,24 +24,25 @@ confirmed or changed by a rule written down before the numbers were seen.
       coverage constraint met.
 
 **Baselines — free**
-- [ ] Run RCAEval's BARO example agent on all 90 cases; save `predictions.jsonl`.
-- [ ] Score tuning and held-out separately, each against its own answers subset, with
+- [x] Run BARO on all 90 cases; save `predictions.jsonl`. RCAEval 1.12.0 ships no BARO
+      example script, so `make baselines` calls its `baro()` directly (Decision 6).
+- [x] Score tuning and held-out separately, each against its own answers subset, with
       `--report-chance`. For held-out cases keep **aggregate scores only**: no per-case
       output is written or read.
-- [ ] If it runs in the pinned setup, also run multi-source BARO (`mmbaro`), which uses
+- [x] If it runs in the pinned setup, also run multi-source BARO (`mmbaro`), which uses
       metrics, logs and traces. It separates "the agent reasons better" from "the agent
       sees more data".
 
 **Headroom analysis — tuning cases only**
-- [ ] Break BARO's tuning scores down by fault type and by service; list its misses at
+- [x] Break BARO's tuning scores down by fault type and by service; list its misses at
       top 1 and at top 3.
-- [ ] For up to ten tuning misses, check by hand whether logs or traces point to the
+- [x] For up to ten tuning misses, check by hand whether logs or traces point to the
       true root cause. Record the count.
-- [ ] Estimate cost per case: tokens in a typical case's tool outputs, times the tool
+- [x] Estimate cost per case: tokens in a typical case's tool outputs, times the tool
       call limit, at the configured models' prices. Compare with the cost per case the
       final-run allocation implies — $0.05 at the default limit (Phase 06, Decision 6).
-- [ ] Apply the target rule (Decision 3) and record the outcome.
-- [ ] Unit tests for the breakdown code.
+- [x] Apply the target rule (Decision 3) and record the outcome.
+- [x] Unit tests for the breakdown code.
 
 ## 3. Architectural Decisions & Trade-offs
 
@@ -113,6 +114,49 @@ confirmed or changed by a rule written down before the numbers were seen.
 * **Trade-off:** Rejection sampling conditions the draw on coverage, so the split is
   uniform only over the covering draws. A stratified draw would be harder to explain.
 
+#### Decision 6: BARO is run as RCAEval ships it, with its full ranking
+
+* **Decision:** BARO is RCAEval's `baro()` with its default preprocessing, called on
+  the toolkit's standard window. The full ranking is kept. The toolkit's
+  `rank_anomalies` stops at 20 entries, which can leave fewer than five services.
+* **Context/Constraint:** Decision 3 names "BARO's top-1" as the reference, and RCAEval
+  ships no BARO script for the agent task view. Calling the function directly is the
+  closest thing to the published method.
+* **Trade-off:** On RE2-OB this BARO ranks `redis_diskio` first in every tuning case
+  (§5). That series is zero most of the time with periodic bursts. Its interquartile
+  range is zero, so its robust z-score is huge. The baseline is therefore weak at top 1
+  for a reason unrelated to the fault. The report states this, and Phase 06 decides
+  whether a guarded statistic joins the baseline ladder (open item below).
+* **Rejected alternatives:** RCAEval's own `dk_select_useful` option. It drops the
+  `redis_*` series, but its variance filter leaves one or two metrics per case on
+  RE2-OB. It scored 0.20 at top 1, 3 and 5 on tuning, so it is not a usable baseline.
+
+#### Decision 7: Multi-source BARO uses the same window, and is also scored on candidates only
+
+* **Decision:** `mmbaro` gets metrics, log-template counts and both trace series, each
+  cut to the case's standard window and NaN-filled as RCAEval's toolkit does. It is
+  scored twice: as it ranks, and with names whose service is not a candidate removed.
+  Of its names, 271 map to non-candidate services: `frontendservice`, `traceservice` and
+  `health` from trace operations.
+* **Context/Constraint:** RCAEval 1.12.0 has `mmbaro()` but no loader for the agent
+  task view. The agent must answer from the closed candidate list, so the filtered
+  row is the fairer comparison. The raw row shows the method as published.
+* **Trade-off:** Two rows instead of one. They differ only at held-out top 5.
+
+#### Decision 8: Held-out is scored in process, and only its headline numbers are kept
+
+* **Decision:** Scoring calls RCAEval's evaluator (`load_answers`, `load_predictions`,
+  `evaluate`) in Python, not through its command line. For held-out, the per-case rows
+  and the per-fault breakdown are discarded before anything is written or printed. The
+  result keeps `n_cases`, `n_predicted`, and the service and indicator scores
+  (AC@1/3/5, Avg@5, Chance@5, Lift@5). Each side gets its own predictions file.
+* **Context/Constraint:** The command line prints Avg@5 per fault, which would show
+  held-out failures by fault type. The evaluator rejects any prediction whose case is
+  not in the answers file it is given.
+* **Trade-off:** The scoring path is RCAEval's own code, but not its command line.
+  Chance@5 and Lift@5 are taken from the summary, which is the equivalent of
+  `--report-chance`.
+
 ## 4. Constraints
 
 * **Blind task view.** *Source: RCAEval `docs/AGENTS.md`.* **Implication:** the agent is
@@ -122,6 +166,10 @@ confirmed or changed by a rule written down before the numbers were seen.
   subset answers file, or the missing cases count as misses. Pass `--answers`
   with the subset file and omit `--tasks` when the task manifest covers all 90
   cases. RCAEval requires an exact case-ID list match if `--tasks` is supplied.
+* **Predictions must match the answers file.** *Source: RCAEval
+  `agent/predictions.py`, `load_predictions`.* **Implication:** a predictions file that
+  contains a case not in the answers file is rejected, not ignored. Write one
+  predictions file per side.
 * **Closed answer vocabulary.** *Source: `task.json` candidate lists.* **Implication:**
   predictions must use exact names from those lists; there is no fuzzy matching.
 * **Fault start time is given.** *Source: `task.json` `inject_time`.* **Implication:**
@@ -148,7 +196,83 @@ confirmed or changed by a rule written down before the numbers were seen.
   dataset.
 - No label or baseline result was read before the split was committed. Spend: $0.
 
-*Baseline tables, the tuning-set breakdown and the manual check go here.*
+**Baselines (Workstream B)** — `make baselines`; all 90 cases ranked, none failed.
+Service level, then indicator level (AC@1 / AC@3 / AC@5 / Avg@5). Chance@5 is 0.25 at
+service level and 0.05 at indicator level on both sides.
+
+| Baseline | Side | n | Service | Indicator |
+|---|---|---|---|---|
+| BARO | tuning | 30 | 0.00 / 1.00 / 1.00 / 0.79 | 0.00 / 0.53 / 0.70 / 0.46 |
+| BARO | held-out | 60 | 0.22 / 0.82 / 0.92 / 0.72 | 0.13 / 0.38 / 0.52 / 0.36 |
+| mmbaro | tuning | 30 | 0.03 / 1.00 / 1.00 / 0.79 | 0.03 / 0.50 / 0.70 / 0.45 |
+| mmbaro | held-out | 60 | 0.23 / 0.82 / 0.95 / 0.74 | 0.15 / 0.40 / 0.50 / 0.36 |
+| mmbaro, candidates only | tuning | 30 | 0.03 / 1.00 / 1.00 / 0.79 | 0.03 / 0.50 / 0.70 / 0.45 |
+| mmbaro, candidates only | held-out | 60 | 0.23 / 0.82 / 1.00 / 0.75 | 0.15 / 0.40 / 0.52 / 0.37 |
+
+Result files: `results/phase-02/*_tuning.json` and `*_heldout.json`. The held-out files
+hold aggregate keys only. Per-case rows and predictions stay in gitignored
+`runs/phase-02/`.
+
+**Tuning breakdown** (`results/phase-02/tuning_breakdown.md`)
+
+- BARO misses all 30 tuning cases at top 1 and none at top 3. The true service is
+  ranked 2nd in 28 cases and 3rd in 2. This holds for every fault type and every
+  service.
+- The cause is one series: `redis_diskio` is BARO's first-ranked name in all 30
+  tuning cases and mmbaro's in 29 (Decision 6). Redis is never the root cause in
+  tuning.
+- The headroom is therefore at top 1, and at indicator level (AC@3 0.53). It is not at
+  top 3 at service level.
+- The held-out top 1 is higher (0.22). Why was not examined: held-out is seen as
+  aggregates only.
+
+**Manual check** — the first ten tuning top-1 misses, using RCAEval's toolkit:
+`rank_anomalies` on logs, trace latency and trace errors, `trace_summary` and
+`search_logs`.
+
+- **Traces pointed to the true root-cause service in 10 of 10.** Either the top
+  `trace_summary` rows were that service's spans, or calls into it, or the trace-latency
+  ranking put it first.
+- **Logs pointed to it in 1 of 10.** Log-template rankings were led by `frontend`,
+  `paymentservice` or `adservice` noise.
+- This supports giving the agent trace tools early. Logs alone are weak evidence on
+  RE2-OB.
+
+**Cost per case** (`results/phase-02/cost_estimate.json`, `make headroom`; $0 spent)
+
+- Measured on the 30 tuning cases:
+  - RCAEval's reference prompt and tool schemas: 4,619 characters, about 1,155 tokens.
+  - Eight probe tool calls per case, 240 results in all. After the 6,000-character
+    cap: mean 2,124 characters (about 531 tokens), median 992, p90 5,145 (about 1,287
+    tokens).
+- Assumed: 15 tool calls plus a final turn, 150 output tokens per turn, the whole
+  history re-sent every turn, four characters per token. Prices are LiteLLM 1.109.1's
+  bundled map, read offline.
+
+| Model | Typical, no cache | Typical, cached | Heavy (p90), no cache | Heavy, cached |
+|---|---|---|---|---|
+| claude-haiku-5-5 | $0.011 | $0.003 | $0.020 | $0.005 |
+| gpt-5.4-mini | $0.086 | $0.026 | $0.154 | $0.040 |
+| gemini/gemini-flash-latest | $0.084 | $0.024 | $0.152 | $0.039 |
+
+- Against the $0.05 target: Haiku 5.5 fits even uncached. The other two fit only with
+  prompt caching or context trimming (Phases 04 and 05). Uncached, they are 1.7–3×
+  over.
+- This is an estimate from the reference toolkit's outputs. The pilot (Phase 06)
+  replaces it with measured cost.
+
+**Target rule (Decision 3):** BARO's tuning top-1 service accuracy is 0.00, below 0.90.
+**The target stays RE2-OB as exported, with the fault start time given.**
+
+**Checks:** `make lint` and `make test` passed (48 tests). New tests cover the
+breakdowns, the cost model and its configuration, BARO and mmbaro on synthetic cases,
+and aggregate-only scoring.
+
+**⚠️ OPEN — stronger statistical row (for Phase 06):** an agent could beat BARO at top 1
+just by ignoring `redis_diskio`. Phase 06's baseline ladder should consider a BARO row
+that skips series with zero interquartile range in the normal window, so a gain is not
+credited to the agent for one artifact. Choosing it now, after seeing tuning results,
+would be tuning the baseline; the owner decides.
 
 ## 6. AI-use notes (feeds `REPORT.md`)
 - Claude Code (Opus 5.5) drafted the Phase 02 plan, which the owner approved. The
@@ -156,4 +280,9 @@ confirmed or changed by a rule written down before the numbers were seen.
   estimate.
 - Claude Code wrote the answers and split modules, `scripts/make_split.py` and their
   tests. It added Decisions 4 and 5 and generated the split, reading counts only.
+- Claude Code wrote the RCAEval bridge, the headroom module, `run_baselines.py`,
+  `headroom_report.py` and their tests. It ran both scripts and diagnosed the
+  `redis_diskio` artifact. It tried and rejected RCAEval's `dk_select_useful`
+  variant, and did the manual check of ten tuning misses. It read tuning labels only;
+  held-out was seen as aggregate scores only.
 - The owner records the outcome of the PR logic and quality reviews here.
