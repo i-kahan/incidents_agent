@@ -6,6 +6,7 @@ import time
 import duckdb
 
 from incidents_agent.ingest import schema as ingest_schema
+from incidents_agent.memory import store as incident_memory
 from incidents_agent.tools import documents
 from incidents_agent.tools import graph
 from incidents_agent.tools import logs
@@ -152,12 +153,18 @@ class ToolRegistry:
 def create_default_registry(
     ingest_result: ingest_schema.IngestResult,
     first_call_number: int = 1,
+    *,
+    memory_store: incident_memory.MemoryStore | None = None,
+    run_id: str | None = None,
 ) -> ToolRegistry:
     """Create a ToolRegistry wired with all Phase 03 tools for `ingest_result`.
 
     Args:
         ingest_result: Result from `incidents_agent.ingest.ingest_folder`.
         first_call_number: Number of the first call id (see `ToolRegistry`).
+        memory_store: Optional incident memory store; when provided, registers
+            `search_past_incidents`.
+        run_id: Current run id excluded from memory matches.
 
     Returns:
         Configured ToolRegistry enforcing `ingest_result.catalog.limits`.
@@ -365,4 +372,31 @@ def create_default_registry(
     )
     for spec in specs:
         registry.register(spec)
+    if memory_store is not None:
+        store_ref = memory_store
+        registry.register(
+            tool_schema.ToolSpec(
+                name=incident_memory.SEARCH_TOOL_NAME,
+                description=(
+                    'Search past incidents for confirmed leads, rejected '
+                    'diagnoses (counterevidence), and unchecked priors.'
+                ),
+                parameters_schema={
+                    'type': 'object',
+                    'properties': {
+                        'query': {'type': 'string'},
+                        'components': {
+                            'type': 'array',
+                            'items': {'type': 'string'},
+                        },
+                        'top_k': {'type': 'integer', 'minimum': 1},
+                    },
+                    'required': ['query'],
+                    'additionalProperties': False,
+                },
+                handler=lambda args: incident_memory.search_past_incidents(
+                    store_ref, args, exclude_run_id=run_id
+                ),
+            )
+        )
     return registry

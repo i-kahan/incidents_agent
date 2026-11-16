@@ -15,6 +15,7 @@ LocatorKind = Literal[
     'document_outline',
     'onset_estimate',
     'dependency_graph',
+    'incident_memory',
 ]
 
 

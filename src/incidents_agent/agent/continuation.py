@@ -28,6 +28,7 @@ from incidents_agent.agent import results
 from incidents_agent.agent import state
 from incidents_agent.agent import trajectory
 from incidents_agent.llm import contracts
+from incidents_agent.memory import store as incident_memory
 
 
 def _link_tree(source: Path, target: Path) -> None:
@@ -112,6 +113,8 @@ def continue_run(
     agent_config: config.AgentConfig | None = None,
     *,
     clock: Callable[[], float] = time.monotonic,
+    memory_store: incident_memory.MemoryStore | None = None,
+    memory_path: Path | None = None,
 ) -> graph.RunResult:
     """Continue a finished run with added files.
 
@@ -121,6 +124,8 @@ def continue_run(
         client: Model client.
         agent_config: Configuration for this pass; the run's own when None.
         clock: Monotonic clock, injectable for tests.
+        memory_store: Optional pre-opened incident memory store.
+        memory_path: Optional path to the incident memory SQLite file.
 
     Returns:
         The continued run, with the next continuation index.
@@ -141,6 +146,12 @@ def continue_run(
     folder = run_dir / 'inputs' / f'c{index}'
     names = _combine(earlier.folder, added, folder)
     task = dataclasses.replace(earlier, folder=folder)
+    active_memory = graph.resolve_memory_store(
+        settings,
+        memory_store=memory_store,
+        memory_path=memory_path,
+        runs_dir=run_dir.parent,
+    )
     ingested = ingest.ingest_folder(folder, workdir=run_dir / f'db-c{index}')
     try:
         store = results.ResultStore.from_list(saved.get('results'))
@@ -167,6 +178,7 @@ def continue_run(
             book=book,
             continuation=index,
             clock=clock,
+            memory_store=active_memory,
         )
         summary = graph.catalog_summary(ingested.catalog)
         changes = what_changed(saved.get('catalog') or {}, summary)
@@ -196,4 +208,14 @@ def continue_run(
         ingested.close()
     if run.final is None:
         raise RuntimeError('The graph ended without reaching report')
+    if active_memory is not None and not active_memory.frozen:
+        updated = incident_memory.build_record_from_run(
+            task, summary, run.final, store
+        )
+        existing = active_memory.get(run_id)
+        if existing is not None:
+            updated = dataclasses.replace(
+                updated, created_at=existing.created_at
+            )
+        active_memory.save(updated)
     return graph.RunResult(run_id, run_dir, run.final, tuple(record.events))

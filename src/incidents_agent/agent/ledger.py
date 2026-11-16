@@ -340,6 +340,10 @@ class HypothesisLedger:
         self, entry: Hypothesis, refs: list[report.EvidenceRef]
     ) -> None:
         for ref in refs:
+            if ref.stance != 'against':
+                stored = self.store.get(ref.call_id)
+                if stored is not None and stored.from_memory:
+                    continue
             target = (
                 entry.evidence_against
                 if ref.stance == 'against'
@@ -483,7 +487,10 @@ class HypothesisLedger:
         )
         refs = self._citations(evidence, stance, problems)
         if outcome in ('supported', 'refuted') and not any(
-            ref.call_id in fresh_calls for ref in refs
+            ref.call_id in fresh_calls
+            and (stored := self.store.get(ref.call_id)) is not None
+            and not stored.from_memory
+            for ref in refs
         ):
             return [
                 *problems,
