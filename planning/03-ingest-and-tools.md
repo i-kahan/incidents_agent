@@ -30,16 +30,16 @@ work the same on an RCAEval case and on an arbitrary upload, with no LLM involve
       the heading path kept on each chunk; diffs chunked by file and hunk; config files
       (YAML, TOML, INI, JSON) chunked by top-level section; small documents kept whole.
       Oversized chunks are split at sentence boundaries with a small overlap.
-- [ ] *(After Phase 04 — needs the model client, spend guard and fake.)*
+- [x] *(After Phase 04 — needs the model client, spend guard and fake.)*
       Model-assisted fallback for files the rules cannot place with confidence: one
       cheap model call sees the file name and a short sample and picks from a fixed
       menu — file kind (tabular, log, document) and chunking strategy (headings,
       paragraphs, hunks, sections, whole). The choice, its stated reason and its cost
       are recorded in the catalog. Off by a configuration flag; cached by file hash;
       reserved through the spend guard; never used when the rules are confident.
-      Deterministic ingest lands first and works without it. *(Protocol hook, hash
-      cache, menu validation, and fake-client unit tests landed in Workstream A;
-      Phase 04 wires the real LiteLLM client and spend guard.)*
+      Deterministic ingest lands first and works without it. *(Wired to Phase 04's
+      `ModelClient` contract, `SpendLedger`-backed `GuardedClient`, `Decimal` cost
+      accounting, and `ScriptedClient` / guarded tests.)*
 - [x] Chunks stored in a `document_chunks` table: document, chunk id, position, heading
       path, text.
 - [x] Catalog builder: per table, the columns, types, row count, time column, time range
@@ -307,4 +307,15 @@ same order in all three cases.
   columns, and `run_sql` 12 of 500 rows while its summary said 500. Claude rewrote the
   trimming order, added the `truncation` record and `describe_table` paging. Checked
   on the 30 tuning cases: 330 tool calls, none over the cap, all 7 tables listed.
+- Model-assisted classifier (`ingest/schema.py`, `ingest/classifier.py`,
+  `ingest/loaders.py`, `docs/inputs.md`, `tests/ingest/`): replaced the Workstream A
+  `ModelClassifierClient` stub with Phase 04's `llm.contracts.ModelClient` interface,
+  switched `cost_usd` / `model_cost_usd` to `decimal.Decimal` (JSON-serialised as
+  strings), bounded the `untrusted_sample` payload inside JSON, parsed raw and
+  Markdown-fenced JSON choices against the fixed menu, and added graceful fallback
+  plus folder-level halting on `BudgetRefused`, `BillingUncertain`, and
+  `ModelUnavailable`. Verified with `ScriptedClient` unit tests and offline
+  `GuardedClient` + `SpendLedger` integration tests (`make lint` clean across 71
+  files; `make test` 234 passed, 3 skipped, 3 live deselected; 93% coverage on
+  `incidents_agent.ingest`; $0.00 LLM spend).
 
