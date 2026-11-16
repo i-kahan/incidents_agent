@@ -1,7 +1,6 @@
 # Phase 5: Agent
 
-**Status:** In progress — Workstream A contracts landed (agent config, task, budget,
-trajectory, report types)
+**Status:** In progress — Workstream A landed (contracts, ledger, citation check)
 
 ## 1. Objective
 Build the investigating agent: it reads the catalog, forms hypotheses, tests them with
@@ -18,21 +17,23 @@ See [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg).
       *(`agent/state.py`: `Task`, `Budget` with the verify reserve; `agent/config.py`
       reads `config/agent.yaml`; `agent/trajectory.py` and `agent/report.py` fix the
       trajectory schema and report shape that Phases 06–09 consume.)*
-- [ ] Ledger entry: statement, component, status (open / supported / rejected),
+- [x] Ledger entry: statement, component, status (open / supported / rejected),
       qualitative confidence, evidence for and against, verification outcome, origin
       (`data` or `memory`).
-- [ ] `update_hypotheses` tool: add, revise, reject.
-- [ ] Citation validity check, in code. An evidence item must reference a tool call
+- [x] `update_hypotheses` tool: add, revise, reject.
+- [x] Citation validity check, in code. An evidence item must reference a tool call
       from this run that succeeded and returned a non-empty result, carry a locator
       from that result (row keys, aggregate and window, or chunk id), and quote a value
       or phrase that actually appears in it. Items that fail are rejected with an error
-      the model can read.
+      the model can read. *(`agent/ledger.py` `check_citation`, over the full
+      results in `agent/results.py`; quotes match one observation, ignoring case and
+      whitespace; the untrusted-data notice is never citable.)*
 - [ ] The final report is validated the same way: every claim in it maps to a valid
       evidence item, or the claim is dropped and the drop recorded.
-- [ ] Citation validity says a claim points at something real. It does not say the
+- [x] Citation validity says a claim points at something real. It does not say the
       observation supports the claim; that is audited by hand (Phase 06) and the two are
       never reported as one number.
-- [ ] Rule: an entry with origin `memory` cannot become supported without at least one
+- [x] Rule: an entry with origin `memory` cannot become supported without at least one
       evidence item from the current data.
 
 **Workstream B — Graph (`agent/graph.py`, `agent/prompts.py`)**
@@ -102,7 +103,7 @@ See [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg).
 - [ ] Both run end to end on the victim-versus-cause fixture before Phase 07 starts.
 
 **Tests**
-- [ ] Unit tests for the ledger rules and the citation validity check: a failed call,
+- [x] Unit tests for the ledger rules and the citation validity check: a failed call,
       an empty result, a value not present in the result, and a call from another run
       are each rejected.
 - [ ] Graph tests with the scripted fake client: happy path, forced submit at the call
@@ -221,3 +222,6 @@ See [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg).
   model ids, API keys and the live run left to the last step at the owner's request.
 - Step 1 (contracts): Claude Code wrote `agent/config.py`, `state.py`,
   `trajectory.py`, `report.py`, `config/agent.yaml` and their tests.
+- Step 2 (ledger): Claude Code wrote `agent/results.py`, `agent/ledger.py` and their
+  tests. Results of memory tools are marked so they never count as current-data
+  support. Coverage: ledger 90%, results 95%.
