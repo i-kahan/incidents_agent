@@ -1,6 +1,6 @@
 # Phase 3: Ingest & Tools
 
-**Status:** Not started
+**Status:** In progress (Workstream A complete; Workstream B in follow-up PR)
 
 ## 1. Objective
 Turn any folder of dropped files into a read-only database with a catalog — tables for
@@ -11,22 +11,23 @@ work the same on an RCAEval case and on an arbitrary upload, with no LLM involve
 ## 2. Next Steps (Checklist)
 
 **Workstream A — Ingest (`src/incidents_agent/ingest/`)**
-- [ ] Loader for CSV, Parquet and JSON lines: one DuckDB table per file. Table names
+- [x] Loader for CSV, Parquet and JSON lines: one DuckDB table per file. Table names
       are derived from the relative path and made unique, so two files with the same
       name in different folders cannot collide; the catalog maps each table to its file.
-- [ ] Loader for text logs: table with line number, raw text, and timestamp and level
+- [x] Loader for text logs: table with line number, raw text, and timestamp and level
       where detected.
-- [ ] Time-column detection (name hints, then value parsing) with a confidence score.
+- [x] Time-column detection (name hints, then value parsing) with a confidence score.
       The original column is kept unchanged; a normalised Unix-seconds column is added
       beside it, and the inferred unit and time zone assumption are recorded in the
       catalog.
-- [ ] Tables with a low-confidence or missing time mapping are flagged. Time-window
+- [x] Tables with a low-confidence or missing time mapping are flagged. Time-window
       tools (`compare_windows`, `time_series`, `find_onset`, the before/after counts in
-      `search_text`) return an explicit error for such a table, not a guess.
-- [ ] File classifier: tabular, log or document, decided by extension and then by
+      `search_text`) return an explicit error for such a table, not a guess. *(Flagging
+      landed in ingest; tool-side refusals land in Workstream B.)*
+- [x] File classifier: tabular, log or document, decided by extension and then by
       content (share of lines that start with a timestamp or level); the decision and
       its reason are recorded in the catalog.
-- [ ] Document loader: Markdown and prose text chunked by heading, then paragraph, with
+- [x] Document loader: Markdown and prose text chunked by heading, then paragraph, with
       the heading path kept on each chunk; diffs chunked by file and hunk; config files
       (YAML, TOML, INI, JSON) chunked by top-level section; small documents kept whole.
       Oversized chunks are split at sentence boundaries with a small overlap.
@@ -37,21 +38,23 @@ work the same on an RCAEval case and on an arbitrary upload, with no LLM involve
       paragraphs, hunks, sections, whole). The choice, its stated reason and its cost
       are recorded in the catalog. Off by a configuration flag; cached by file hash;
       reserved through the spend guard; never used when the rules are confident.
-      Deterministic ingest lands first and works without it.
-- [ ] Chunks stored in a `document_chunks` table: document, chunk id, position, heading
+      Deterministic ingest lands first and works without it. *(Protocol hook, hash
+      cache, menu validation, and fake-client unit tests landed in Workstream A;
+      Phase 04 wires the real LiteLLM client and spend guard.)*
+- [x] Chunks stored in a `document_chunks` table: document, chunk id, position, heading
       path, text.
-- [ ] Catalog builder: per table, the columns, types, row count, time column, time range
+- [x] Catalog builder: per table, the columns, types, row count, time column, time range
       and three sample rows; per document, its title, type, size and outline.
-- [ ] Relationship detection: columns that describe who talks to whom — caller and
+- [x] Relationship detection: columns that describe who talks to whom — caller and
       callee, source and destination, or a span id with a parent span id — are
       identified by name and by value overlap, and recorded in the catalog with a
       confidence. Tables with none are recorded as having none.
-- [ ] Limits, all configurable and all reported when hit: size per file, number of
+- [x] Limits, all configurable and all reported when hit: size per file, number of
       files, total size, rows scanned per query, query time, and result size.
       Unsupported or unreadable files are recorded as skipped with the reason; ingest of
       the remaining files continues.
-- [ ] Supported inputs and partial-ingest behaviour written up in `docs/inputs.md`.
-- [ ] Open the database read-only with external file and network access disabled.
+- [x] Supported inputs and partial-ingest behaviour written up in `docs/inputs.md`.
+- [x] Open the database read-only with external file and network access disabled.
 
 **Workstream B — Tools (`src/incidents_agent/tools/`)**
 - [ ] Tool registry: each tool is a typed Python function plus a JSON schema; a single
@@ -90,10 +93,10 @@ work the same on an RCAEval case and on an arbitrary upload, with no LLM involve
 
 **Both**
 - [ ] Unit tests for every loader and tool, including malformed input and empty tables.
-- [ ] Fallback tests with the fake client: called only below the confidence threshold;
+- [x] Fallback tests with the fake client: called only below the confidence threshold;
       an answer outside the menu is rejected and the rule-based default used; a cached
       file is not asked about twice; with the flag off, no model call is made.
-- [ ] Chunking tests: heading paths, hunk boundaries, the whole-document threshold,
+- [x] Chunking tests: heading paths, hunk boundaries, the whole-document threshold,
       oversized paragraphs, a document with no headings, and a log misnamed `.txt`.
 - [ ] Build two field-set cases now, as fixtures under `evalsets/field/`: the
       config-diff case and the victim-versus-cause case. They exercise documents, the
@@ -107,7 +110,7 @@ work the same on an RCAEval case and on an arbitrary upload, with no LLM involve
 - [ ] Injection plumbing test: a log line and a document paragraph containing
       instructions addressed to the agent come back only inside the marked data field,
       byte for byte, never in any other part of a tool result.
-- [ ] Integration test (skipped when the dataset is absent): ingest one real RE2-OB case.
+- [x] Integration test (skipped when the dataset is absent): ingest one real RE2-OB case.
 - [ ] Update `flowchart-system-overview.svg` if the tool list changed.
 
 ## 3. Architectural Decisions & Trade-offs
@@ -276,4 +279,11 @@ same order in all three cases.
   aliases before joining or filtering across sources.
 
 ## 6. AI-use notes (feeds `REPORT.md`)
-*Filled in as the work happens.*
+- Workstream A (`src/incidents_agent/ingest/`, `docs/inputs.md`, `tests/ingest/`):
+  implemented deterministic file classification, time-column scoring and `_time_unix_s`
+  normalisation (normalising DuckDB `TIMESTAMPTZ` columns to UTC `TIMESTAMP` on load so
+  queries do not require `pytz`), structure-aware document chunking, relationship
+  detection (`caller_callee` and `span_parent`), configurable limits, and read-only
+  DuckDB connections (`enable_external_access = false`, `lock_configuration = true`).
+  Verified with `make lint` and `make test` (54 tests passing, 91% line coverage on
+  `ingest`, including real `re2-ob-0001` case ingest).
