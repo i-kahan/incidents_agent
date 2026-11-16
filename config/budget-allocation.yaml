@@ -1,0 +1,16 @@
+# Phase 06 allocation weights, based on the default spendable budget.
+Final held-out run: 325
+Pilot: 30
+Overheads: 30
+Noise check: 60
+Tuning iterations: 240
+Single-call baseline (tuning): 15
+Field set: 50
+Joint ablation: 150
+Single versus multi-agent: 150
+Model comparison: 150
+Memory experiment: 200
+Secondary held-out run: null
+RCAEval reference LLM baseline: null
+Separate ledger and verify ablations: null
+Dependency tool on versus off: null

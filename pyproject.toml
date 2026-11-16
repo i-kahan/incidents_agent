@@ -8,15 +8,24 @@ license-files = ["LICENSE"]
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "duckdb",
+    "httpx",
+    "httpx2",
     "langgraph",
     "litellm",
+    "openai",
     "python-dotenv",
     "pyyaml",
     "streamlit",
 ]
 
 [dependency-groups]
-dev = ["mypy", "pytest", "pytest-cov", "ruff"]
+dev = [
+    "mypy",
+    "pytest",
+    "pytest-cov",
+    "ruff",
+    "types-pyyaml>=6.0.12.20261113",
+]
 benchmark = ["RCAEval[core]==1.12.0"]
 
 [build-system]
