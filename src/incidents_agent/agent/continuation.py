@@ -2,6 +2,7 @@
 
 The added files are ingested together with the earlier ones, the ledger
 and every earlier result are carried over (so old citations stay valid),
+a check that ended inconclusive is opened again so verify can rerun on it,
 the model gets a "what changed" briefing, and the run continues under a
 fresh per-continuation budget. The result is the same run with the next
 continuation index.
@@ -150,6 +151,8 @@ def continue_run(
             if saved.get('ledger')
             else ledger.HypothesisLedger(run_id, store)
         )
+        # A check left inconclusive may be settled by the added data.
+        reverify = [] if book is None else book.reopen_verification()
         record = trajectory.Trajectory(
             run_dir / 'trajectory.jsonl', run_id, index
         )
@@ -176,6 +179,7 @@ def continue_run(
             'continuation',
             added=names,
             changes=changes,
+            reverify=reverify,
             config=settings.to_dict(),
         )
         run = graph.RunState(

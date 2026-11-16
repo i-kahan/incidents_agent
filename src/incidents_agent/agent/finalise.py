@@ -4,7 +4,9 @@ A normal submit, any limit, a refused reservation, a model failure and the
 plain loop all come here. The ranking is rendered deterministically from
 the ledger (or, with the ledger off, from the model's last stated ranking),
 every ranked claim is checked against valid evidence, and the result is
-labelled verified, provisional, inconclusive or no fault found.
+labelled verified, provisional, inconclusive or no fault found. A ranked
+name with no valid citation is kept last, marked uncited, so a run still
+ends in a full ranking; it never decides the outcome.
 """
 
 import dataclasses
@@ -82,14 +84,21 @@ def finalise(
         causes = _plain_causes(
             session, submission, stop_reason, verdicts or {}, dropped
         )
-    top = causes[0] if causes else None
+    # With the ledger on, only a cited cause can decide the outcome or be
+    # the target of an action; cited causes always come first.
+    grounded = (
+        causes
+        if session.ledger is None
+        else tuple(cause for cause in causes if cause.cited)
+    )
+    top = grounded[0] if grounded else None
     if top is None:
         outcome: report.Outcome = 'inconclusive'
     elif top.verification == 'supported' and not forced:
         outcome = 'verified'
     else:
         outcome = 'provisional'
-    actions = _actions(submission, causes, dropped)
+    actions = _actions(submission, grounded, dropped)
     requests = (
         _data_requests(session, submission, causes, outcome, dropped)
         if outcome in ('provisional', 'inconclusive')
@@ -115,16 +124,23 @@ def _ledger_causes(
     stop_reason: str,
     dropped: list[str],
 ) -> tuple[tuple[report.RankedCause, ...], bool]:
+    names = _strings(
+        list(session.stated_ranks)
+        if submission is None
+        else submission['ranks']
+    )
     entries: list[ledger.Hypothesis] = []
-    for name in _strings(None if submission is None else submission['ranks']):
+    uncited: list[tuple[str, ledger.Hypothesis | None]] = []
+    for name in names:
         entry = book.find(name)
-        if entry is None:
-            dropped.append(f'rank {name!r}: no open or supported hypothesis')
-        elif not book.has_data_support(entry):
-            dropped.append(f'rank {name!r}: no valid supporting citation')
-        else:
+        rejected = book.find_rejected(name) if entry is None else None
+        if entry is not None and book.has_data_support(entry):
             entries.append(entry)
-    forced = not entries
+        elif rejected is not None:
+            dropped.append(f'rank {name!r}: {rejected.id} was rejected')
+        else:
+            uncited.append((name, entry))
+    forced = submission is None or not entries
     if forced:
         entries = [
             entry
@@ -164,7 +180,71 @@ def _ledger_causes(
                 evidence=(*entry.evidence_for, *entry.evidence_against),
             )
         )
+    causes.extend(
+        _uncited_causes(session, uncited, causes, forced, stop_reason)
+    )
     return tuple(causes), forced
+
+
+def _uncited_causes(
+    session: investigate.Session,
+    uncited: list[tuple[str, ledger.Hypothesis | None]],
+    cited: list[report.RankedCause],
+    forced: bool,
+    stop_reason: str,
+) -> list[report.RankedCause]:
+    """Return the ranked names that have no valid citation, in order.
+
+    They follow the cited causes at low confidence, so the ranking the
+    model stated is not lost, and are marked so nothing treats them as
+    grounded. Names outside a closed candidate list are left out; `submit`
+    already refused them.
+    """
+    allowed = _allowed(session)
+    taken = {cause.component.casefold() for cause in cited}
+    causes: list[report.RankedCause] = []
+    for name, entry in uncited:
+        component = name if entry is None else entry.component
+        if allowed:
+            component = allowed.get(component.casefold(), '')
+        if not component or component.casefold() in taken:
+            continue
+        taken.add(component.casefold())
+        reasons = ['uncited: no valid supporting citation in the ledger']
+        if forced:
+            reasons.append(f'forced finalisation: {stop_reason}')
+        causes.append(
+            report.RankedCause(
+                rank=len(cited) + len(causes) + 1,
+                component=component,
+                statement=(
+                    f'{component} was ranked without a ledger hypothesis'
+                    if entry is None
+                    else entry.statement
+                ),
+                hypothesis_id=None if entry is None else entry.id,
+                verification=(
+                    'unverified' if entry is None else entry.verification
+                ),
+                confidence='low',
+                confidence_reasons=tuple(reasons),
+                evidence=(
+                    ()
+                    if entry is None
+                    else (*entry.evidence_for, *entry.evidence_against)
+                ),
+                cited=False,
+            )
+        )
+    return causes
+
+
+def _allowed(session: investigate.Session) -> dict[str, str]:
+    task = session.task
+    return {
+        name.casefold(): name
+        for name in (*task.candidate_services, *task.candidate_indicators)
+    }
 
 
 def _within_candidates(
@@ -201,11 +281,7 @@ def _plain_causes(
         if submission is None
         else submission['ranks']
     )
-    task = session.task
-    allowed = {
-        name.casefold(): name
-        for name in (*task.candidate_services, *task.candidate_indicators)
-    }
+    allowed = _allowed(session)
     if allowed:
         for name in names:
             if name.casefold() not in allowed:
@@ -243,6 +319,7 @@ def _plain_causes(
                 confidence=level,
                 confidence_reasons=tuple(reasons),
                 evidence=(),
+                cited=False,
             )
         )
     return tuple(causes)

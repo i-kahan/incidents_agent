@@ -74,6 +74,9 @@ class RankedCause:
         confidence: Qualitative level.
         confidence_reasons: Why that level.
         evidence: Validated evidence for and against.
+        cited: False when no valid citation from the current data backs
+            the cause: a name ranked without one, or any cause with the
+            ledger off. Such a cause never decides the outcome.
     """
 
     rank: int
@@ -84,6 +87,7 @@ class RankedCause:
     confidence: Confidence
     confidence_reasons: tuple[str, ...]
     evidence: tuple[EvidenceRef, ...]
+    cited: bool = True
 
     def to_dict(self) -> dict[str, object]:
         """Return a JSON-ready dictionary."""
@@ -96,6 +100,7 @@ class RankedCause:
             'confidence': self.confidence,
             'confidence_reasons': list(self.confidence_reasons),
             'evidence': [item.to_dict() for item in self.evidence],
+            'cited': self.cited,
         }
 
 
@@ -290,4 +295,5 @@ def _cause(data: Mapping[str, object]) -> RankedCause:
             for item in (evidence if isinstance(evidence, list) else [])
             if isinstance(item, dict)
         ),
+        cited=data.get('cited', True) is not False,
     )

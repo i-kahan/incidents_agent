@@ -90,6 +90,65 @@ def test_continuation_keeps_old_evidence_and_sees_added_table(
 
 
 @pytest.mark.integration
+def test_continuation_reruns_verify_on_an_inconclusive_check(
+    tmp_path: Path,
+) -> None:
+    """A cause left inconclusive can be verified once data is added."""
+    settings = config.AgentConfig()
+    verdict = {
+        'hypothesis_id': 'H1',
+        'check': 'is it upstream of the other affected components?',
+    }
+    first = graph.run_investigation(
+        state.Task(scripted.FIELD_CASE),
+        fake.ScriptedClient(
+            [
+                scripted.call('search_text', **scripted.LOCK_SEARCH),
+                scripted.add_hypothesis(evidence=[scripted.LOCK_EVIDENCE]),
+                scripted.submit('inventory-db'),
+                scripted.call(
+                    graph.VERIFY_NAME, outcome='inconclusive', **verdict
+                ),
+            ]
+        ),
+        settings,
+        runs_dir=tmp_path / 'runs',
+        run_id=scripted.RUN_ID,
+    )
+    assert first.run_dir is not None
+    assert first.report.outcome == 'provisional'
+
+    result = continuation.continue_run(
+        first.run_dir,
+        [_added_file(tmp_path)],
+        fake.ScriptedClient(
+            [
+                scripted.submit('inventory-db'),
+                scripted.call('dependency_graph'),
+                scripted.call(
+                    graph.VERIFY_NAME,
+                    outcome='supported',
+                    evidence=[
+                        {
+                            'call_id': 'call_0002',
+                            'locator': 'inventory-db',
+                            'quote': 'order-service',
+                        }
+                    ],
+                    **verdict,
+                ),
+            ]
+        ),
+        settings,
+    )
+
+    event = [e for e in result.events if e['type'] == 'continuation'][-1]
+    assert event['reverify'] == ['H1']
+    assert result.report.outcome == 'verified'
+    assert result.report.causes[0].verification == 'supported'
+
+
+@pytest.mark.integration
 def test_continuation_appends_to_the_same_trajectory(tmp_path: Path) -> None:
     """Both passes are in one trajectory, tagged by continuation index."""
     first = _first_pass(tmp_path)

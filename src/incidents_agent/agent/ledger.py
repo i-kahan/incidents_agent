@@ -364,6 +364,13 @@ class HypothesisLedger:
         status = op.get('status')
         if status is None:
             return
+        if entry.verification == 'refuted':
+            problems.append(
+                f'{entry.id} was refuted by verification and stays rejected; '
+                'add a new hypothesis if new evidence points to '
+                f'{entry.component}'
+            )
+            return
         if status == 'open':
             entry.status = 'open'
             entry.reject_reason = None
@@ -503,6 +510,38 @@ class HypothesisLedger:
             ):
                 return entry
         return None
+
+    def find_rejected(self, component: str) -> Hypothesis | None:
+        """Return the latest rejected entry for a component, if any."""
+        wanted = component.strip().casefold()
+        for entry in reversed(self.entries.values()):
+            if (
+                entry.component.casefold() == wanted
+                and entry.status == 'rejected'
+            ):
+                return entry
+        return None
+
+    def reopen_verification(self) -> list[str]:
+        """Let undecided checks run again, for a continuation with new data.
+
+        A live hypothesis whose check ended `inconclusive` goes back to
+        `unverified`, so the verify step can test it against the added
+        data. `supported` outcomes and refuted hypotheses are kept.
+
+        Returns:
+            Ids of the hypotheses reopened for verification.
+        """
+        reopened = []
+        for entry in self.entries.values():
+            if (
+                entry.status != 'rejected'
+                and entry.verification == 'inconclusive'
+            ):
+                entry.verification = 'unverified'
+                entry.verification_check = None
+                reopened.append(entry.id)
+        return reopened
 
     def ranked(self) -> list[Hypothesis]:
         """Return entries in a deterministic rank order.

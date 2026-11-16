@@ -252,10 +252,10 @@ def test_digest_keeps_call_id_and_locator(
     assert 'read_result call_id="call_0001"' in text
 
 
-def test_finalise_drops_rank_without_valid_citation(
+def test_finalise_rank_without_citation_is_uncited_and_inconclusive(
     field_ingest: ingest.IngestResult, tmp_path: Path
 ) -> None:
-    """A ranked name with no supported hypothesis is dropped and recorded."""
+    """A name ranked with no hypothesis stays in the ranking, marked."""
     session, result, _ = _run(
         field_ingest, tmp_path, [scripted.submit('inventory-db')]
     )
@@ -264,9 +264,106 @@ def test_finalise_drops_rank_without_valid_citation(
         session, submission=result.accepted, stop_reason=result.stop_reason
     )
 
+    cause = final.causes[0]
+    assert (final.outcome, final.ranks) == ('inconclusive', ('inventory-db',))
+    assert (cause.cited, cause.confidence, cause.evidence) == (False, 'low', ())
+    assert 'uncited' in cause.confidence_reasons[0]
+
+
+def test_finalise_keeps_uncited_ranks_after_the_cited_ones(
+    field_ingest: ingest.IngestResult, tmp_path: Path
+) -> None:
+    """Uncited names follow cited causes and are no target for actions."""
+    session, result, _ = _run(
+        field_ingest,
+        tmp_path,
+        [
+            scripted.call('search_text', **scripted.LOCK_SEARCH),
+            scripted.add_hypothesis(evidence=[scripted.LOCK_EVIDENCE]),
+            scripted.submit(
+                'order-service',
+                'inventory-db',
+                'api-gateway',
+                actions=[
+                    {
+                        'hypothesis_id': 'order-service',
+                        'action': 'restart it',
+                        'risk': 'disruptive',
+                        'how_to_verify': 'latency recovers',
+                    }
+                ],
+            ),
+        ],
+    )
+
+    final = finalise.finalise(
+        session, submission=result.accepted, stop_reason=result.stop_reason
+    )
+
+    assert (final.outcome, final.ranks) == (
+        'provisional',
+        ('inventory-db', 'order-service', 'api-gateway'),
+    )
+    assert [cause.cited for cause in final.causes] == [True, False, False]
+    assert [cause.rank for cause in final.causes] == [1, 2, 3]
+    assert final.actions == ()
+    assert "action 0: 'order-service' is not a ranked hypothesis" in (
+        final.dropped
+    )
+
+
+def test_finalise_drops_rank_whose_hypothesis_was_rejected(
+    field_ingest: ingest.IngestResult, tmp_path: Path
+) -> None:
+    """A name the ledger rejected is not brought back as an uncited rank."""
+    session, result, _ = _run(
+        field_ingest,
+        tmp_path,
+        [
+            scripted.call('search_text', **scripted.LOCK_SEARCH),
+            scripted.add_hypothesis(evidence=[scripted.LOCK_EVIDENCE]),
+            scripted.call(
+                'update_hypotheses',
+                operations=[{'op': 'reject', 'id': 'H1', 'reason': 'no'}],
+            ),
+            scripted.submit('inventory-db'),
+        ],
+    )
+
+    final = finalise.finalise(
+        session, submission=result.accepted, stop_reason=result.stop_reason
+    )
+
     assert (final.outcome, final.ranks) == ('inconclusive', ())
-    assert final.dropped == (
-        "rank 'inventory-db': no open or supported hypothesis",
+    assert final.dropped == ("rank 'inventory-db': H1 was rejected",)
+
+
+def test_ledger_forced_end_keeps_last_stated_ranking_as_uncited(
+    field_ingest: ingest.IngestResult, tmp_path: Path
+) -> None:
+    """A forced end with the ledger on still reports the stated candidates."""
+    task = state.Task(scripted.FIELD_CASE, candidate_services=('a', 'b'))
+    session, result, _ = _run(
+        field_ingest,
+        tmp_path,
+        [scripted.submit('B', 'zzz')],
+        agent_config=config.AgentConfig(
+            verify=False, limits=config.Limits(model_turns=1)
+        ),
+        task=task,
+    )
+
+    final = finalise.finalise(
+        session, submission=result.accepted, stop_reason=result.stop_reason
+    )
+
+    assert (result.stop_reason, final.outcome, final.ranks) == (
+        'model_turn_limit',
+        'inconclusive',
+        ('b',),
+    )
+    assert 'forced finalisation: model_turn_limit' in (
+        final.causes[0].confidence_reasons
     )
 
 
