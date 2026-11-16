@@ -18,11 +18,22 @@ from incidents_agent.tools import tables
 class ToolRegistry:
     """Registry dispatching typed tool calls with logging and safety caps."""
 
-    def __init__(self, max_result_chars: int = 6_000) -> None:
-        """Initialise an empty tool registry with a character result cap."""
+    def __init__(
+        self, max_result_chars: int = 6_000, first_call_number: int = 1
+    ) -> None:
+        """Initialise an empty registry with a result cap.
+
+        Args:
+            max_result_chars: Character cap applied to every result.
+            first_call_number: Number of the first call id, so a run that
+                continues with a new registry never reuses an id.
+        """
+        if first_call_number < 1:
+            raise ValueError('first_call_number must be at least 1')
         self._tools: dict[str, tool_schema.ToolSpec] = {}
         self._call_log: list[tool_schema.ToolCallRecord] = []
         self._max_result_chars = max_result_chars
+        self._first_call_number = first_call_number
 
     def register(self, spec: tool_schema.ToolSpec) -> None:
         """Register or replace a tool specification by name."""
@@ -43,7 +54,10 @@ class ToolRegistry:
 
     def get_call_result_id(self) -> str:
         """Return the next sequential call identifier without incrementing."""
-        return f'call_{len(self._call_log) + 1:04d}'
+        return self._call_id()
+
+    def _call_id(self) -> str:
+        return f'call_{len(self._call_log) + self._first_call_number:04d}'
 
     def call(
         self,
@@ -64,7 +78,7 @@ class ToolRegistry:
             JSON-serialisable tool response dictionary.
         """
         started = time.monotonic()
-        call_id = f'call_{len(self._call_log) + 1:04d}'
+        call_id = self._call_id()
         safe_args: dict[str, object] = (
             dict(args) if isinstance(args, dict) else {}
         )
@@ -137,11 +151,13 @@ class ToolRegistry:
 
 def create_default_registry(
     ingest_result: ingest_schema.IngestResult,
+    first_call_number: int = 1,
 ) -> ToolRegistry:
     """Create a ToolRegistry wired with all Phase 03 tools for `ingest_result`.
 
     Args:
         ingest_result: Result from `incidents_agent.ingest.ingest_folder`.
+        first_call_number: Number of the first call id (see `ToolRegistry`).
 
     Returns:
         Configured ToolRegistry enforcing `ingest_result.catalog.limits`.
@@ -152,7 +168,8 @@ def create_default_registry(
         db_path=ingest_result.db_path,
     )
     registry = ToolRegistry(
-        max_result_chars=ingest_result.catalog.limits.max_result_chars
+        max_result_chars=ingest_result.catalog.limits.max_result_chars,
+        first_call_number=first_call_number,
     )
 
     specs: tuple[tool_schema.ToolSpec, ...] = (
