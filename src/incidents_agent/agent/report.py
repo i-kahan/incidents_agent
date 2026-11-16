@@ -258,11 +258,19 @@ def _strs(value: object) -> tuple[str, ...]:
     return tuple(str(item) for item in value)
 
 
-def _choice[T: str](value: object, options: tuple[T, ...]) -> T:
+def pick[T: str](value: object, options: tuple[T, ...]) -> T | None:
+    """Return the option equal to `value`, or None."""
     for option in options:
         if value == option:
             return option
-    raise ValueError(f'{value!r} is not one of {options}')
+    return None
+
+
+def _choice[T: str](value: object, options: tuple[T, ...]) -> T:
+    chosen = pick(value, options)
+    if chosen is None:
+        raise ValueError(f'{value!r} is not one of {options}')
+    return chosen
 
 
 def _cause(data: Mapping[str, object]) -> RankedCause:
