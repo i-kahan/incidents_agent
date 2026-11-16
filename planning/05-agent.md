@@ -1,6 +1,7 @@
 # Phase 5: Agent
 
-**Status:** Not started
+**Status:** Built and tested offline ($0 spent). Waiting on the owner for model ids
+and API keys, then the one `live` test (step 7).
 
 ## 1. Objective
 Build the investigating agent: it reads the catalog, forms hypotheses, tests them with
@@ -13,106 +14,119 @@ See [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg).
 ## 2. Next Steps (Checklist)
 
 **Workstream A — State and ledger (`agent/state.py`, `agent/ledger.py`)**
-- [ ] Run state: task, catalog, messages, ledger, tool-call log, budget counters.
-- [ ] Ledger entry: statement, component, status (open / supported / rejected),
+- [x] Run state: task, catalog, messages, ledger, tool-call log, budget counters.
+      *(`agent/state.py`: `Task`, `Budget` with the verify reserve; `agent/config.py`
+      reads `config/agent.yaml`; `agent/trajectory.py` and `agent/report.py` fix the
+      trajectory schema and report shape that Phases 06–09 consume.)*
+- [x] Ledger entry: statement, component, status (open / supported / rejected),
       qualitative confidence, evidence for and against, verification outcome, origin
       (`data` or `memory`).
-- [ ] `update_hypotheses` tool: add, revise, reject.
-- [ ] Citation validity check, in code. An evidence item must reference a tool call
+- [x] `update_hypotheses` tool: add, revise, reject.
+- [x] Citation validity check, in code. An evidence item must reference a tool call
       from this run that succeeded and returned a non-empty result, carry a locator
       from that result (row keys, aggregate and window, or chunk id), and quote a value
       or phrase that actually appears in it. Items that fail are rejected with an error
-      the model can read.
+      the model can read. *(`agent/ledger.py` `check_citation`, over the full
+      results in `agent/results.py`; quotes match one observation, ignoring case and
+      whitespace; the untrusted-data notice is never citable.)*
 - [ ] The final report is validated the same way: every claim in it maps to a valid
       evidence item, or the claim is dropped and the drop recorded.
-- [ ] Citation validity says a claim points at something real. It does not say the
+- [x] Citation validity says a claim points at something real. It does not say the
       observation supports the claim; that is audited by hand (Phase 06) and the two are
       never reported as one number.
-- [ ] Rule: an entry with origin `memory` cannot become supported without at least one
+- [x] Rule: an entry with origin `memory` cannot become supported without at least one
       evidence item from the current data.
 
 **Workstream B — Graph (`agent/graph.py`, `agent/prompts.py`)**
-- [ ] `orient` node: deterministic briefing from the catalog and task.
-- [ ] `investigate` node: model call with tools; loops until `submit` or a limit.
+- [x] `orient` node: deterministic briefing from the catalog and task.
+- [x] `investigate` node: model call with tools; loops until `submit` or a limit.
       Written as a function of (task, tool budget, ledger handle, message history) so
       Phase 07's hypothesis testers reuse it with a different brief.
-- [ ] `verify` node: the model must name and run one check that could disprove the top
+- [x] `verify` node: the model must name and run one check that could disprove the top
       hypothesis. The outcome is explicit — `supported`, `refuted` or `inconclusive` —
       and is stored with the evidence. On `refuted` the run returns to `investigate`
       once.
-- [ ] If a different hypothesis ends up on top after a refutation, it carries its own
+- [x] If a different hypothesis ends up on top after a refutation, it carries its own
       verification status. If nothing is left to verify it with, it is reported as
       `unverified`, not as verified by inheritance.
-- [ ] `report` node: structured output — ranked root causes, fault type, verification
+- [x] `report` node: structured output — ranked root causes, fault type, verification
       status, confidence as a qualitative level (low / medium / high) with the reasons
       for it, evidence, recommended actions. No numeric probability is shown unless it
       has been calibrated against results.
-- [ ] `no_fault_found` is a valid final outcome, distinct from `inconclusive`: the data
+- [x] `no_fault_found` is a valid final outcome, distinct from `inconclusive`: the data
       was examined and nothing abnormal was found. The briefing says so, so the agent
       is not pushed to name a culprit.
-- [ ] Recommended actions: each is tied to the hypothesis it addresses and carries a
+- [x] Recommended actions: each is tied to the hypothesis it addresses and carries a
       risk level (read-only check / reversible change / disruptive change) and how to
       tell whether it worked. Read-only checks are listed first.
-- [ ] Data requests: when the outcome is provisional or inconclusive, the report lists
+- [x] Data requests: when the outcome is provisional or inconclusive, the report lists
       the specific additional data that would settle it — what, from where, and which
       hypothesis it would confirm or refute. Each request is derived from an open or
       undecided ledger entry, not free-form.
-- [ ] When dependency data exists, the verify prompt asks for a check of direction:
+- [x] When dependency data exists, the verify prompt asks for a check of direction:
       whether the suspect is upstream of the other affected components.
-- [ ] `submit` validation: with candidate lists present (benchmark), ranks must come
+- [x] `submit` validation: with candidate lists present (benchmark), ranks must come
       from them; without (uploads), ranks are free text.
-- [ ] Limits per case: tool calls (15), model turns, wall time and cost. Verification
+- [x] Limits per case: tool calls (15), model turns, wall time and cost. Verification
       capacity is reserved before investigation starts — two tool calls and the model
       spend for `verify` and one bounded correction — so `investigate` can use only the
       remainder and the run can never reach `verify` with nothing left.
-- [ ] One common finalisation path, used by every way a run can end (normal submit,
+- [x] One common finalisation path, used by every way a run can end (normal submit,
       any limit, a refused reservation, repeated invalid submissions) and by every
       configuration including the plain loop: the ledger (or, with the ledger off, the
       model's last stated ranking) is rendered deterministically into a ranking, marked `verified`, `provisional` or `inconclusive`, with the stop
       reason recorded. Invalid submissions are bounded by the model-turn limit.
-- [ ] Context policy: the last few tool results stay in the conversation in full. Older
+      *(`agent/finalise.py`. Only ranked components with a valid supporting citation
+      survive; a forced ranking is capped at low confidence, an unverified one at
+      medium.)*
+- [x] Context policy: the last few tool results stay in the conversation in full. Older
       ones are replaced by a deterministic digest (tool, arguments, locator, size,
       first lines). The ledger is the durable summary. Full results stay in the
       trajectory, so citations remain checkable, and a trimmed result can be re-read by
       call id without a new query.
-- [ ] The conversation is ordered so the stable part (system prompt, tool schemas,
+- [x] The conversation is ordered so the stable part (system prompt, tool schemas,
       catalog briefing) comes first, to benefit from prompt caching where available.
-- [ ] Prompts kept in one versioned module; the prompt hash is part of the run record.
-- [ ] Instruction in the system prompt that file contents are data, not instructions.
+- [x] Prompts kept in one versioned module; the prompt hash is part of the run record.
+- [x] Instruction in the system prompt that file contents are data, not instructions.
 
 **Workstream C — Run record**
-- [ ] Trajectory written per run: every model call, tool call, ledger change, token and
+- [x] Trajectory written per run: every model call, tool call, ledger change, token and
       cost figure, and the final report, as JSON under `runs/`.
-- [ ] Ablation switch in the agent configuration: `ledger` and `verify` on or off; off
+- [x] Ablation switch in the agent configuration: `ledger` and `verify` on or off; off
       gives a plain tool-calling loop with the same tools.
-- [ ] Resumable runs: state is checkpointed at each node. `continue_run` takes a saved
+- [x] Resumable runs: state is checkpointed at each node. `continue_run` takes a saved
       run plus added files: it re-ingests additively, writes a "what changed" briefing,
       carries the ledger and its evidence over, and continues under a fresh
       per-continuation budget. The result is the same run with a continuation index.
+      *(`agent/continuation.py`. Earlier files are hard-linked, not copied, into
+      `inputs/c<n>/` beside the added ones; an added name already in the run is
+      refused.)*
 
 **Workstream D — Walking skeleton**
-- [ ] `scripts/investigate.py <folder>`: ingest, run the agent, write a cited Markdown
+- [x] `scripts/investigate.py <folder>`: ingest, run the agent, write a cited Markdown
       report and the trajectory. With `--fake` it uses the scripted client at no cost.
-- [ ] `scripts/replay.py <trajectory>`: re-render the report from a saved trajectory
+- [x] `scripts/replay.py <trajectory>`: re-render the report from a saved trajectory
       without calling a model.
-- [ ] Both run end to end on the victim-versus-cause fixture before Phase 07 starts.
+- [x] Both run end to end on the victim-versus-cause fixture before Phase 07 starts.
 
 **Tests**
-- [ ] Unit tests for the ledger rules and the citation validity check: a failed call,
+- [x] Unit tests for the ledger rules and the citation validity check: a failed call,
       an empty result, a value not present in the result, and a call from another run
       are each rejected.
-- [ ] Graph tests with the scripted fake client: happy path, forced submit at the call
+- [x] Graph tests with the scripted fake client: happy path, forced submit at the call
       limit, verify still runs when investigation used its whole share, forced submit at the cost cap, verify failure sending the run back,
       invalid `submit` names rejected, tool error surfaced and survived.
-- [ ] More graph tests with the fake: a trimmed result is still citable and can be
+- [x] More graph tests with the fake: a trimmed result is still citable and can be
       re-read; `no_fault_found` is reachable and finalises correctly; a continuation
       keeps earlier evidence valid and sees the added tables; data requests appear
       only for open or undecided hypotheses.
-- [ ] Injection test with the fake: a tool result containing an instruction does not
+- [x] Injection test with the fake: a tool result containing an instruction does not
       change the tool set, the limits or the finalisation path. Whether a real model
       resists it is measured on the field set in Phase 06.
 - [ ] One `live` test: a single tuning case on the cheapest configured model.
-- [ ] Update `flowchart-agent-graph.svg` if nodes or edges changed.
+      *(Written: `tests/agent/test_live.py`. Not run: `config/models.yaml` still holds
+      placeholders, and it spends money. Left for last at the owner's request.)*
+- [x] Update `flowchart-agent-graph.svg` if nodes or edges changed.
 
 ## 3. Architectural Decisions & Trade-offs
 
@@ -190,6 +204,62 @@ See [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg).
   data. Continuation costs more model spend and adds state that must stay consistent
   between ingests. The benchmark never exercises it, so it is tested only on fixtures.
 
+#### Decision 8: Agent limits are configuration, separate from the spend budget
+
+* **Decision:** Per-case limits (tool calls, turns, wall time, cost cap, the verify
+  reserve) live in `config/agent.yaml` and are written into every run record. The
+  cost cap starts at $0.05, the Phase 02 target, and counts settled cost.
+  `config/budget.yaml` is not touched.
+* **Context/Constraint:** The spend guard reserves a worst-case bound per call, several
+  times the real cost, so a cap enforced there would stop runs far too early. The
+  agent's cap is about behaviour per case; the guard's limit is about money overall.
+* **Trade-off:** A run can overshoot its cost cap by the cost of its last call, since
+  settled cost is known only after the call. The global guard still bounds the total.
+
+#### Decision 9: `submit` carries the whole answer; the report step makes no model call
+
+* **Decision:** `submit` carries the ranking, fault type, confidence and reasons,
+  actions and data requests. `report` validates them and renders the result in code.
+  `submit`, `record_verification` and invalid calls of either do not count against the
+  tool-call limit; `update_hypotheses` and `read_result` do.
+* **Context/Constraint:** The model layer has no forced structured output, so the end of
+  a step has to be a tool call checked in code. A separate model call to write the
+  report would cost a turn per case and would be a second place where unchecked claims
+  could enter.
+* **Trade-off:** The model must produce everything in one call, with less room to
+  reflect. Ledger bookkeeping uses tool calls the investigation could have used; the
+  ablation measures whether that pays.
+
+#### Decision 11: The graph is thin; run state and checkpoints are plain Python
+
+* **Decision:** LangGraph holds only the node order and the routing. Nodes act on one
+  `RunState` object, and state is written to `checkpoint.json` at every node exit,
+  atomically.
+* **Context/Constraint:** LangGraph's SQLite checkpointer is a separate package not in
+  the lockfile, and its saved form is tied to the framework. The ledger, results and
+  conversation already serialise to JSON for the trajectory.
+* **Trade-off:** LangGraph's own resume and time-travel features are not used;
+  `continue_run` resumes from the JSON checkpoint instead.
+
+#### Decision 10: Old results are digested in blocks
+
+* **Decision:** The last three data-tool results stay in full. When three more have
+  piled up, the oldest three become digests in one step.
+* **Context/Constraint:** Digesting one result per turn would change the conversation
+  prefix on every turn, so provider prompt caching would never hit.
+* **Trade-off:** Up to five full results are in context at a time instead of three.
+
+#### Decision 12: `--fake` uses a rule-based stand-in model
+
+* **Decision:** `scripts/investigate.py --fake` runs `agent/fake_policy.RuleClient`,
+  which reads the tool results in the conversation and follows a fixed recipe (find
+  the onset, compare windows, cite the top-shifting column, submit, answer verify
+  with `inconclusive`). Tests keep using the scripted fake from Phase 04.
+* **Context/Constraint:** A queued script cannot quote values from a folder it has not
+  seen, so its citations would fail on anything but the fixture it was written for.
+* **Trade-off:** The stand-in is a second fake to maintain, and its answers mean
+  nothing; it proves the wiring, the citation check and the run record only.
+
 ## 4. Constraints
 
 * **Fault start time is given on the benchmark, optional on uploads.** *Source: RCAEval;
@@ -201,4 +271,32 @@ See [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg).
   estimate so a full pass fits its allocation in Phase 06.
 
 ## 5. AI-use notes (feeds `REPORT.md`)
-*Filled in as the work happens.*
+- Claude Code (Fable 5.2) drafted the Phase 05 plan: seven steps, one PR each, with
+  model ids, API keys and the live run left to the last step at the owner's request.
+- Step 1 (contracts): Claude Code wrote `agent/config.py`, `state.py`,
+  `trajectory.py`, `report.py`, `config/agent.yaml` and their tests.
+- Step 2 (ledger): Claude Code wrote `agent/results.py`, `agent/ledger.py` and their
+  tests. Results of memory tools are marked so they never count as current-data
+  support. Coverage: ledger 90%, results 95%.
+- Step 3 (loop): Claude Code wrote `agent/executor.py`, `context.py`, `prompts.py`,
+  `investigate.py`, `finalise.py`, a starting call number on `ToolRegistry`, and the
+  loop and finalisation tests on the `victim_vs_cause` fixture with the scripted fake.
+- Step 4 (graph): Claude Code wrote `agent/graph.py` (nodes, routing, verify tool,
+  checkpoints, `run_investigation`) and 13 graph tests, including the injection test.
+  A verdict must cite a call made during the check; a refuted hypothesis is rejected;
+  verify runs at most twice and the run returns to investigate at most once.
+- Step 5 (continuation): Claude Code wrote `agent/continuation.py` and its tests;
+  checkpoints now keep a catalog summary so the "what changed" briefing is computed
+  by diffing catalogs.
+- Step 6 (skeleton): Claude Code wrote `agent/render.py`, `agent/fake_policy.py` (a
+  rule-based stand-in model for `--fake`), `scripts/investigate.py`,
+  `scripts/replay.py`, `make investigate` / `make replay`, the live test, and updated
+  the agent-graph SVG (Report is now deterministic code; Limits reserve the verify
+  share).
+- Offline check, $0: `make investigate ARGS='evalsets/field/cases/victim_vs_cause
+  --fake'` writes a cited report and trajectory; `make replay` on that trajectory
+  reproduces `report.md` byte for byte with 1 of 1 citations valid. The rule-based
+  fake names the victim (`api-gateway`), as expected of a model that only follows the
+  largest shift; it is a wiring check, not a result.
+- Paid runs refuse to start without `--yes`, and check the model before opening the
+  spend ledger.

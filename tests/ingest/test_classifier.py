@@ -1,25 +1,32 @@
 """Unit tests for deterministic file classification and model fallback."""
 
+import decimal
+import json
 import pathlib
 
 import pytest
 
 from incidents_agent.ingest import classifier
 from incidents_agent.ingest import schema
+from incidents_agent.llm import contracts
+from incidents_agent.llm import fake
 
 
-class _RecordingFakeClassifier:
-    """Fake model classifier recording calls and returning a fixed reply."""
-
-    def __init__(self, decision: schema.ModelClassifierDecision) -> None:
-        self.decision = decision
-        self.calls: list[tuple[str, str]] = []
-
-    def classify_file(
-        self, relative_path: str, sample: str
-    ) -> schema.ModelClassifierDecision:
-        self.calls.append((relative_path, sample))
-        return self.decision
+def _chat_result(text: str, cost_usd: str = '0.0005') -> contracts.ChatResult:
+    """Build a deterministic ChatResult for ScriptedClient tests."""
+    return contracts.ChatResult(
+        response=contracts.ProviderResult(
+            message=contracts.Message(role='assistant', text=text),
+            usage=contracts.Usage(input_tokens=20, output_tokens=10),
+            served_model='fake-classifier',
+            request_id='req-1',
+        ),
+        reservation_id='res-1',
+        started_at='1970-01-01T00:00:00+00:00',
+        requested_model='fake-classifier',
+        cost_usd=decimal.Decimal(cost_usd),
+        limit_usd=decimal.Decimal('1.00'),
+    )
 
 
 @pytest.mark.parametrize(
@@ -167,17 +174,23 @@ def test_classify_file_fallback_disabled_makes_no_model_call(
     """With the fallback flag off, even ambiguous files never call the model."""
     target = tmp_path / 'notes.txt'
     target.write_text('Plain prose without headings.\n' * 60, encoding='utf-8')
-    fake = _RecordingFakeClassifier(
-        schema.ModelClassifierDecision('document', 'paragraphs', 'prose', 0.001)
+    client = fake.ScriptedClient(
+        [
+            contracts.Message(
+                'assistant',
+                '{"kind": "document", "chunk_strategy": "paragraphs", '
+                '"reason": "prose"}',
+            )
+        ]
     )
     cfg = schema.IngestConfig(
         enable_model_classification=False,
-        classifier_client=fake,
+        classifier_client=client,
     )
 
     result = classifier.classify_file(target, 'notes.txt', cfg)
 
-    assert len(fake.calls) == 0
+    assert len(client.requests) == 0
     assert result.used_model_fallback is False
     assert result.kind == 'document'
 
@@ -188,17 +201,23 @@ def test_classify_file_fallback_skipped_when_rules_confident(
     """Confident rule matches never invoke the model even when enabled."""
     target = tmp_path / 'metrics.csv'
     target.write_text('time,cpu\n1700000000,1\n', encoding='utf-8')
-    fake = _RecordingFakeClassifier(
-        schema.ModelClassifierDecision('tabular', 'none', 'csv', 0.001)
+    client = fake.ScriptedClient(
+        [
+            contracts.Message(
+                'assistant',
+                '{"kind": "tabular", "chunk_strategy": "none", '
+                '"reason": "csv"}',
+            )
+        ]
     )
     cfg = schema.IngestConfig(
         enable_model_classification=True,
-        classifier_client=fake,
+        classifier_client=client,
     )
 
     result = classifier.classify_file(target, 'metrics.csv', cfg)
 
-    assert len(fake.calls) == 0
+    assert len(client.requests) == 0
     assert result.kind == 'tabular'
 
 
@@ -212,25 +231,96 @@ def test_classify_file_fallback_uses_cache_and_runs_below_threshold(
     file_a.write_text(content, encoding='utf-8')
     file_b.write_text(content, encoding='utf-8')
     cache: dict[str, schema.ModelClassifierDecision] = {}
-    fake = _RecordingFakeClassifier(
-        schema.ModelClassifierDecision(
-            'document', 'paragraphs', 'prose notes', 0.0005
-        )
+    client = fake.ScriptedClient(
+        [
+            _chat_result(
+                '{"kind": "document", "chunk_strategy": "paragraphs", '
+                '"reason": "prose notes"}',
+                cost_usd='0.0005',
+            )
+        ]
     )
     cfg = schema.IngestConfig(
         enable_model_classification=True,
-        classifier_client=fake,
+        classifier_client=client,
         classifier_cache=cache,
     )
 
     first = classifier.classify_file(file_a, 'note_a.txt', cfg)
     second = classifier.classify_file(file_b, 'note_b.txt', cfg)
 
-    assert len(fake.calls) == 1
+    assert len(client.requests) == 1
     assert first.used_model_fallback is True
-    assert first.model_cost_usd == pytest.approx(0.0005)
+    assert first.model_cost_usd == decimal.Decimal('0.0005')
     assert second.used_model_fallback is True
-    assert second.model_cost_usd == 0.0
+    assert second.model_cost_usd == decimal.Decimal(0)
+
+
+def test_classify_file_fallback_parses_fenced_json_response(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Markdown code fences around a valid JSON choice are stripped."""
+    target = tmp_path / 'summary.txt'
+    target.write_text('Ambiguous unlabelled note.\n' * 60, encoding='utf-8')
+    client = fake.ScriptedClient(
+        [
+            _chat_result(
+                '```json\n'
+                '{"kind": "document", "chunk_strategy": "whole", '
+                '"reason": "short summary"}\n'
+                '```',
+                cost_usd='0.0002',
+            )
+        ]
+    )
+    cfg = schema.IngestConfig(
+        enable_model_classification=True,
+        classifier_client=client,
+    )
+
+    result = classifier.classify_file(target, 'summary.txt', cfg)
+
+    assert result.used_model_fallback is True
+    assert result.kind == 'document'
+    assert result.chunk_strategy == 'whole'
+    assert result.model_cost_usd == decimal.Decimal('0.0002')
+
+
+def test_classify_file_fallback_bounds_untrusted_sample(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Fallback request encloses a bounded sample inside untrusted_sample."""
+    target = tmp_path / 'large_note.txt'
+    target.write_text('Unstructured text line.\n' * 200, encoding='utf-8')
+    client = fake.ScriptedClient(
+        [
+            contracts.Message(
+                'assistant',
+                '{"kind": "document", "chunk_strategy": "paragraphs", '
+                '"reason": "prose"}',
+            )
+        ]
+    )
+    cfg = schema.IngestConfig(
+        enable_model_classification=True,
+        classifier_client=client,
+        classifier_model_alias='cheap',
+        classifier_run=contracts.Run('run-123'),
+        classifier_case_id='case-9',
+    )
+
+    classifier.classify_file(target, 'docs/large_note.txt', cfg)
+
+    req, run, case_id = client.requests[0]
+    user_text = req.history[0].text
+    assert user_text is not None
+    payload = json.loads(user_text)
+    assert req.model_alias == 'cheap'
+    assert run == contracts.Run('run-123')
+    assert case_id == 'case-9'
+    assert 'raw file data' in req.system_prompt
+    assert payload['relative_path'] == 'docs/large_note.txt'
+    assert len(payload['untrusted_sample'].encode('utf-8')) <= 2000
 
 
 def test_classify_file_rejects_out_of_menu_model_answer(
@@ -239,21 +329,100 @@ def test_classify_file_rejects_out_of_menu_model_answer(
     """An out-of-menu model response is rejected in favour of rules."""
     target = tmp_path / 'ambiguous.txt'
     target.write_text('Just some freeform text.\n' * 60, encoding='utf-8')
-    fake = _RecordingFakeClassifier(
-        schema.ModelClassifierDecision('spreadsheet', 'sliding_window', 'bad')
+    cache: dict[str, schema.ModelClassifierDecision] = {}
+    client = fake.ScriptedClient(
+        [
+            _chat_result(
+                '{"kind": "spreadsheet", "chunk_strategy": "sliding_window", '
+                '"reason": "bad"}',
+                cost_usd='0.0004',
+            )
+        ]
     )
     cfg = schema.IngestConfig(
         enable_model_classification=True,
-        classifier_client=fake,
+        classifier_client=client,
+        classifier_cache=cache,
     )
 
     result = classifier.classify_file(target, 'ambiguous.txt', cfg)
 
-    assert len(fake.calls) == 1
+    assert len(client.requests) == 1
     assert result.used_model_fallback is False
     assert result.kind == 'document'
     assert result.chunk_strategy == 'paragraphs'
+    assert result.model_cost_usd == decimal.Decimal('0.0004')
+    assert cache == {}
     assert 'rejected out-of-menu' in result.reason
+
+
+@pytest.mark.parametrize(
+    'reply_text',
+    [
+        pytest.param('Not JSON at all', id='non_json'),
+        pytest.param('["document", "paragraphs"]', id='json_array'),
+        pytest.param('{"kind": "log"}', id='missing_strategy'),
+    ],
+)
+def test_classify_file_rejects_malformed_model_answer(
+    tmp_path: pathlib.Path,
+    reply_text: str,
+) -> None:
+    """Malformed model replies keep rule defaults without caching."""
+    target = tmp_path / 'ambiguous.txt'
+    target.write_text('Just some freeform text.\n' * 60, encoding='utf-8')
+    cache: dict[str, schema.ModelClassifierDecision] = {}
+    client = fake.ScriptedClient([_chat_result(reply_text, cost_usd='0.0003')])
+    cfg = schema.IngestConfig(
+        enable_model_classification=True,
+        classifier_client=client,
+        classifier_cache=cache,
+    )
+
+    result = classifier.classify_file(target, 'ambiguous.txt', cfg)
+
+    assert result.used_model_fallback is False
+    assert result.kind == 'document'
+    assert result.chunk_strategy == 'paragraphs'
+    assert result.model_cost_usd == decimal.Decimal('0.0003')
+    assert cache == {}
+    assert 'rejected malformed model answer' in result.reason
+
+
+@pytest.mark.parametrize(
+    ('error', 'expected_halted'),
+    [
+        pytest.param(contracts.BudgetRefused('limit'), True, id='budget'),
+        pytest.param(contracts.BillingUncertain('held'), True, id='billing'),
+        pytest.param(
+            contracts.ModelUnavailable('no key'), True, id='unavailable'
+        ),
+        pytest.param(contracts.ProviderError('bad req'), False, id='provider'),
+        pytest.param(contracts.RetryDeferred(2.0), False, id='retry'),
+    ],
+)
+def test_classify_file_fallback_degrades_on_client_error(
+    tmp_path: pathlib.Path,
+    error: Exception,
+    expected_halted: bool,
+) -> None:
+    """Model and budget exceptions fall back cleanly to deterministic rules."""
+    target = tmp_path / 'ambiguous.txt'
+    target.write_text('Just some freeform text.\n' * 60, encoding='utf-8')
+    client = fake.ScriptedClient([error])
+    cfg = schema.IngestConfig(
+        enable_model_classification=True,
+        classifier_client=client,
+    )
+
+    result = classifier.classify_file(target, 'ambiguous.txt', cfg)
+
+    assert result.used_model_fallback is False
+    assert result.kind == 'document'
+    assert result.chunk_strategy == 'paragraphs'
+    assert result.model_cost_usd == decimal.Decimal(0)
+    assert result.fallback_halted is expected_halted
+    assert 'model fallback unavailable' in result.reason
 
 
 def test_classify_file_respects_user_override(tmp_path: pathlib.Path) -> None:

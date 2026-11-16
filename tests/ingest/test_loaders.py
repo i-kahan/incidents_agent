@@ -1,5 +1,8 @@
 """Unit and integration tests for folder ingest, limits, and read-only DB."""
 
+import collections
+import decimal
+import json
 import os
 import pathlib
 
@@ -8,6 +11,74 @@ import pytest
 
 from incidents_agent import ingest
 from incidents_agent.ingest import schema
+from incidents_agent.llm import client
+from incidents_agent.llm import config
+from incidents_agent.llm import contracts
+from incidents_agent.llm import ledger
+
+
+class _ClassifierTransport:
+    """Offline fake transport returning queued provider results or failures."""
+
+    def __init__(
+        self,
+        outputs: list[contracts.ProviderResult | client.TransportFailure],
+    ) -> None:
+        self.outputs = collections.deque(outputs)
+        self.calls = 0
+
+    def input_bound(
+        self, spec: config.ModelSpec, request: contracts.ChatRequest
+    ) -> int | None:
+        del spec, request
+        return None
+
+    def complete(
+        self,
+        spec: config.ModelSpec,
+        request: contracts.ChatRequest,
+        *,
+        api_key: str,
+        cache: bool,
+        timeout: float,
+    ) -> contracts.ProviderResult:
+        del spec, request, api_key, cache, timeout
+        self.calls += 1
+        outcome = self.outputs.popleft()
+        if isinstance(outcome, client.TransportFailure):
+            raise outcome
+        return outcome
+
+
+def _make_guarded_classifier(
+    tmp_path: pathlib.Path,
+    *,
+    budget_yaml: str,
+    transport: client.Transport,
+) -> tuple[client.GuardedClient, ledger.SpendLedger]:
+    budget_path = tmp_path / 'budget.yaml'
+    budget_path.write_text(budget_yaml, encoding='utf-8')
+    spend = ledger.SpendLedger(tmp_path / 'spend.sqlite', budget_path)
+    spec = config.ModelSpec('small', 'anthropic/fake-20250101', 'anthropic')
+    models = config.Models({'small': spec}, 'small')
+    rate_card: dict[str, object] = {
+        'fake-20250101': {
+            'litellm_provider': 'anthropic',
+            'max_input_tokens': 20_000,
+            'max_output_tokens': 1_000,
+            'input_cost_per_token': '0.000001',
+            'output_cost_per_token': '0.000002',
+        }
+    }
+    guarded = client.GuardedClient(
+        models,
+        {'ANTHROPIC_API_KEY': 'fake-key'},
+        spend,
+        transport,
+        catalog=rate_card,
+        sleep=lambda _: None,
+    )
+    return (guarded, spend)
 
 
 def _re2_ob_case_path() -> pathlib.Path | None:
@@ -250,5 +321,165 @@ def test_ingest_real_re2_ob_case(tmp_path: pathlib.Path) -> None:
         assert len(traces.relationships) == 1
         assert traces.relationships[0].kind == 'span_parent'
         assert traces.relationships[0].overlap_ratio == 1.0
+    finally:
+        result.close()
+
+
+@pytest.mark.integration
+def test_ingest_guarded_classifier_settles_spend_in_ledger(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Guarded fallback reserves, settles Decimal cost, and serialises."""
+    src = tmp_path / 'incident_alpha'
+    src.mkdir()
+    (src / 'events.txt').write_text('evt|service|ok\n' * 30, encoding='utf-8')
+    (src / 'metrics.csv').write_text(
+        'time,cpu\n1700000000,1\n', encoding='utf-8'
+    )
+    transport = _ClassifierTransport(
+        [
+            contracts.ProviderResult(
+                message=contracts.Message(
+                    'assistant',
+                    '{"kind": "log", "chunk_strategy": "none", '
+                    '"reason": "delimited log lines"}',
+                ),
+                usage=contracts.Usage(input_tokens=300, output_tokens=20),
+                served_model='fake-20250101',
+                request_id='req-1',
+            )
+        ]
+    )
+    guarded, spend = _make_guarded_classifier(
+        tmp_path,
+        budget_yaml='total_usd: 1.00\nsafety_margin_usd: 0.10\n',
+        transport=transport,
+    )
+    run = contracts.Run('ingest-run-1')
+    cfg = schema.IngestConfig(
+        enable_model_classification=True,
+        classifier_client=guarded,
+        classifier_run=run,
+    )
+
+    result = ingest.ingest_folder(src, workdir=tmp_path / 'out', config=cfg)
+    try:
+        events_cls = next(
+            cls
+            for cls in result.catalog.classifications
+            if cls.relative_path == 'events.txt'
+        )
+        counters = spend.counters(run)
+        records = spend.attempt_records(run)
+        serialised = json.dumps(result.catalog.to_dict())
+        parsed_catalog = json.loads(serialised)
+        events_entry = parsed_catalog['classifications'][0]
+
+        assert transport.calls == 1
+        assert result.catalog.get_table('events') is not None
+        assert events_cls.kind == 'log'
+        assert events_cls.used_model_fallback is True
+        assert events_cls.model_cost_usd == decimal.Decimal('0.00034')
+        assert counters.spent == decimal.Decimal('0.00034')
+        assert counters.held == decimal.Decimal(0)
+        assert records[0]['case_id'] == 'incident_alpha'
+        assert events_entry['relative_path'] == 'events.txt'
+        assert decimal.Decimal(events_entry['model_cost_usd']) == (
+            decimal.Decimal('0.00034')
+        )
+    finally:
+        result.close()
+
+
+@pytest.mark.integration
+def test_ingest_guarded_classifier_budget_refusal_halts_fallback(
+    tmp_path: pathlib.Path,
+) -> None:
+    """BudgetRefused degrades to rules and halts further fallback calls."""
+    src = tmp_path / 'case_budget'
+    src.mkdir()
+    (src / 'a_note.txt').write_text(
+        'First ambiguous prose note.\n' * 60, encoding='utf-8'
+    )
+    (src / 'b_note.txt').write_text(
+        'Second ambiguous prose note.\n' * 60, encoding='utf-8'
+    )
+    transport = _ClassifierTransport([])
+    guarded, spend = _make_guarded_classifier(
+        tmp_path,
+        budget_yaml=(
+            'total_usd: 1.00\nsafety_margin_usd: 0.10\n'
+            'per_case_cap_usd: 0.001\n'
+        ),
+        transport=transport,
+    )
+    run = contracts.Run('ingest-budget')
+    cfg = schema.IngestConfig(
+        enable_model_classification=True,
+        classifier_client=guarded,
+        classifier_run=run,
+    )
+
+    result = ingest.ingest_folder(src, workdir=tmp_path / 'out', config=cfg)
+    try:
+        by_path = {
+            cls.relative_path: cls for cls in result.catalog.classifications
+        }
+
+        assert transport.calls == 0
+        assert spend.attempt_records(run) == []
+        assert len(result.catalog.documents) == 2
+        assert by_path['a_note.txt'].used_model_fallback is False
+        assert by_path['a_note.txt'].fallback_halted is True
+        assert 'BudgetRefused' in by_path['a_note.txt'].reason
+        assert by_path['b_note.txt'].used_model_fallback is False
+        assert 'model fallback unavailable' not in by_path['b_note.txt'].reason
+    finally:
+        result.close()
+
+
+@pytest.mark.integration
+def test_ingest_guarded_classifier_ambiguous_timeout_retains_hold(
+    tmp_path: pathlib.Path,
+) -> None:
+    """BillingUncertain keeps the reservation held and stops further calls."""
+    src = tmp_path / 'case_timeout'
+    src.mkdir()
+    (src / 'a_note.txt').write_text(
+        'First ambiguous note for timeout.\n' * 60, encoding='utf-8'
+    )
+    (src / 'b_note.txt').write_text(
+        'Second ambiguous note after halt.\n' * 60, encoding='utf-8'
+    )
+    transport = _ClassifierTransport(
+        [client.TransportFailure('timed out', retryable=False)]
+    )
+    guarded, spend = _make_guarded_classifier(
+        tmp_path,
+        budget_yaml='total_usd: 1.00\nsafety_margin_usd: 0.10\n',
+        transport=transport,
+    )
+    run = contracts.Run('ingest-timeout')
+    cfg = schema.IngestConfig(
+        enable_model_classification=True,
+        classifier_client=guarded,
+        classifier_run=run,
+    )
+
+    result = ingest.ingest_folder(src, workdir=tmp_path / 'out', config=cfg)
+    try:
+        by_path = {
+            cls.relative_path: cls for cls in result.catalog.classifications
+        }
+        records = spend.attempt_records(run)
+
+        assert transport.calls == 1
+        assert len(result.catalog.documents) == 2
+        assert by_path['a_note.txt'].used_model_fallback is False
+        assert by_path['a_note.txt'].fallback_halted is True
+        assert 'BillingUncertain' in by_path['a_note.txt'].reason
+        assert 'model fallback unavailable' not in by_path['b_note.txt'].reason
+        assert spend.snapshot().held > decimal.Decimal(0)
+        assert records[0]['status'] == 'ambiguous'
     finally:
         result.close()
