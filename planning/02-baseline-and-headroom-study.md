@@ -125,8 +125,8 @@ confirmed or changed by a rule written down before the numbers were seen.
 * **Trade-off:** On RE2-OB this BARO ranks `redis_diskio` first in every tuning case
   (§5). That series is zero most of the time with periodic bursts. Its interquartile
   range is zero, so its robust z-score is huge. The baseline is therefore weak at top 1
-  for a reason unrelated to the fault. The report states this, and Phase 06 decides
-  whether a guarded statistic joins the baseline ladder (open item below).
+  for a reason unrelated to the fault. The report states this. Phase 06 adds a
+  guarded BARO row that skips zero-IQR series (owner's decision, §5).
 * **Rejected alternatives:** RCAEval's own `dk_select_useful` option. It drops the
   `redis_*` series, but its variance filter leaves one or two metrics per case on
   RE2-OB. It scored 0.20 at top 1, 3 and 5 on tuning, so it is not a usable baseline.
@@ -268,11 +268,12 @@ hold aggregate keys only. Per-case rows and predictions stay in gitignored
 breakdowns, the cost model and its configuration, BARO and mmbaro on synthetic cases,
 and aggregate-only scoring.
 
-**⚠️ OPEN — stronger statistical row (for Phase 06):** an agent could beat BARO at top 1
-just by ignoring `redis_diskio`. Phase 06's baseline ladder should consider a BARO row
-that skips series with zero interquartile range in the normal window, so a gain is not
-credited to the agent for one artifact. Choosing it now, after seeing tuning results,
-would be tuning the baseline; the owner decides.
+**Resolved — stronger statistical row:** an agent could beat BARO at top 1 just by
+ignoring `redis_diskio`. The owner decided to add a guarded BARO row in Phase 06. It
+skips any metric with zero interquartile range in the normal window. The headline
+comparison is against whichever of BARO and guarded BARO is stronger at tuning top 1
+(Phase 06, Decision 7). It is not built here, so this phase's baseline is the one
+Decision 3 names.
 
 ## 6. AI-use notes (feeds `REPORT.md`)
 - Claude Code (Opus 5.5) drafted the Phase 02 plan, which the owner approved. The

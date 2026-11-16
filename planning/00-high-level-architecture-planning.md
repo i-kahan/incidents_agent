@@ -154,7 +154,7 @@ this plan, are in [`future-improvements.md`](future-improvements.md).
 | Uncertainty | Intervals and paired differences bootstrapped by service–fault pair | 06 |
 | Budget | Every paid use ranked; the final run's money reserved first | 06 |
 | Model comparison | `run_eval.py` runs one configuration; `compare_models.py` aggregates several | 06 |
-| Baseline ladder | BARO, multi-source BARO, a single model call, the plain loop; plus agreement with BARO's top answer | 06 |
+| Baseline ladder | BARO, guarded BARO (skips zero-IQR series), multi-source BARO, a single model call, the plain loop; headline against the stronger BARO row at tuning top 1; plus agreement with its top answer | 06 |
 | Run-to-run noise | Measured once on a small sample and quoted with every comparison | 04, 06 |
 | Onset detection | `find_onset` scored against RCAEval's known start times, at no cost | 06 |
 | Upload-path evidence | Seven hand-built non-RCAEval cases (six incidents, one healthy; one with a planted instruction), scored deterministically, reported separately as counts | 06 |
@@ -169,9 +169,6 @@ this plan, are in [`future-improvements.md`](future-improvements.md).
 
 Open items, flagged **⚠️ OPEN** in the phase files:
 
-- **Stronger statistical baseline** (02, 06): BARO's top 1 on RE2-OB is held down by one
-  bursty series (`redis_diskio`); whether a guarded BARO row joins the ladder is the
-  owner's call.
 - **Models to compare** (04, 06): the owner supplies keys and model IDs.
 
 ## 5. Constraints (summary)
