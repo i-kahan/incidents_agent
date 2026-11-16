@@ -1,0 +1,9 @@
+1700003010 INFO batch-worker health checks passed
+1700003200 ERROR batch-worker export task wrote 950MB temporary files; ENOSPC on /scratch
+1700003210 ERROR batch-worker export task wrote 950MB temporary files; ENOSPC on /scratch
+1700003220 ERROR batch-worker export task wrote 950MB temporary files; ENOSPC on /scratch
+1700003230 ERROR batch-worker export task wrote 950MB temporary files; ENOSPC on /scratch
+1700003240 ERROR batch-worker export task wrote 950MB temporary files; ENOSPC on /scratch
+1700003250 ERROR batch-worker export task wrote 950MB temporary files; ENOSPC on /scratch
+1700003260 ERROR batch-worker export task wrote 950MB temporary files; ENOSPC on /scratch
+1700003270 ERROR batch-worker export task wrote 950MB temporary files; ENOSPC on /scratch

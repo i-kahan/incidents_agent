@@ -1,0 +1,26 @@
+{
+  "schema_version": 2,
+  "case_id": "lock_contention",
+  "root_cause_component": "orders-db",
+  "accepted_aliases": [
+    "orders-db",
+    "orders_db",
+    "orders db"
+  ],
+  "fault_category": "lock_contention",
+  "onset_time_s": 1700004200,
+  "required_evidence": [
+    {
+      "source_file": "events.log",
+      "quote": "transaction tx-812 holds orders lock; blocked session count=24"
+    },
+    {
+      "source_file": "operations.md",
+      "quote": "Inspect the blocking transaction and its owner before cancellation"
+    },
+    {
+      "source_file": "samples.jsonl",
+      "quote": "lock_wait_ms"
+    }
+  ]
+}

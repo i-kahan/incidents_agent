@@ -61,7 +61,7 @@ label. That part is sequential.
 |---|---|---|---|
 | **05 Agent** (ledger, graph, run record, walking skeleton) | 03, 04 | all of wave 3 | `agent/prompts.py` |
 | **06-B Scoring and statistics**, including the evaluator contract test | 02 | all of wave 3 | — |
-| **06-D Remaining four field-set cases** and their scorer | 03 | all of wave 3 | `evalsets/field/` |
+| **06-D Remaining five field-set cases** and their scorer | 03 | all of wave 3 | `evalsets/field/` |
 | **03 Model-assisted classifier** | 03, 04 | all of wave 3 | `ingest/` |
 
 06-B needs only RCAEval, the split and prediction files, which BARO already produces in

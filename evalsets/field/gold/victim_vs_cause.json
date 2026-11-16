@@ -10,8 +10,18 @@
   "fault_category": "downstream_saturation",
   "onset_time_s": 1700001200,
   "required_evidence": [
-    "inventory-db",
-    "Lock wait timeout",
-    "traces.csv"
-  ]
+    {
+      "source_file": "service.log",
+      "quote": "Lock wait timeout"
+    },
+    {
+      "source_file": "traces.csv",
+      "quote": "inventory-db"
+    },
+    {
+      "source_file": "architecture.md",
+      "quote": "only a victim"
+    }
+  ],
+  "schema_version": 2
 }
