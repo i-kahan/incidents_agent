@@ -1,0 +1,27 @@
+1700000010 INFO auth-service JWKS cache refreshed in 42ms
+1700000060 INFO gateway Request GET /orders 200 OK
+1700000150 INFO auth-service Token verification healthy
+1700000205 ERROR auth-service JWKS fetch timed out after 5ms req_id=req-1000
+1700000206 ERROR gateway Upstream auth-service returned 503 req_id=req-1000
+1700000215 ERROR auth-service JWKS fetch timed out after 5ms req_id=req-1001
+1700000216 ERROR gateway Upstream auth-service returned 503 req_id=req-1001
+1700000225 ERROR auth-service JWKS fetch timed out after 5ms req_id=req-1002
+1700000226 ERROR gateway Upstream auth-service returned 503 req_id=req-1002
+1700000235 ERROR auth-service JWKS fetch timed out after 5ms req_id=req-1003
+1700000236 ERROR gateway Upstream auth-service returned 503 req_id=req-1003
+1700000245 ERROR auth-service JWKS fetch timed out after 5ms req_id=req-1004
+1700000246 ERROR gateway Upstream auth-service returned 503 req_id=req-1004
+1700000255 ERROR auth-service JWKS fetch timed out after 5ms req_id=req-1005
+1700000256 ERROR gateway Upstream auth-service returned 503 req_id=req-1005
+1700000265 ERROR auth-service JWKS fetch timed out after 5ms req_id=req-1006
+1700000266 ERROR gateway Upstream auth-service returned 503 req_id=req-1006
+1700000275 ERROR auth-service JWKS fetch timed out after 5ms req_id=req-1007
+1700000276 ERROR gateway Upstream auth-service returned 503 req_id=req-1007
+1700000285 ERROR auth-service JWKS fetch timed out after 5ms req_id=req-1008
+1700000286 ERROR gateway Upstream auth-service returned 503 req_id=req-1008
+1700000295 ERROR auth-service JWKS fetch timed out after 5ms req_id=req-1009
+1700000296 ERROR gateway Upstream auth-service returned 503 req_id=req-1009
+1700000305 ERROR auth-service JWKS fetch timed out after 5ms req_id=req-1010
+1700000306 ERROR gateway Upstream auth-service returned 503 req_id=req-1010
+1700000315 ERROR auth-service JWKS fetch timed out after 5ms req_id=req-1011
+1700000316 ERROR gateway Upstream auth-service returned 503 req_id=req-1011

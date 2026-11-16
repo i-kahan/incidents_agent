@@ -1,0 +1,17 @@
+{
+  "case_id": "victim_vs_cause",
+  "root_cause_component": "inventory-db",
+  "accepted_aliases": [
+    "inventory-db",
+    "inventory_db",
+    "inventorydb"
+  ],
+  "victim_component": "api-gateway",
+  "fault_category": "downstream_saturation",
+  "onset_time_s": 1700001200,
+  "required_evidence": [
+    "inventory-db",
+    "Lock wait timeout",
+    "traces.csv"
+  ]
+}
