@@ -1,0 +1,9 @@
+{
+  "schema_version": 2,
+  "case_id": "healthy",
+  "root_cause_component": null,
+  "accepted_aliases": [],
+  "fault_category": "no_fault_found",
+  "onset_time_s": null,
+  "required_evidence": []
+}

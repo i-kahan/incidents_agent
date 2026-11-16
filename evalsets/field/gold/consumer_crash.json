@@ -1,0 +1,26 @@
+{
+  "schema_version": 2,
+  "case_id": "consumer_crash",
+  "root_cause_component": "queue-consumer",
+  "accepted_aliases": [
+    "queue-consumer",
+    "queue_consumer",
+    "queue consumer"
+  ],
+  "fault_category": "consumer_crash",
+  "onset_time_s": 1700005200,
+  "required_evidence": [
+    {
+      "source_file": "events.log",
+      "quote": "consumer exited status=1 after schema version mismatch"
+    },
+    {
+      "source_file": "operations.md",
+      "quote": "A producer schema rollout requires a compatible consumer"
+    },
+    {
+      "source_file": "metrics.csv",
+      "quote": "queue_depth"
+    }
+  ]
+}

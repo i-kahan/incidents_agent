@@ -1,0 +1,9 @@
+1700004010 INFO orders-db health checks passed
+1700004200 ERROR orders-db transaction tx-812 holds orders lock; blocked session count=24
+1700004210 ERROR orders-db transaction tx-812 holds orders lock; blocked session count=24
+1700004220 ERROR orders-db transaction tx-812 holds orders lock; blocked session count=24
+1700004230 ERROR orders-db transaction tx-812 holds orders lock; blocked session count=24
+1700004240 ERROR orders-db transaction tx-812 holds orders lock; blocked session count=24
+1700004250 ERROR orders-db transaction tx-812 holds orders lock; blocked session count=24
+1700004260 ERROR orders-db transaction tx-812 holds orders lock; blocked session count=24
+1700004270 ERROR orders-db transaction tx-812 holds orders lock; blocked session count=24
