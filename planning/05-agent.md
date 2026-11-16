@@ -1,6 +1,7 @@
 # Phase 5: Agent
 
-**Status:** Not started
+**Status:** In progress — Workstream A contracts landed (agent config, task, budget,
+trajectory, report types)
 
 ## 1. Objective
 Build the investigating agent: it reads the catalog, forms hypotheses, tests them with
@@ -13,7 +14,10 @@ See [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg).
 ## 2. Next Steps (Checklist)
 
 **Workstream A — State and ledger (`agent/state.py`, `agent/ledger.py`)**
-- [ ] Run state: task, catalog, messages, ledger, tool-call log, budget counters.
+- [x] Run state: task, catalog, messages, ledger, tool-call log, budget counters.
+      *(`agent/state.py`: `Task`, `Budget` with the verify reserve; `agent/config.py`
+      reads `config/agent.yaml`; `agent/trajectory.py` and `agent/report.py` fix the
+      trajectory schema and report shape that Phases 06–09 consume.)*
 - [ ] Ledger entry: statement, component, status (open / supported / rejected),
       qualitative confidence, evidence for and against, verification outcome, origin
       (`data` or `memory`).
@@ -190,6 +194,18 @@ See [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg).
   data. Continuation costs more model spend and adds state that must stay consistent
   between ingests. The benchmark never exercises it, so it is tested only on fixtures.
 
+#### Decision 8: Agent limits are configuration, separate from the spend budget
+
+* **Decision:** Per-case limits (tool calls, turns, wall time, cost cap, the verify
+  reserve) live in `config/agent.yaml` and are written into every run record. The
+  cost cap starts at $0.05, the Phase 02 target, and counts settled cost.
+  `config/budget.yaml` is not touched.
+* **Context/Constraint:** The spend guard reserves a worst-case bound per call, several
+  times the real cost, so a cap enforced there would stop runs far too early. The
+  agent's cap is about behaviour per case; the guard's limit is about money overall.
+* **Trade-off:** A run can overshoot its cost cap by the cost of its last call, since
+  settled cost is known only after the call. The global guard still bounds the total.
+
 ## 4. Constraints
 
 * **Fault start time is given on the benchmark, optional on uploads.** *Source: RCAEval;
@@ -201,4 +217,7 @@ See [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg).
   estimate so a full pass fits its allocation in Phase 06.
 
 ## 5. AI-use notes (feeds `REPORT.md`)
-*Filled in as the work happens.*
+- Claude Code (Fable 5.2) drafted the Phase 05 plan: seven steps, one PR each, with
+  model ids, API keys and the live run left to the last step at the owner's request.
+- Step 1 (contracts): Claude Code wrote `agent/config.py`, `state.py`,
+  `trajectory.py`, `report.py`, `config/agent.yaml` and their tests.
