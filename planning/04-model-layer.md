@@ -110,6 +110,10 @@ agent can call with any configured model, and a guard that makes overspending im
   unattended, so both will happen eventually.
 * **Trade-off:** Worst-case reservations are larger than actual costs, so near the
   limit the guard refuses calls that would have fitted, and parallelism is throttled.
+  The worst case is bounded by the request's UTF-8 size, not the model's context
+  window, so it overstates input about 3-4 times rather than by up to 1M tokens. A
+  provider that bills hidden input beyond that allowance shows up as a reported
+  overrun, which blocks further admissions until reconciled.
   The safety margin is left unused, and a new model needs a price entry before its first
   call. Because the limit is configurable, raising it is one edit; that is deliberate,
   and every result records the limit it ran under so a quiet increase is visible.
@@ -159,10 +163,14 @@ cheap models are recorded here once `check_models.py` has confirmed them live.
   `BillingUncertain` by retaining the attempt for reconciliation. Use
   `SpendLedger.counters(run)`, `attempt_records(run)`, and `snapshot()` for
   run records and budget display.
-- The production transport reserves against the locked LiteLLM catalog's model
-  input ceiling. The SDK's token counter is an estimate, so the production adapter
-  supplies no smaller bound. This can refuse short calls under a tight per-case
-  cap. An owner override for a model missing from the catalog needs paired
+- Each attempt reserves for an input bound of the request's UTF-8 size (system
+  prompt, catalog briefing, history including provider fields, and tool schemas)
+  plus 2,048 tokens and 64 per message or tool for provider framing, capped at the
+  model's published input ceiling. Every token the supported providers count covers
+  at least one byte of text, so this cannot undercount, unlike the SDK's token
+  estimate; the transport may still supply a tighter proven bound. A 10-tool first
+  call with a 6,000-character briefing bounds at about 17,000 tokens rather than
+  the full window. An owner override for a model missing from the catalog needs paired
   `input_cost_per_mtok` and `output_cost_per_mtok` rates and the published hard
   `max_input_tokens`. Optional cache rates are `cached_input_cost_per_mtok` and
   `cache_write_cost_per_mtok`. The accounting relies on accurate published caps
@@ -202,3 +210,11 @@ uses mock HTTP, a real ledger race between two processes, and fake transport
 timeouts. `make lint` passed. The default suite passed 67 tests with 93.59%
 line coverage for `llm`. The three opt-in live tests were deselected. LLM spend
 for phase implementation and verification was $0.00.
+
+Reservation fix: a Wave 2 review found every attempt reserved the model's full input
+window, $0.07 to $0.79 per attempt on the candidate models against an estimated
+$0.01 to $0.15 per case, and held that amount after each ambiguous timeout. Claude
+added `client.request_input_bound`, which bounds input tokens by the request's UTF-8
+size plus framing allowances. With the bundled prices, a first agent call now
+reserves $0.003 to $0.022, and a call after 30 tool results $0.06 to $0.17. Three
+tests were added; LLM spend was $0.00.

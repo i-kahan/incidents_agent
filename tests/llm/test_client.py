@@ -478,3 +478,87 @@ def test_scripted_model_returns_tool_calls_in_order(
         scripted.complete(request_data, run=demo)
     with pytest.raises(AssertionError, match='no response'):
         scripted.complete(request_data, run=demo)
+
+
+_WRITE_RATE = Decimal('0.00000125')
+_OUTPUT_RATE = Decimal('0.000002')
+
+
+def _use_wide_cheap_model(rate_card: dict[str, object]) -> None:
+    """Give the default model a 1M-token window at per-million-like rates."""
+    record = rate_card['fake-20250101']
+    assert isinstance(record, dict)
+    record.update(
+        {
+            'max_input_tokens': 1_000_000,
+            'input_cost_per_token': '0.000001',
+            'output_cost_per_token': str(_OUTPUT_RATE),
+            'cache_read_input_token_cost': '0.0000001',
+            'cache_creation_input_token_cost': str(_WRITE_RATE),
+        }
+    )
+
+
+def test_request_input_bound_counts_utf8_bytes_of_every_part() -> None:
+    """Every part of the request adds at least its UTF-8 size."""
+    empty = contracts.ChatRequest('', '', 10)
+    base = client.request_input_bound(empty)
+    accented = contracts.ChatRequest('', 'é' * 100, 10)
+    with_tool = replace(
+        empty, tools=(contracts.Tool('t', 'd' * 300, {'type': 'object'}),)
+    )
+    call = contracts.ToolCall('c1', 'run_sql', '{"query": "' + 'q' * 400)
+    with_turns = replace(
+        empty,
+        history=(
+            contracts.Message('assistant', None, (call,)),
+            contracts.Message('tool', 'r' * 500, tool_call_id='c1'),
+            contracts.Message('user', None, provider_fields={'sig': 's' * 600}),
+        ),
+    )
+
+    assert base >= client.FIXED_OVERHEAD_TOKENS
+    assert client.request_input_bound(accented) >= base + 200
+    assert client.request_input_bound(with_tool) >= base + 300
+    assert client.request_input_bound(with_turns) >= base + 1_500
+
+
+def test_reservation_uses_request_size_not_context_window(
+    make_client: Callable[..., client.GuardedClient],
+    request_data: contracts.ChatRequest,
+    rate_card: dict[str, object],
+    spend: ledger.SpendLedger,
+) -> None:
+    """A short request on a 1M-token model reserves for its own size."""
+    _use_wide_cheap_model(rate_card)
+    llm = make_client(_Script([_response()]))
+    run = contracts.Run('demo')
+
+    llm.complete(request_data, run=run)
+
+    tokens = client.request_input_bound(request_data)
+    expected = Decimal(tokens) * _WRITE_RATE + 10 * _OUTPUT_RATE
+    bound = Decimal(str(spend.attempt_records(run)[0]['bound_usd']))
+    assert tokens < 10_000
+    assert bound == expected
+    assert bound < Decimal(1_000_000) * _WRITE_RATE
+
+
+def test_ambiguous_attempt_holds_only_the_request_bound(
+    make_client: Callable[..., client.GuardedClient],
+    request_data: contracts.ChatRequest,
+    rate_card: dict[str, object],
+    spend: ledger.SpendLedger,
+) -> None:
+    """A timeout keeps the request-sized bound held, not the full window."""
+    _use_wide_cheap_model(rate_card)
+    failure = client.TransportFailure('timed out', retryable=False)
+    llm = make_client(_Script([failure]))
+
+    with pytest.raises(contracts.BillingUncertain):
+        llm.complete(request_data, run=contracts.Run('demo'))
+
+    tokens = client.request_input_bound(request_data)
+    assert spend.snapshot().held == (
+        Decimal(tokens) * _WRITE_RATE + 10 * _OUTPUT_RATE
+    )
