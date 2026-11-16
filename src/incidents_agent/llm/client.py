@@ -1,6 +1,7 @@
 """Model call orchestration, retries, and reservation settlement."""
 
 import fcntl
+import json
 import logging
 import math
 import random
@@ -20,6 +21,67 @@ from incidents_agent.llm import ledger
 from incidents_agent.llm import pricing
 
 LOGGER = logging.getLogger(__name__)
+
+
+# Every token the supported providers count covers at least one byte of the
+# text it encodes (byte-level BPE, or SentencePiece with byte fallback), so
+# the UTF-8 size of everything a request carries bounds its text tokens. The
+# allowances cover what a provider adds around that text: turn and role
+# markers for each message and tool, and hidden tool-use instructions.
+FIXED_OVERHEAD_TOKENS = 2_048
+ITEM_OVERHEAD_TOKENS = 64
+
+
+def _utf8_len(value: object) -> int:
+    return len(json.dumps(value, ensure_ascii=False).encode('utf-8'))
+
+
+def request_input_bound(request: contracts.ChatRequest) -> int:
+    """Return an upper bound on the input tokens a request can be billed.
+
+    Counts UTF-8 bytes of the system prompt, catalog briefing, every history
+    turn (text, tool calls, ids and provider fields) and every tool schema,
+    plus fixed allowances for provider framing. It never undercounts text,
+    unlike a tokenizer estimate, and is usually 3-4 times the true count for
+    English and JSON, far below a model's full context window.
+
+    Args:
+        request: The request about to be sent.
+
+    Returns:
+        A token count no smaller than the provider can bill for the input.
+    """
+    size = _utf8_len(request.system_prompt) + _utf8_len(
+        request.catalog_briefing
+    )
+    for tool in request.tools:
+        size += _utf8_len(
+            {
+                'name': tool.name,
+                'description': tool.description,
+                'parameters': dict(tool.parameters),
+            }
+        )
+    for turn in request.history:
+        size += _utf8_len(
+            {
+                'role': turn.role,
+                'text': turn.text,
+                'tool_call_id': turn.tool_call_id,
+                'provider_fields': dict(turn.provider_fields),
+                'tool_calls': [
+                    {
+                        'id': call.id,
+                        'name': call.name,
+                        'arguments': call.arguments,
+                        'provider_fields': dict(call.provider_fields),
+                    }
+                    for call in turn.tool_calls
+                ],
+            }
+        )
+    items = 2 + len(request.tools) + len(request.history)
+    return size + FIXED_OVERHEAD_TOKENS + items * ITEM_OVERHEAD_TOKENS
 
 
 class TransportFailure(Exception):
@@ -272,11 +334,9 @@ class GuardedClient:
             raise contracts.ModelUnavailable(
                 'Transport returned an invalid bound'
             )
-        input_bound = (
-            price.input_ceiling
-            if safe_input is None
-            else min(safe_input, price.input_ceiling)
-        )
+        input_bound = min(request_input_bound(request), price.input_ceiling)
+        if safe_input is not None:
+            input_bound = min(input_bound, safe_input)
         bound = price.bound(input_bound, output)
         key = self._env[config.PROVIDER_KEYS[spec.provider]].strip()
         deadline = self._monotonic() + self._policy.retry_window

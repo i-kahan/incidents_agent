@@ -286,7 +286,11 @@ class LiteLLMTransport:
     def input_bound(
         self, spec: config.ModelSpec, request: contracts.ChatRequest
     ) -> int | None:
-        """Use the published ceiling because LiteLLM counts are estimates."""
+        """Add nothing: LiteLLM counts are estimates, not upper bounds.
+
+        The client already bounds every request by its UTF-8 size; see
+        `client.request_input_bound`.
+        """
         return None
 
     def complete(
