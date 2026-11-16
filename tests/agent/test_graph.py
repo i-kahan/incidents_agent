@@ -173,6 +173,35 @@ def test_new_top_after_refutation_is_unverified_not_inherited(
 
 
 @pytest.mark.integration
+def test_refuted_hypothesis_cannot_return_as_the_top_cause(
+    tmp_path: Path,
+) -> None:
+    """Reopening and resubmitting a refuted cause does not rank it."""
+    result, _ = _run(
+        tmp_path,
+        [
+            *_two_suspects(),
+            scripted.submit('api-gateway', 'inventory-db'),
+            scripted.call('dependency_graph'),
+            _verdict('H1', 'refuted', [_edge('call_0003', 'api-gateway')]),
+            scripted.call(
+                'update_hypotheses',
+                operations=[
+                    {'op': 'revise', 'id': 'H1', 'status': 'supported'}
+                ],
+            ),
+            scripted.submit('api-gateway', 'inventory-db'),
+            _verdict('H2', 'inconclusive', []),
+        ],
+    )
+
+    final = result.report
+    assert (final.outcome, final.ranks) == ('provisional', ('inventory-db',))
+    assert final.causes[0].verification == 'inconclusive'
+    assert final.dropped == ("rank 'api-gateway': H1 was rejected",)
+
+
+@pytest.mark.integration
 def test_second_refutation_does_not_return_to_investigate(
     tmp_path: Path,
 ) -> None:

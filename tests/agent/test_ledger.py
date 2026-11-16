@@ -232,6 +232,46 @@ def test_record_verification_refuted_rejects_hypothesis(
     )
 
 
+def test_refuted_hypothesis_cannot_be_reopened_or_supported(
+    store: results.ResultStore,
+) -> None:
+    """A status change on a refuted hypothesis is refused with the reason."""
+    book = ledger.HypothesisLedger(conftest.RUN_ID, store)
+    book.apply(_add(evidence=[_GOOD]))
+    book.record_verification(
+        'H1', 'refuted', 'upstream check', [_GOOD], {'call_0001'}
+    )
+
+    for status in ('open', 'supported'):
+        result = book.apply(
+            {'operations': [{'op': 'revise', 'id': 'H1', 'status': status}]}
+        )
+        assert 'refuted by verification' in str(result['errors'])
+
+    assert book.entries['H1'].status == 'rejected'
+    assert book.find_rejected('Inventory-DB') is book.entries['H1']
+
+
+def test_reopen_verification_resets_only_live_inconclusive_checks(
+    store: results.ResultStore,
+) -> None:
+    """Inconclusive goes back to unverified; supported and refuted stay."""
+    book = ledger.HypothesisLedger(conftest.RUN_ID, store)
+    for component in ('a', 'b', 'c'):
+        book.apply(_add(component=component, evidence=[_GOOD]))
+    book.record_verification('H1', 'inconclusive', 'n/a', [], set())
+    book.record_verification('H2', 'supported', 'c', [_GOOD], {'call_0001'})
+    book.record_verification('H3', 'refuted', 'c', [_GOOD], {'call_0001'})
+
+    assert book.reopen_verification() == ['H1']
+    assert [entry.verification for entry in book.entries.values()] == [
+        'unverified',
+        'supported',
+        'refuted',
+    ]
+    assert book.entries['H1'].verification_check is None
+
+
 def test_record_verification_needs_call_made_during_check(
     store: results.ResultStore,
 ) -> None:

@@ -335,6 +335,27 @@ def test_upstream_billing_error_remains_a_single_failed_attempt(tmp_path):
     assert output[0]['ranks'] == []
 
 
+@pytest.mark.integration
+def test_uncited_ranking_reaches_the_prediction(tmp_path):
+    """A ranking with no cited hypothesis is still the case's prediction."""
+    case = runner.Case('bad_deploy', FIELD / 'cases/bad_deploy', 'field')
+    client = fake.ScriptedClient(
+        [call('submit', {'outcome': 'diagnosis', 'ranks': ['web-server']})]
+    )
+    executor = agent_adapter.Executor(lambda _: client, config.AgentConfig())
+    manifest = runner.freeze([case], {}, commit='test', dry_run=True)
+
+    _, output = runner.run(
+        [case], manifest, output_root=tmp_path, execute=executor
+    )
+
+    body = output[0]['report']
+    assert isinstance(body, dict)
+    final = report.Report.from_dict(body)
+    assert output[0]['ranks'] == ['web-server']
+    assert (final.outcome, final.causes[0].cited) == ('inconclusive', False)
+
+
 @pytest.mark.parametrize(
     'tool,content',
     [

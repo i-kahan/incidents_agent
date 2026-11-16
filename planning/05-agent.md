@@ -76,9 +76,10 @@ See [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg).
       configuration including the plain loop: the ledger (or, with the ledger off, the
       model's last stated ranking) is rendered deterministically into a ranking, marked `verified`, `provisional` or `inconclusive`, with the stop
       reason recorded. Invalid submissions are bounded by the model-turn limit.
-      *(`agent/finalise.py`. Only ranked components with a valid supporting citation
-      survive; a forced ranking is capped at low confidence, an unverified one at
-      medium.)*
+      *(`agent/finalise.py`. Only a ranked component with a valid supporting citation
+      can decide the outcome; a name ranked without one is kept last, marked
+      `cited: false` at low confidence, so the run still ends in a full ranking. A
+      forced ranking is capped at low confidence, an unverified one at medium.)*
 - [x] Context policy: the last few tool results stay in the conversation in full. Older
       ones are replaced by a deterministic digest (tool, arguments, locator, size,
       first lines). The ledger is the durable summary. Full results stay in the
@@ -260,6 +261,33 @@ See [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg).
 * **Trade-off:** The stand-in is a second fake to maintain, and its answers mean
   nothing; it proves the wiring, the citation check and the run record only.
 
+#### Decision 13: Uncited ranks are kept last, not dropped
+
+* **Decision:** A name the model ranks without a cited ledger hypothesis stays in the
+  report after the cited causes, marked `cited: false` at low confidence. It cannot
+  decide the outcome or be the target of an action. A name whose hypothesis was
+  rejected is still dropped. With nothing cited the outcome is `inconclusive`, and
+  the ranking is still written to the prediction.
+* **Context/Constraint:** A Wave 3 review found that dropping uncited ranks emptied or
+  shortened benchmark predictions with the ledger on, while the ledger-off loop kept
+  every stated rank. RCAEval counts a missing prediction as a miss, so top-3 and top-5
+  accuracy and the ledger ablation would have measured list length, not the ledger.
+* **Trade-off:** The report now shows names with no evidence behind them. They are
+  labelled, and citation validity is still computed over cited evidence only.
+
+Wave 3 review fixes, in the same change:
+
+- A hypothesis refuted by verification can no longer be set back to `open` or
+  `supported` (`agent/ledger.py`); before, the model could reopen it and have it
+  reported as the top cause. A new hypothesis for the same component, with its own
+  evidence, is still allowed.
+- `continue_run` sets a live hypothesis whose check ended `inconclusive` back to
+  `unverified` (`reopen_verification`), so verify runs again on the added data;
+  before, a continuation could never turn a provisional diagnosis into a verified
+  one. `supported` outcomes and refuted hypotheses are carried over unchanged.
+- The system prompt says what now happens to uncited ranks; `PROMPT_VERSION` is
+  `05.2`.
+
 ## 4. Constraints
 
 * **Fault start time is given on the benchmark, optional on uploads.** *Source: RCAEval;
@@ -300,3 +328,7 @@ See [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg).
   largest shift; it is a wiring check, not a result.
 - Paid runs refuse to start without `--yes`, and check the model before opening the
   spend ledger.
+- Wave 3 review: Claude Code reviewed the merged Phase 05 code, reproduced three
+  faults offline with the scripted fake ($0), and fixed them with tests: uncited
+  ranks dropped from predictions, a refuted hypothesis reopened as the top cause,
+  and continuations that never re-ran verify (Decision 13 and the notes under it).

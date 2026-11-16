@@ -72,8 +72,9 @@ def render(final: report.Report, tools: Mapping[str, str] | None = None) -> str:
             '|---|---|---|---|',
         ]
         lines += [
-            f'| {cause.rank} | {_cell(cause.component)} | '
-            f'{cause.verification} | {cause.confidence} |'
+            f'| {cause.rank} | {_cell(cause.component)}'
+            f'{"" if cause.cited or not final.ledger_enabled else " (uncited)"}'
+            f' | {cause.verification} | {cause.confidence} |'
             for cause in final.causes
         ]
         lines.append('')

@@ -141,7 +141,11 @@ def field_prediction(
         for name, info in raw_tables.items()
         if isinstance(info, dict) and 'source_file' in info
     }
-    supported_components = [cause.component for cause in final.causes]
+    supported_components = [
+        cause.component
+        for cause in final.causes
+        if cause.cited or not final.ledger_enabled
+    ]
     for event in events:
         if event.get('type') == 'ledger':
             book = event.get('ledger')
@@ -345,9 +349,7 @@ class Executor:
             else None
         )
         output: dict[str, object] = {
-            'ranks': list(final.ranks)
-            if final.outcome != 'inconclusive'
-            else [],
+            'ranks': list(final.ranks),
             'model': next(
                 (
                     event.get('requested_model')
