@@ -73,7 +73,7 @@ Diagrams (kept in this folder, see §8):
 | 01 | [Foundation & Environment](01-foundation-and-environment.md) | — | Ready for review |
 | 02 | [Baseline & Headroom Study](02-baseline-and-headroom-study.md) | 01 | Not started |
 | 03 | [Ingest & Tools](03-ingest-and-tools.md) | 01 (its optional model fallback: 04) | Not started |
-| 04 | [Model Layer](04-model-layer.md) | 01 | Not started |
+| 04 | [Model Layer](04-model-layer.md) | 01 | Offline checks complete |
 | 05 | [Agent](05-agent.md) | 03, 04 | Not started |
 | 06 | [Evaluation Harness](06-evaluation-harness.md) | 02, 05 | Not started |
 | 07 | [Multi-Agent Investigation](07-multi-agent.md) | 05, 06 | Not started |

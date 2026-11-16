@@ -1,2 +1,5 @@
 total_usd: 15.00
 safety_margin_usd: 1.00
+per_case_cap_usd: null
+reserves:
+  final: 3.25
