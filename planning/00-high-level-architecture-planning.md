@@ -71,7 +71,7 @@ Diagrams (kept in this folder, see §8):
 | # | Phase file | Depends on | Status |
 |---|---|---|---|
 | 01 | [Foundation & Environment](01-foundation-and-environment.md) | — | Ready for review |
-| 02 | [Baseline & Headroom Study](02-baseline-and-headroom-study.md) | 01 | Not started |
+| 02 | [Baseline & Headroom Study](02-baseline-and-headroom-study.md) | 01 | In progress (split locked) |
 | 03 | [Ingest & Tools](03-ingest-and-tools.md) | 01 (its optional model fallback: 04) | Not started |
 | 04 | [Model Layer](04-model-layer.md) | 01 | Not started |
 | 05 | [Agent](05-agent.md) | 03, 04 | Not started |
@@ -124,6 +124,7 @@ this plan, are in [`future-improvements.md`](future-improvements.md).
 | Workflow | One feature branch and one PR per phase (or workstream); squash merge | 01 |
 | Benchmark target | RCAEval RE2, Online Boutique, unless the headroom study says otherwise | 02 |
 | Data split | Locked before any labelled result is examined; grouped by service–fault pair, 10 pairs (30 cases) tuning / 20 pairs (60 cases) held out | 02 |
+| Split file | Opaque group ids and the answers digest, no labels; created once, then only verified | 02 |
 | Benchmark target rule | Changed only if BARO's top-1 on tuning is 0.90 or higher, by a rule fixed in advance | 02 |
 | Baselines | BARO, plus multi-source BARO if it runs, to separate better reasoning from richer inputs | 02 |
 | Storage for dropped files | One DuckDB database per run, read-only, external access disabled | 03 |

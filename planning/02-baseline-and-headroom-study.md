@@ -1,6 +1,6 @@
 # Phase 2: Baseline & Headroom Study
 
-**Status:** Not started
+**Status:** In progress — split locked (Workstream A); baselines and headroom next
 
 ## 1. Objective
 Fix the tuning and held-out split first, then measure what the statistical baselines
@@ -11,16 +11,16 @@ confirmed or changed by a rule written down before the numbers were seen.
 ## 2. Next Steps (Checklist)
 
 **Split — done first, before any labelled result is looked at**
-- [ ] Group the 90 cases by service–fault pair (30 pairs, three repetitions each) using
+- [x] Group the 90 cases by service–fault pair (30 pairs, three repetitions each) using
       the answers file. The grouping is done by a script; no per-case label is printed.
-- [ ] Create `splits/re2-ob.json`: 10 pairs (30 cases) for tuning, 20 pairs (60 cases)
+- [x] Create `splits/re2-ob.json`: 10 pairs (30 cases) for tuning, 20 pairs (60 cases)
       held out, from a fixed seed, constrained so that every fault type and every
       service appears at least once in tuning. All three repetitions of a pair are on
       the same side.
-- [ ] Write the matching answers subsets (`tuning.answers.jsonl`,
+- [x] Write the matching answers subsets (`tuning.answers.jsonl`,
       `heldout.answers.jsonl`) beside the full answers file, outside the task directory.
-- [ ] Commit the split file and its seed. It does not change after this point.
-- [ ] Unit tests for the split: deterministic, disjoint, sizes, no pair on both sides,
+- [x] Commit the split file and its seed. It does not change after this point.
+- [x] Unit tests for the split: deterministic, disjoint, sizes, no pair on both sides,
       coverage constraint met.
 
 **Baselines — free**
@@ -85,6 +85,34 @@ confirmed or changed by a rule written down before the numbers were seen.
 * **Trade-off:** The threshold is a judgment call made without data, and the tuning set
   is small enough that the rule can fire, or fail to, by chance.
 
+#### Decision 4: The committed split names groups, never labels
+
+* **Decision:** `splits/re2-ob.json` lists case ids per opaque group (`g01`–`g30`,
+  numbered by each group's smallest case id), the side of each group, the seed, the
+  number of draws the seed needed, and the SHA-256 of the answers file. It records no
+  service and no fault. `make split` creates the file once; after that it only
+  verifies it (same answers digest, same result when rebuilt from the seed) and
+  refuses to continue on a mismatch. It never rewrites the file.
+* **Context/Constraint:** Phase 06 bootstraps intervals by pair, including on held-out
+  cases whose labels must stay unread until the final run. The group ids let it
+  resample by pair without opening the answers. The PR checklist forbids benchmark
+  answers in the diff.
+* **Trade-off:** Anyone reading the file learns which cases share a scenario, though
+  not what the scenario is. The agent is given only the task view, never `splits/`.
+* **Rejected alternatives:** recomputing the pairs from the answers whenever they are
+  needed. It reads held-out labels to do it, and it lets a changed export silently
+  change the split.
+
+#### Decision 5: Tuning is drawn whole, and redrawn until coverage holds
+
+* **Decision:** Each draw takes 10 of the 30 groups uniformly at random, from one
+  generator seeded with 2026. The first draw that covers every service and every fault
+  type is kept (the seed needed two draws).
+* **Context/Constraint:** Decision 2 requires full coverage in tuning; fixing the seed
+  in code before any result was read keeps the choice out of the owner's hands.
+* **Trade-off:** Rejection sampling conditions the draw on coverage, so the split is
+  uniform only over the covering draws. A stratified draw would be harder to explain.
+
 ## 4. Constraints
 
 * **Blind task view.** *Source: RCAEval `docs/AGENTS.md`.* **Implication:** the agent is
@@ -104,7 +132,28 @@ confirmed or changed by a rule written down before the numbers were seen.
 * **The baselines cost nothing.** **Implication:** this whole phase spends $0.
 
 ## 5. Verification evidence
-*Split summary, baseline tables, the tuning-set breakdown and the manual check go here.*
+**Split (Workstream A)**
+
+- `make split` created `splits/re2-ob.json` from the RE2-OB answers file (SHA-256
+  `9ccb21e7…fcc814`): 30 groups of three; tuning 10 groups / 30 cases, held-out
+  20 groups / 60 cases. Seed 2026, accepted on draw 2.
+- Tuning covers all 6 fault types and all 5 services; checked by a script that
+  printed counts only.
+- A second `make split` verified the file and left it byte-for-byte unchanged.
+- `agent_tasks/tuning.answers.jsonl` and `agent_tasks/heldout.answers.jsonl` were
+  written beside the full answers file; both are gitignored.
+- The committed split file contains no service or fault name (checked by `grep`).
+- `make lint` and `make test` passed: 29 tests, including the check that the committed
+  split verifies against the local export. That test skips in CI, which has no
+  dataset.
+- No label or baseline result was read before the split was committed. Spend: $0.
+
+*Baseline tables, the tuning-set breakdown and the manual check go here.*
 
 ## 6. AI-use notes (feeds `REPORT.md`)
-*Filled in as the work happens.*
+- Claude Code (Opus 5.5) drafted the Phase 02 plan, which the owner approved. The
+  owner chose two PRs (split first) and LiteLLM's offline price map for the cost
+  estimate.
+- Claude Code wrote the answers and split modules, `scripts/make_split.py` and their
+  tests. It added Decisions 4 and 5 and generated the split, reading counts only.
+- The owner records the outcome of the PR logic and quality reviews here.
