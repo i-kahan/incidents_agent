@@ -1,4 +1,4 @@
-<svg width="100%" viewBox="0 0 680 490" role="img" xmlns="http://www.w3.org/2000/svg"><title>Agent graph: nodes, ledger, limits and grounding check</title><desc>The agent starts at Orient, deterministic code that builds a briefing from the catalog. Investigate is a model step that picks the next tool; it exchanges calls with Tools, whose results are capped, and reads and writes the hypothesis ledger. Every ledger update passes a grounding check in code that requires each claim to cite a real tool call. When the model submits, Verify runs one check that could disprove the top hypothesis. If the hypothesis is disproved the run returns to Investigate; if it holds the run moves to Report, which outputs a ranked diagnosis with evidence. A limits component forces a submit straight to Report when the tool-call or cost limit is reached.</desc>
+<svg width="100%" viewBox="0 0 680 490" role="img" xmlns="http://www.w3.org/2000/svg"><title>Agent graph: nodes, ledger, limits and grounding check</title><desc>The agent starts at Orient, deterministic code that builds a briefing from the catalog. Investigate is a model step that picks the next tool; it exchanges calls with Tools, whose results are capped, and reads and writes the hypothesis ledger. Every ledger update passes a grounding check in code that requires each claim to cite a real tool call. When the model submits, Verify runs one check that could disprove the top hypothesis. If the check refutes it, the run returns to Investigate once; otherwise it moves to Report, deterministic code that validates every ranked claim against the ledger and renders the diagnosis with evidence. Limits hold back a share of tool calls, turns and cost for Verify before investigation starts; any limit or failure ends the run through the same Report step, marked provisional or inconclusive.</desc>
 <style>
 :root{--ink:#2C2C2A;--sub:#5F5E5A;--line:#8A8A86;--bg:#ffffff}
 @media (prefers-color-scheme: dark){:root{--ink:#EDEDEA;--sub:#B4B2A9;--line:#6b6b68;--bg:#141414}}
@@ -44,12 +44,12 @@ text{font-family:-apple-system,Helvetica,Arial,sans-serif}
 <text class="ts" x="348" y="210" dominant-baseline="central">submit</text>
 <g class="c-purple"><rect x="230" y="242" width="220" height="56" rx="8" stroke-width="0.5"/><text class="th" x="340" y="260" text-anchor="middle" dominant-baseline="central">Verify</text><text class="ts" x="340" y="278" text-anchor="middle" dominant-baseline="central">one check that could disprove</text></g>
 <line x1="340" y1="298" x2="340" y2="352" class="arr" marker-end="url(#arrow)"/>
-<text class="ts" x="348" y="326" dominant-baseline="central">holds</text>
-<g class="c-purple"><rect x="230" y="358" width="220" height="56" rx="8" stroke-width="0.5"/><text class="th" x="340" y="376" text-anchor="middle" dominant-baseline="central">Report</text><text class="ts" x="340" y="394" text-anchor="middle" dominant-baseline="central">ranked diagnosis + evidence</text></g>
+<text class="ts" x="348" y="326" dominant-baseline="central">holds / inconclusive</text>
+<g class="c-gray"><rect x="230" y="358" width="220" height="56" rx="8" stroke-width="0.5"/><text class="th" x="340" y="376" text-anchor="middle" dominant-baseline="central">Report</text><text class="ts" x="340" y="394" text-anchor="middle" dominant-baseline="central">validated ranking · no LLM</text></g>
 
 <!-- Verify back to Investigate -->
 <path d="M450 270 L472 270 L472 170 L456 170" class="arr" marker-end="url(#arrow)"/>
-<text class="ts" x="480" y="222" dominant-baseline="central">disproved</text>
+<text class="ts" x="480" y="222" dominant-baseline="central">refuted (once)</text>
 
 <!-- Left column: ledger and grounding -->
 <g class="c-coral"><rect x="20" y="126" width="170" height="56" rx="8" stroke-width="0.5"/><text class="th" x="105" y="144" text-anchor="middle" dominant-baseline="central">Hypothesis ledger</text><text class="ts" x="105" y="162" text-anchor="middle" dominant-baseline="central">evidence for / against</text></g>
@@ -61,7 +61,7 @@ text{font-family:-apple-system,Helvetica,Arial,sans-serif}
 <!-- Right column: tools and limits -->
 <g class="c-teal"><rect x="490" y="126" width="170" height="56" rx="8" stroke-width="0.5"/><text class="th" x="575" y="144" text-anchor="middle" dominant-baseline="central">Tools</text><text class="ts" x="575" y="162" text-anchor="middle" dominant-baseline="central">capped results</text></g>
 <line x1="456" y1="142" x2="484" y2="142" class="arr" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
-<g class="c-gray"><rect x="490" y="358" width="170" height="56" rx="8" stroke-width="0.5"/><text class="th" x="575" y="376" text-anchor="middle" dominant-baseline="central">Limits</text><text class="ts" x="575" y="394" text-anchor="middle" dominant-baseline="central">forced submit at limit</text></g>
+<g class="c-gray"><rect x="490" y="358" width="170" height="56" rx="8" stroke-width="0.5"/><text class="th" x="575" y="376" text-anchor="middle" dominant-baseline="central">Limits</text><text class="ts" x="575" y="394" text-anchor="middle" dominant-baseline="central">verify share reserved</text></g>
 <line x1="484" y1="386" x2="456" y2="386" class="arr" marker-end="url(#arrow)"/>
 
 <!-- Legend -->
