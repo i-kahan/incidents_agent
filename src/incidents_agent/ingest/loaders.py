@@ -62,7 +62,7 @@ def derive_table_name(relative_path: str, used_names: set[str]) -> str:
     return candidate
 
 
-def _json_safe(value: object) -> object:
+def json_safe(value: object) -> object:
     """Convert DuckDB row values into JSON-serialisable Python primitives."""
     if value is None or isinstance(value, (bool, int, str)):
         return value
@@ -137,7 +137,7 @@ def _read_sample_rows(
     for row in rows:
         samples.append(
             {
-                col_name: _json_safe(val)
+                col_name: json_safe(val)
                 for col_name, val in zip(col_names, row, strict=True)
             }
         )

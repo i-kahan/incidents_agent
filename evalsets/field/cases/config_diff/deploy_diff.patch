@@ -1,0 +1,8 @@
+diff --git a/deploy/auth-service.yaml b/deploy/auth-service.yaml
+--- a/deploy/auth-service.yaml
++++ b/deploy/auth-service.yaml
+@@ -18,3 +18,3 @@ env:
+   AUTH_JWKS_CACHE_TTL_S: 60
+-  AUTH_JWKS_TIMEOUT_MS: 2000
++  AUTH_JWKS_TIMEOUT_MS: 5
+   AUTH_LOG_LEVEL: INFO
