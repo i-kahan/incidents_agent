@@ -1,0 +1,16 @@
+{
+  "case_id": "config_diff",
+  "root_cause_component": "auth-service",
+  "accepted_aliases": [
+    "auth-service",
+    "auth_service",
+    "auth"
+  ],
+  "fault_category": "bad_config_change",
+  "onset_time_s": 1700000200,
+  "required_evidence": [
+    "AUTH_JWKS_TIMEOUT_MS",
+    "deploy_diff.patch",
+    "JWKS fetch timed out"
+  ]
+}

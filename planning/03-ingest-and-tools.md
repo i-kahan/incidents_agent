@@ -1,6 +1,6 @@
 # Phase 3: Ingest & Tools
 
-**Status:** In progress (Workstream A complete; Workstream B in follow-up PR)
+**Status:** Merged — Workstream A in #3; Workstream B in #5
 
 ## 1. Objective
 Turn any folder of dropped files into a read-only database with a catalog — tables for
@@ -22,8 +22,7 @@ work the same on an RCAEval case and on an arbitrary upload, with no LLM involve
       catalog.
 - [x] Tables with a low-confidence or missing time mapping are flagged. Time-window
       tools (`compare_windows`, `time_series`, `find_onset`, the before/after counts in
-      `search_text`) return an explicit error for such a table, not a guess. *(Flagging
-      landed in ingest; tool-side refusals land in Workstream B.)*
+      `search_text`) return an explicit error for such a table, not a guess.
 - [x] File classifier: tabular, log or document, decided by extension and then by
       content (share of lines that start with a timestamp or level); the decision and
       its reason are recorded in the catalog.
@@ -57,61 +56,63 @@ work the same on an RCAEval case and on an arbitrary upload, with no LLM involve
 - [x] Open the database read-only with external file and network access disabled.
 
 **Workstream B — Tools (`src/incidents_agent/tools/`)**
-- [ ] Tool registry: each tool is a typed Python function plus a JSON schema; a single
+- [x] Tool registry: each tool is a typed Python function plus a JSON schema; a single
       `call(name, args)` entry point returns a JSON-serialisable result.
-- [ ] Result cap of about 6,000 characters with an explicit truncation notice.
-- [ ] Errors returned as `{"error": ...}` data, never raised to the agent loop.
-- [ ] `list_tables`, `describe_table`.
-- [ ] `run_sql`: read-only, row limit, timeout, rejects anything that is not a `SELECT`.
-- [ ] `search_text`: regex over a text column, grouped by message pattern (numbers and
+- [x] Result cap of about 6,000 characters with an explicit truncation notice.
+- [x] Errors returned as `{"error": ...}` data, never raised to the agent loop.
+- [x] `list_tables`, `describe_table`.
+- [x] `run_sql`: read-only, row limit, timeout, rejects anything that is not a `SELECT`.
+- [x] `search_text`: regex over a text column, grouped by message pattern (numbers and
       ids masked), with counts before and after a time.
-- [ ] `compare_windows`: rank numeric columns by a robust shift score across a split time.
-- [ ] `time_series`: one column downsampled into at most N buckets.
-- [ ] `search_documents`: keyword (BM25) search over document chunks; returns chunk
+- [x] `compare_windows`: rank numeric columns by a robust shift score across a split time.
+- [x] `time_series`: one column downsampled into at most N buckets.
+- [x] `search_documents`: keyword (BM25) search over document chunks; returns chunk
       ids, heading paths and short excerpts.
-- [ ] `read_document`: one chunk by id with its neighbouring chunks, or a document's
+- [x] `read_document`: one chunk by id with its neighbouring chunks, or a document's
       outline.
-- [ ] Document chunks are citable: a chunk read through a tool counts as evidence in
-      the ledger like any other tool result.
-- [ ] `find_onset`: estimate when the incident started from change points in numeric
+- [x] Document chunks are citable: a chunk read through a tool counts as evidence in
+      the ledger like any other tool result. *(Tools attach `document_chunks` locators
+      with `chunk_ids`; Phase 05 enforces ledger citation validation.)*
+- [x] `find_onset`: estimate when the incident started from change points in numeric
       columns and in error-line counts, for inputs with no known time. Its accuracy is
       measured against RCAEval's known start times in Phase 06, at no cost.
-- [ ] `dependency_graph`: when the catalog has relationship columns, return the edges
+- [x] `dependency_graph`: when the catalog has relationship columns, return the edges
       between components with call counts, and error rate and latency before and after
       the incident time per edge; optionally only the neighbourhood of one component.
       When there is no relationship data it says so explicitly, so the agent knows
       direction cannot be established from the files.
-- [ ] Tool-call log: every call recorded with an id, arguments, result size and duration.
-- [ ] Tool results carry a stable locator for what they returned: table and row keys
+- [x] Tool-call log: every call recorded with an id, arguments, result size and duration.
+- [x] Tool results carry a stable locator for what they returned: table and row keys
       or aggregate expression and time window for queries, chunk ids for documents. The
       ledger cites these (Phase 05).
-- [ ] Untrusted text at the tool boundary: file content is returned inside a marked
+- [x] Untrusted text at the tool boundary: file content is returned inside a marked
       data field, never as free text mixed with instructions.
-- [ ] Best-effort secret redaction on every tool result before it reaches a model or a
+- [x] Best-effort secret redaction on every tool result before it reaches a model or a
       saved trajectory: common key, token and password patterns are masked and the count
       is reported. Documented as pattern-based, not a guarantee.
 
 **Both**
-- [ ] Unit tests for every loader and tool, including malformed input and empty tables.
+- [x] Unit tests for every loader and tool, including malformed input and empty tables.
 - [x] Fallback tests with the fake client: called only below the confidence threshold;
       an answer outside the menu is rejected and the rule-based default used; a cached
       file is not asked about twice; with the flag off, no model call is made.
 - [x] Chunking tests: heading paths, hunk boundaries, the whole-document threshold,
       oversized paragraphs, a document with no headings, and a log misnamed `.txt`.
-- [ ] Build two field-set cases now, as fixtures under `evalsets/field/`: the
+- [x] Build two field-set cases now, as fixtures under `evalsets/field/`: the
       config-diff case and the victim-versus-cause case. They exercise documents, the
       catalog and cross-source reasoning from the start; Phase 06 adds the other four.
-- [ ] Integration test: ingest both fixture cases and run every tool against them.
-- [ ] Integration test: a folder with no usable timestamps ingests cleanly, is flagged,
+- [x] Integration test: ingest both fixture cases and run every tool against them.
+- [x] Integration test: a folder with no usable timestamps ingests cleanly, is flagged,
       and time-window tools refuse it with a clear error.
-- [ ] Tests for name collisions, each limit, and redaction of planted fake secrets.
-- [ ] Dependency tests: caller/callee columns, span and parent-span ids, a table with
+- [x] Tests for name collisions, each limit, and redaction of planted fake secrets.
+- [x] Dependency tests: caller/callee columns, span and parent-span ids, a table with
       no relationship data, and a cycle.
-- [ ] Injection plumbing test: a log line and a document paragraph containing
+- [x] Injection plumbing test: a log line and a document paragraph containing
       instructions addressed to the agent come back only inside the marked data field,
       byte for byte, never in any other part of a tool result.
 - [x] Integration test (skipped when the dataset is absent): ingest one real RE2-OB case.
-- [ ] Update `flowchart-system-overview.svg` if the tool list changed.
+- [x] Update `flowchart-system-overview.svg` if the tool list changed. *(Verified
+      `flowchart-system-overview.svg` summarizes the four tool categories accurately.)*
 
 ## 3. Architectural Decisions & Trade-offs
 
@@ -287,3 +288,11 @@ same order in all three cases.
   DuckDB connections (`enable_external_access = false`, `lock_configuration = true`).
   Verified with `make lint` and `make test` (54 tests passing, 91% line coverage on
   `ingest`, including real `re2-ob-0001` case ingest).
+- Workstream B (`src/incidents_agent/tools/`, `evalsets/field/`, `tests/tools/`):
+  implemented the 10 generic investigation tools (`list_tables`, `describe_table`,
+  `run_sql`, `search_text`, `compare_windows`, `time_series`, `find_onset`,
+  `search_documents`, `read_document`, `dependency_graph`), the typed registry with
+  call logging, `untrusted_data` envelope, pattern-based secret redaction, 6,000-char
+  truncation cap, and the seeded `config_diff` and `victim_vs_cause` field fixtures
+  (with gold labels kept outside ingested case folders). Verified with `make lint`
+  and `make test` (106 passed including real `re2-ob-0001`, 92% overall line coverage).

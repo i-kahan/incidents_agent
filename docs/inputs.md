@@ -106,3 +106,25 @@ Once loading completes, the writable connection is closed and the database is
 re-opened in `read_only=True` mode with `enable_external_access = false` and
 `lock_configuration = true`, preventing writes as well as local file or network
 access through SQL.
+
+## 7. Tool Boundary, SQL Sandbox, and Redaction
+
+All investigation tools (`incidents_agent.tools`) read exclusively through the
+sandboxed connection and registry:
+
+- **Read-only SQL (`run_sql`):** Accepts only single `SELECT` (or `WITH ...
+  SELECT`) statements, strips comments outside string literals, blocks DDL/DML,
+  multi-statements, `PRAGMA`/`ATTACH`/`COPY`/`SET`, and file-reading table
+  functions, and enforces `max_query_rows` and `query_timeout_s`.
+- **Untrusted data boundary:** Content extracted from files, tables, logs, and
+  document chunks is returned exclusively inside `untrusted_data.content`,
+  separated from structural metadata, locators, and agent instructions.
+- **Result size cap:** Serialised tool payloads are truncated deterministically
+  to `max_result_chars` (default `6,000` characters) with `truncated=True` and
+  an explicit `truncation_notice`.
+- **Best-effort secret redaction:** All string values returned by tools pass
+  through regex masking for common API keys, AWS/GCP/GitHub/Slack tokens,
+  Bearer headers, JWTs, PEM private keys, and key-value passwords/secrets,
+  replacing matches with `[REDACTED_SECRET]` and reporting
+  `redacted_secrets_count`. This is pattern-based best effort, not a guarantee.
+

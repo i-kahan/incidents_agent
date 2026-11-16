@@ -1,0 +1,26 @@
+1700001012 INFO inventory-db Connection pool usage 18/100
+1700001040 INFO api-gateway Request completed in 24ms
+1700001204 ERROR inventory-db Lock wait timeout; pool 100/100 tx_id=tx-200
+1700001205 WARN order-service Retrying inventory-db read tx_id=tx-200
+1700001206 ERROR api-gateway Request queue saturated after retry tx_id=tx-200
+1700001219 ERROR inventory-db Lock wait timeout; pool 100/100 tx_id=tx-201
+1700001220 WARN order-service Retrying inventory-db read tx_id=tx-201
+1700001221 ERROR api-gateway Request queue saturated after retry tx_id=tx-201
+1700001234 ERROR inventory-db Lock wait timeout; pool 100/100 tx_id=tx-202
+1700001235 WARN order-service Retrying inventory-db read tx_id=tx-202
+1700001236 ERROR api-gateway Request queue saturated after retry tx_id=tx-202
+1700001249 ERROR inventory-db Lock wait timeout; pool 100/100 tx_id=tx-203
+1700001250 WARN order-service Retrying inventory-db read tx_id=tx-203
+1700001251 ERROR api-gateway Request queue saturated after retry tx_id=tx-203
+1700001264 ERROR inventory-db Lock wait timeout; pool 100/100 tx_id=tx-204
+1700001265 WARN order-service Retrying inventory-db read tx_id=tx-204
+1700001266 ERROR api-gateway Request queue saturated after retry tx_id=tx-204
+1700001279 ERROR inventory-db Lock wait timeout; pool 100/100 tx_id=tx-205
+1700001280 WARN order-service Retrying inventory-db read tx_id=tx-205
+1700001281 ERROR api-gateway Request queue saturated after retry tx_id=tx-205
+1700001294 ERROR inventory-db Lock wait timeout; pool 100/100 tx_id=tx-206
+1700001295 WARN order-service Retrying inventory-db read tx_id=tx-206
+1700001296 ERROR api-gateway Request queue saturated after retry tx_id=tx-206
+1700001309 ERROR inventory-db Lock wait timeout; pool 100/100 tx_id=tx-207
+1700001310 WARN order-service Retrying inventory-db read tx_id=tx-207
+1700001311 ERROR api-gateway Request queue saturated after retry tx_id=tx-207

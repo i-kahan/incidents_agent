@@ -52,7 +52,10 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
 - [ ] Call RCAEval's evaluator with the answers subset that matches the cases run,
       never the full answers file for a partial run, and assert that the evaluator's
       case count equals the number of cases intended. For a subset of a full
-      task manifest, pass `--answers <subset>` and omit `--tasks`.
+      task manifest, pass `--answers <subset>` and omit `--tasks`. The predictions
+      file must hold only that subset's cases: RCAEval rejects any other case id.
+      Phase 02's `incidents_agent.eval.rcaeval_bridge.score` already does this in
+      process.
 - [ ] Parse its JSON summary and per-case output for accuracy at top 1, 3 and 5 at
       service and indicator level.
 - [ ] Evaluator contract test on a tiny fixture (three cases, hand-written answers):
@@ -66,6 +69,14 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
 - [ ] Paired comparison of two prediction sets on the same cases: paired bootstrap of
       the difference, resampled by pair, with the interval level fixed at 95%; McNemar's
       test at top 1 reported as secondary.
+- [ ] Guarded BARO row (free): BARO as Phase 02 runs it, except that any metric
+      whose interquartile range in the normal window is zero is skipped before
+      ranking. This removes series like `redis_diskio`, which are mostly zero with
+      bursts and lead every BARO ranking on RE2-OB (Phase 02, Decision 6). The rule is
+      fixed here, before any agent result exists, and is not tuned. It is added to
+      `rcaeval_bridge` and `make baselines` and scored like the other baselines:
+      tuning in full, held-out as aggregates only. Unit test: a zero-IQR column with
+      a large spike is not ranked; an ordinary shifted column still ranks first.
 - [ ] Agreement with the statistic: how often the agent's top answer equals BARO's top
       answer, and the agent's accuracy split into cases where they agree and cases
       where they differ. An agent that only echoes the statistic shows near-total
@@ -246,15 +257,21 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
 
 #### Decision 7: A ladder of baselines, and a check against echoing the statistic
 
-* **Decision:** The agent is compared with BARO (metrics only), multi-source BARO if it
+* **Decision:** The agent is compared with BARO (metrics only), guarded BARO (BARO
+  that skips zero-IQR series), multi-source BARO if it
   runs (all inputs, no model), a single model call with the same summary statistics (a
   model, no loop), and the plain tool loop (a loop, no ledger or verify). Agreement
-  with BARO's top answer is reported with accuracy split by agree and differ.
+  with BARO's top answer is reported with accuracy split by agree and differ. The
+  headline paired comparison is against whichever of BARO and guarded BARO has the
+  higher tuning top-1 service accuracy; a tie goes to guarded BARO. Agreement is
+  computed against that same row.
 * **Context/Constraint:** Each rung removes one explanation for a gain: richer inputs,
   having a model at all, the loop, the structure. Without the single-call rung, a win
   over BARO could come from the model reading a summary once. Without the agreement
   split, an agent that copies the top statistical shift looks the same as one that
-  reasons.
+  reasons. Without the guarded row, the agent could beat BARO at top 1 just by
+  ignoring one bursty series: Phase 02 found BARO's tuning top-1 is 0.00 for that
+  reason alone, with top-3 at 1.00.
 * **Trade-off:** More numbers to report and one more paid configuration, though a cheap
   one. The single-call input is a design choice; a poor summary would make the baseline
   unfairly weak, so it is built from the same tools the agent has.
