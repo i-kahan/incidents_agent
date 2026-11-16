@@ -1,7 +1,7 @@
 # Phase 6: Evaluation Harness
 
-**Status:** B and D implemented, including offline integration with the merged
-Phase 5 agent. Human audits, paid experiments, single-call mode and Workstream C
+**Status:** B and D have landed. This change integrates both with the merged
+Phase 5 agent and verifies the runner offline. Human audits, paid experiments, single-call mode and Workstream C
 remain pending.
 
 ## 1. Objective
@@ -334,6 +334,11 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
 
 ## 5. Verification evidence
 
+* B verified clustered statistics against hand-computed cases and checked the
+  official evaluator contract for exact subsets, missing ranks and inspection.
+* D verified byte-exact fixture regeneration and ingest for all seven cases.
+  Its standalone offline suite passed 256 tests with 94% evaluation coverage.
+
 * Exact-subset scoring uses a three-case synthetic fixture. All seven field
   cases generate reproducibly and run through Phase 5 with zero provider calls.
 * The public CLI also scored a local RE2-OB tuning case with the fake client.
@@ -357,6 +362,7 @@ reference used in paired comparisons.
 
 ## 6. AI-use notes (feeds `REPORT.md`)
 
-* Codex implemented scoring, fixture generation, deterministic field scoring and
-  the integration runner. Automated offline checks cover the merged agent
-  contracts. Owner review and the manual audits remain pending.
+* Codex implemented B scoring, onset evaluation and audit tooling, plus D
+  fixture generation, gold anchors and deterministic scoring.
+* Codex wired the runner to the merged Phase 5 contracts. Owner review and
+  manual audits remain pending.
