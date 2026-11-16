@@ -1,6 +1,6 @@
 # Phase 3: Ingest & Tools
 
-**Status:** Ready for review
+**Status:** Merged — Workstream A in #3; Workstream B in #5
 
 ## 1. Objective
 Turn any folder of dropped files into a read-only database with a catalog — tables for

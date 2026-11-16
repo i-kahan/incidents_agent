@@ -1,6 +1,6 @@
 # Phase 2: Baseline & Headroom Study
 
-**Status:** Ready for review — split in PR A (#2); baselines and headroom in PR B
+**Status:** Merged — split in #2; baselines and headroom in #6
 
 ## 1. Objective
 Fix the tuning and held-out split first, then measure what the statistical baselines

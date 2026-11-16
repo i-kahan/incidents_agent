@@ -70,9 +70,9 @@ Diagrams (kept in this folder, see §8):
 
 | # | Phase file | Depends on | Status |
 |---|---|---|---|
-| 01 | [Foundation & Environment](01-foundation-and-environment.md) | — | Ready for review |
-| 02 | [Baseline & Headroom Study](02-baseline-and-headroom-study.md) | 01 | Ready for review |
-| 03 | [Ingest & Tools](03-ingest-and-tools.md) | 01 (its optional model fallback: 04) | Not started |
+| 01 | [Foundation & Environment](01-foundation-and-environment.md) | — | Merged (#1) |
+| 02 | [Baseline & Headroom Study](02-baseline-and-headroom-study.md) | 01 | Merged (#2, #6) |
+| 03 | [Ingest & Tools](03-ingest-and-tools.md) | 01 (its optional model fallback: 04) | Merged (#3, #5) |
 | 04 | [Model Layer](04-model-layer.md) | 01 | Offline checks complete |
 | 05 | [Agent](05-agent.md) | 03, 04 | Not started |
 | 06 | [Evaluation Harness](06-evaluation-harness.md) | 02, 05 | Not started |

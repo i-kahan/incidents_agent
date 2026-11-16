@@ -1,6 +1,6 @@
 # Phase 1: Foundation & Environment
 
-**Status:** Ready for review
+**Status:** Merged (#1)
 
 ## 1. Objective
 Get a clean, reproducible project skeleton: dependencies installed, lint and tests
