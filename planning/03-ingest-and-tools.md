@@ -59,8 +59,13 @@ work the same on an RCAEval case and on an arbitrary upload, with no LLM involve
 - [x] Tool registry: each tool is a typed Python function plus a JSON schema; a single
       `call(name, args)` entry point returns a JSON-serialisable result.
 - [x] Result cap of about 6,000 characters with an explicit truncation notice.
+      Raw data inside `untrusted_data` is trimmed first, by characters held, and
+      `summary`, `locator`, `error` and `target_components` are never trimmed; a
+      `truncation` field lists each cut list with `kept` and `total` items.
 - [x] Errors returned as `{"error": ...}` data, never raised to the agent loop.
 - [x] `list_tables`, `describe_table`.
+      `describe_table` returns columns a page at a time (`column_pattern`,
+      `column_offset`, `max_columns`) and sizes the page to fit the cap.
 - [x] `run_sql`: read-only, row limit, timeout, rejects anything that is not a `SELECT`.
 - [x] `search_text`: regex over a text column, grouped by message pattern (numbers and
       ids masked), with counts before and after a time.
@@ -296,3 +301,10 @@ same order in all three cases.
   truncation cap, and the seeded `config_diff` and `victim_vs_cause` field fixtures
   (with gold labels kept outside ingested case folders). Verified with `make lint`
   and `make test` (106 passed including real `re2-ob-0001`, 92% overall line coverage).
+- Result-cap fix (`tools/safety.py`, `tools/tables.py`): a Wave 2 review found the cap
+  trimmed the list with the most items rather than the most characters, so on a real
+  RE2-OB case `list_tables` returned 3 of 7 tables, `describe_table('metrics')` 1 of 77
+  columns, and `run_sql` 12 of 500 rows while its summary said 500. Claude rewrote the
+  trimming order, added the `truncation` record and `describe_table` paging. Checked
+  on the 30 tuning cases: 330 tool calls, none over the cap, all 7 tables listed.
+

@@ -1,5 +1,6 @@
 """Tool-boundary safety: secret redaction, untrusted envelope, size cap."""
 
+import dataclasses
 import json
 import re
 
@@ -118,23 +119,99 @@ def wrap_untrusted_data(content: object) -> dict[str, object]:
     }
 
 
-def _shrink_largest_collection(payload: dict[str, object]) -> bool:
-    """Drop the last item from the largest list inside the payload."""
-    candidates: list[list[object]] = []
+# Top-level response keys whose lists describe the result rather than carry
+# it; the cap never removes items from them.
+_PROTECTED_KEYS = frozenset(
+    {'summary', 'locator', 'error', 'truncation', 'target_components'}
+)
 
-    def _collect(node: object) -> None:
-        if isinstance(node, list) and len(node) > 1:
-            candidates.append(node)
-        elif isinstance(node, dict):
-            for val in node.values():
-                _collect(val)
 
-    _collect(payload)
+@dataclasses.dataclass
+class _ListCandidate:
+    """A list the cap may shorten, with what is needed to rank it."""
+
+    path: str
+    items: list[object]
+    untrusted: bool
+    own_chars: int
+
+
+def _json_len(value: object) -> int:
+    return len(json.dumps(value, ensure_ascii=False))
+
+
+def _collect_lists(
+    node: object,
+    path: str,
+    untrusted: bool,
+    out: list[_ListCandidate],
+) -> int:
+    """Collect trimmable lists below `node`.
+
+    Args:
+        node: Current JSON-like node.
+        path: Dotted path of `node`; list items add `[]`.
+        untrusted: Whether `node` sits inside an `untrusted_data` envelope.
+        out: Receives one candidate per list with more than one item.
+
+    Returns:
+        Serialised size of the outermost lists at or below `node`, so a
+        parent list can subtract it to get its own size.
+    """
+    if isinstance(node, dict):
+        total = 0
+        for key, val in node.items():
+            if not path and key in _PROTECTED_KEYS:
+                continue
+            child_path = f'{path}.{key}' if path else str(key)
+            total += _collect_lists(
+                val, child_path, untrusted or key == 'untrusted_data', out
+            )
+        return total
+    if isinstance(node, list):
+        nested = 0
+        for val in node:
+            nested += _collect_lists(val, f'{path}[]', untrusted, out)
+        size = _json_len(node)
+        if len(node) > 1:
+            out.append(_ListCandidate(path, node, untrusted, size - nested))
+        return size
+    return 0
+
+
+def _shrink_one_collection(
+    payload: dict[str, object],
+    excess_chars: int,
+    removed: dict[int, tuple[str, list[object], int]],
+) -> bool:
+    """Remove trailing items from the best list to trim, in place.
+
+    Lists inside `untrusted_data` (rows, samples, excerpts) go before the
+    response's own structure, and among those the list holding the most
+    characters of its own (not counting nested lists) goes first. Items
+    are removed from the end until about `excess_chars` are freed, always
+    keeping one.
+
+    Args:
+        payload: Response being capped.
+        excess_chars: Characters still over the cap.
+        removed: Trimmed lists by `id()`, as `(path, list, original_len)`;
+            updated in place.
+
+    Returns:
+        Whether any item was removed.
+    """
+    candidates: list[_ListCandidate] = []
+    _collect_lists(payload, '', False, candidates)
     if not candidates:
         return False
-    largest = max(candidates, key=len)
-    largest.pop()
-    return True
+    best = max(candidates, key=lambda c: (c.untrusted, c.own_chars))
+    before = len(best.items)
+    freed = 0
+    while len(best.items) > 1 and freed < excess_chars:
+        freed += _json_len(best.items.pop()) + 2
+    removed.setdefault(id(best.items), (best.path, best.items, before))
+    return len(best.items) < before
 
 
 def _truncate_longest_string(node: object) -> bool:
@@ -147,7 +224,7 @@ def _truncate_longest_string(node: object) -> bool:
         nonlocal best_container, best_key, best_len
         if isinstance(curr, dict):
             for key, val in curr.items():
-                if key == 'truncation_notice':
+                if key in ('truncation_notice', 'truncation'):
                     continue
                 if isinstance(val, str) and len(val) > best_len:
                     best_len = len(val)
@@ -183,31 +260,60 @@ def cap_result_size(
 ) -> dict[str, object]:
     """Ensure serialised JSON length stays at or below `max_chars`.
 
+    Lists are shortened first (see `_shrink_one_collection`), then the
+    longest strings are halved. `summary`, `locator`, `error` and
+    `target_components` are never trimmed, so counts in `summary` describe
+    the result before the cap; `truncation` says what was removed.
+
     Args:
         response: Serialisable dictionary returned by a tool.
         max_chars: Maximum permitted character length of `json.dumps(response)`.
 
     Returns:
-        A response dictionary fitting within `max_chars`, with `'truncated'`
-        and `'truncation_notice'` added when trimmed.
+        A response dictionary fitting within `max_chars` when its protected
+        parts allow it. When trimmed, `truncated` is true and
+        `truncation_notice` and `truncation` (one entry per trimmed list
+        path with `kept` and `total` items, plus `strings_shortened`) are
+        added.
     """
     copy_data: dict[str, object] = json.loads(
         json.dumps(response, ensure_ascii=False)
     )
     copy_data['truncated'] = False
-    serialised = json.dumps(copy_data, ensure_ascii=False)
-    if len(serialised) <= max_chars:
+    if _json_len(copy_data) <= max_chars:
         return copy_data
 
     copy_data['truncated'] = True
     copy_data['truncation_notice'] = (
-        f'Result truncated to fit {max_chars} character cap.'
+        f'Result truncated to fit the {max_chars}-character cap. Counts in '
+        'summary are before truncation; truncation lists what was cut. '
+        'Narrow the request (filters, limit, columns) to see the rest.'
     )
+    removed: dict[int, tuple[str, list[object], int]] = {}
+    strings_shortened = 0
 
-    while len(json.dumps(copy_data, ensure_ascii=False)) > max_chars:
-        if _shrink_largest_collection(copy_data):
+    def _record() -> None:
+        by_path: dict[str, list[int]] = {}
+        for path, items, total in removed.values():
+            counts = by_path.setdefault(path, [0, 0])
+            counts[0] += len(items)
+            counts[1] += total
+        copy_data['truncation'] = {
+            'lists': [
+                {'path': path, 'kept': kept, 'total': total}
+                for path, (kept, total) in by_path.items()
+            ],
+            'strings_shortened': strings_shortened,
+        }
+
+    _record()
+    while (size := _json_len(copy_data)) > max_chars:
+        if _shrink_one_collection(copy_data, size - max_chars, removed):
+            _record()
             continue
         if _truncate_longest_string(copy_data):
+            strings_shortened += 1
+            _record()
             continue
         break
 

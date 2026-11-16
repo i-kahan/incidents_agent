@@ -173,13 +173,22 @@ def create_default_registry(
             name='describe_table',
             description=(
                 'Return column types, summary stats, time mapping, '
-                'relationships, and sample rows for a table.'
+                'relationships, and sample rows for a table. Columns come '
+                'a page at a time (default 20); filter them with '
+                'column_pattern and page with summary.next_column_offset.'
             ),
             parameters_schema={
                 'type': 'object',
                 'properties': {
                     'table': {'type': 'string'},
                     'sample_rows': {'type': 'integer', 'minimum': 0},
+                    'column_pattern': {'type': 'string'},
+                    'column_offset': {'type': 'integer', 'minimum': 0},
+                    'max_columns': {
+                        'type': 'integer',
+                        'minimum': 1,
+                        'maximum': 50,
+                    },
                 },
                 'required': ['table'],
                 'additionalProperties': False,

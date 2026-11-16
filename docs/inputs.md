@@ -120,8 +120,11 @@ sandboxed connection and registry:
   document chunks is returned exclusively inside `untrusted_data.content`,
   separated from structural metadata, locators, and agent instructions.
 - **Result size cap:** Serialised tool payloads are truncated deterministically
-  to `max_result_chars` (default `6,000` characters) with `truncated=True` and
-  an explicit `truncation_notice`.
+  to `max_result_chars` (default `6,000` characters) with `truncated=True`, an
+  explicit `truncation_notice`, and a `truncation` record listing each trimmed
+  list with the items kept and the total. Raw data in `untrusted_data` is
+  trimmed first; `summary`, `locator`, `error` and `target_components` are never
+  trimmed, so counts in `summary` describe the result before the cap.
 - **Best-effort secret redaction:** All string values returned by tools pass
   through regex masking for common API keys, AWS/GCP/GitHub/Slack tokens,
   Bearer headers, JWTs, PEM private keys, and key-value passwords/secrets,
