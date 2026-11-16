@@ -1,6 +1,7 @@
 # Phase 6: Evaluation Harness
 
-**Status:** Not started
+**Status:** In progress — B scoring/statistics implemented offline; runtime
+consumers, human audits and paid experiments remain pending.
 
 ## 1. Objective
 Build the machinery that turns the agent into numbers: a cached, resumable runner over
@@ -49,27 +50,27 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
       Same model as the agent.
 
 **Workstream B — Scoring and statistics (`eval/scoring.py`, `eval/stats.py`)**
-- [ ] Call RCAEval's evaluator with the answers subset that matches the cases run,
+- [x] Call RCAEval's evaluator with the answers subset that matches the cases run,
       never the full answers file for a partial run, and assert that the evaluator's
       case count equals the number of cases intended. For a subset of a full
       task manifest, pass `--answers <subset>` and omit `--tasks`. The predictions
       file must hold only that subset's cases: RCAEval rejects any other case id.
       Phase 02's `incidents_agent.eval.rcaeval_bridge.score` already does this in
       process.
-- [ ] Parse its JSON summary and per-case output for accuracy at top 1, 3 and 5 at
+- [x] Parse its JSON summary and per-case output for accuracy at top 1, 3 and 5 at
       service and indicator level.
-- [ ] Evaluator contract test on a tiny fixture (three cases, hand-written answers):
+- [x] Evaluator contract test on a tiny fixture (three cases, hand-written answers):
       a service-only rank scores at service level but not indicator level; a
       `service_indicator` rank scores at both; an empty `ranks` is a miss; a missing
       case is a miss; a subset scored against a matching subset has no phantom misses;
       `Inspected@root` appears when target metadata is present. Pin the RCAEval version
       once this passes.
-- [ ] Bootstrap confidence intervals for each headline metric, resampling
+- [x] Bootstrap confidence intervals for each headline metric, resampling
       service–fault pairs, not individual cases.
-- [ ] Paired comparison of two prediction sets on the same cases: paired bootstrap of
+- [x] Paired comparison of two prediction sets on the same cases: paired bootstrap of
       the difference, resampled by pair, with the interval level fixed at 95%; McNemar's
       test at top 1 reported as secondary.
-- [ ] Guarded BARO row (free): BARO as Phase 02 runs it, except that any metric
+- [x] Guarded BARO row (free): BARO as Phase 02 runs it, except that any metric
       whose interquartile range in the normal window is zero is skipped before
       ranking. This removes series like `redis_diskio`, which are mostly zero with
       bursts and lead every BARO ranking on RE2-OB (Phase 02, Decision 6). The rule is
@@ -77,13 +78,13 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
       `rcaeval_bridge` and `make baselines` and scored like the other baselines:
       tuning in full, held-out as aggregates only. Unit test: a zero-IQR column with
       a large spike is not ranked; an ordinary shifted column still ranks first.
-- [ ] Agreement with the statistic: how often the agent's top answer equals BARO's top
+- [x] Agreement with the statistic: how often the agent's top answer equals BARO's top
       answer, and the agent's accuracy split into cases where they agree and cases
       where they differ. An agent that only echoes the statistic shows near-total
       agreement and no gain where they differ.
-- [ ] Noise estimate from repeated runs: per-case flip rate at top 1 and the spread of
+- [x] Noise estimate from repeated runs: per-case flip rate at top 1 and the spread of
       accuracy across repeats.
-- [ ] `scripts/eval_onset.py` (free): absolute error of `find_onset` against the known
+- [x] `scripts/eval_onset.py` (free): absolute error of `find_onset` against the known
       start time on the tuning cases — median, 90th percentile and share within 60
       seconds. Held-out cases are scored only in the final run.
 - [ ] From the trajectories: citation-validity rate, share of runs by final status
@@ -295,8 +296,23 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
 * **Small sample.** *Source: the dataset.* **Implication:** no comparison is reported
   without an interval.
 
+#### Decision 9: Cluster statistics and evaluator compatibility
+
+* Seed 6, 10,000 percentile bootstrap draws and fixed 95% intervals. Whole
+  service-fault groups are resampled; indicator-ineligible cases stay excluded
+  exactly as in the official scorer. McNemar is secondary and case-level.
+* RCAEval remains pinned at 1.12.0. Its evidence reader only recognizes service
+  arguments: a separate, explicitly derived trajectory projects factual targets
+  from successful calls, referencing original call IDs. These records do not
+  increase actual tool counts. Canonical agent trajectories are preserved.
+* Audit tooling freezes 15 tuning reports and accepts only manual judgment
+  edits. No support or action-quality result is claimed before human review.
+
 ## 5. Verification evidence
-*Result tables, costs and the git commit of each paid run go here.*
+* No paid runs. Scoring worktree passes `make lint` and the offline suite.
+* Contract fixtures cover exact subsets, missing/empty ranks and inspection.
+* Seeded statistics are checked against hand-computed cases; human audits pending.
 
 ## 6. AI-use notes (feeds `REPORT.md`)
-*Filled in as the work happens.*
+* Codex implemented B scoring/statistics, onset and audit tooling. Automated
+  checks are recorded with this workstream; owner review remains pending.
