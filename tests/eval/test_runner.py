@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+from incidents_agent.eval import retry
 from incidents_agent.eval import runner
 from incidents_agent.llm import contracts
 
@@ -77,7 +78,11 @@ def test_retry_exhaustion_keeps_case_as_miss(tmp_path, case):
 
     def fail(case, attempts, run_id):
         runner.atomic_json(attempts / run_id / 'usage.json', {'cost_usd': 0.01})
-        raise ValueError('synthetic failure')
+        raise retry.AttemptFailure(
+            retry.classify(
+                ValueError('synthetic response failure'), settled=True
+            )
+        )
 
     _, records = runner.run(
         [case], manifest(case), output_root=tmp_path / 'out', execute=fail

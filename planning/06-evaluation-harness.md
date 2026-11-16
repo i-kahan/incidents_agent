@@ -1,8 +1,8 @@
 # Phase 6: Evaluation Harness
 
-**Status:** B and D have landed. This change integrates both with the merged
-Phase 5 agent and verifies the runner offline. Human audits, paid experiments, single-call mode and Workstream C
-remain pending.
+**Status:** The runner, single-call baseline, scoring, field fixtures, and report
+scripts are implemented and verified offline. Paid experiments, manual audits,
+and memory integration remain pending.
 
 ## 1. Objective
 Build the machinery that turns the agent into numbers: a cached, resumable runner over
@@ -28,7 +28,7 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
 - [x] Parallel execution with a worker limit. A run is described by a frozen manifest
       (cases, configuration fingerprint, git commit); resuming continues only the
       unfinished cases of that manifest.
-- [x] Failure protocol, fixed in advance: a case that errors is retried once; a case
+- [x] Failure protocol, fixed in advance: eligible errors are retried once; a case
       that still has no result is logged with its error and scored as a miss. It is
       never dropped from the denominator.
 - [x] Writes `predictions.jsonl` in RCAEval's format, including `usage` and the
@@ -44,8 +44,8 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
       contains a held-out case — through `heldout`, `all`, explicit ids, or
       `compare_models.py` — is refused without `--final`. A `--final` run draws on the
       `final` reserve and is logged with timestamp, manifest and git commit.
-- [ ] Single-call baseline as a runner configuration (`--agent single_call`): one model
-      call per case, no tools and no loop. Its input is built deterministically — the
+- [x] Single-call baseline as a runner configuration (`--agent single_call`): one model
+      call per attempt, no tools and no loop. Its input is built deterministically — the
       top shifts from `compare_windows`, the top new log patterns from `search_text`,
       and the candidate lists — and it returns a ranking in the same prediction format.
       Same model as the agent.
@@ -98,14 +98,14 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
       its risk level is stated correctly; it says how to verify the result.
 
 **Workstream C — Scripts**
-- [ ] `scripts/compare_models.py`: runs the listed models on the same cases (through
+- [x] `scripts/compare_models.py`: runs the listed models on the same cases (through
       the cache) and prints one table — accuracy with intervals, cost per case, tokens,
       tool calls, wall time, paired difference against BARO — with BARO as a free row.
       Writes the table as Markdown and CSV under `results/`.
-- [ ] `scripts/failure_report.py`: per-case table — fault type, rank of the true answer,
+- [x] `scripts/failure_report.py`: per-case table — fault type, rank of the true answer,
       steps used, whether the root service was inspected, forced or not — and counts by
       failure category.
-- [ ] `make eval` and `make compare` targets.
+- [x] `make eval` and `make compare` targets.
 
 **Workstream D — Field set (`evalsets/field/`)**
 - [x] Seven hand-built cases that do not look like RCAEval (two already built in
@@ -157,12 +157,12 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
       document handling or `find_onset`.
 
 **Tests**
-- [ ] Unit tests: cache key changes when and only when configuration changes; resume
+- [x] Unit tests: cache key changes when and only when configuration changes; resume
       skips completed cases; prediction-file format; statistics on hand-computed examples.
-- [ ] Integration test: a full dry run over three fixture cases with the fake client,
+- [x] Integration test: a full dry run over three fixture cases with the fake client,
       scored by RCAEval's evaluator against a fixture answers file.
-- [ ] Test that the agent task built by the adapter contains no path to the answers file.
-- [ ] Update `flowchart-eval-harness.svg` if the pipeline changed.
+- [x] Test that the agent task built by the adapter contains no path to the answers file.
+- [x] Update `flowchart-eval-harness.svg` if the pipeline changed.
 
 ## 3. Architectural Decisions & Trade-offs
 
@@ -332,6 +332,24 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
   returned SQL data and document text. It does not project model guesses or
   failed calls, and raw canonical tool counts remain authoritative.
 
+#### Decision 12: One retry owner and one model per comparison arm
+
+* The evaluation runner can retry once on a confirmed unbilled transient error
+  or a malformed settled baseline response. It honors a retry delay up to 90
+  seconds. Permanent failures, invalid inputs, budget refusals, and unresolved
+  billing holds end the case as a miss. Unexpected exceptions and persistence
+  failures abort the run for repair.
+* A durable model response or agent report can be recovered without another
+  provider call. Attempts record billing state and usage. Automatic model
+  fallback is disabled to preserve attribution to the requested model.
+* The single-call input uses a fixed maximum of 15 metric shifts and 20 new log
+  patterns in a 16 KiB evidence section. The model receives no tools. Reports
+  count deterministic preprocessing separately from model-directed calls.
+* Comparison requires saved BARO and guarded BARO predictions and a reference
+  chosen on full tuning. Both free rows appear in the table. The paired
+  reference is frozen in advance. Failure reports consume saved benchmark
+  runs and require `--final` when any selected case is held out.
+
 ## 5. Verification evidence
 
 * B verified clustered statistics against hand-computed cases and checked the
@@ -344,6 +362,9 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
 * The public CLI also scored a local RE2-OB tuning case with the fake client.
 * On merged Phase 5 (`b4bad91`), `make lint` and `make test` passed: 432 tests,
   4 live tests deselected, and 90.23% evaluation-package line coverage.
+* Wave 4 passed lint, type checking, and 521 offline tests with 90.61% evaluation
+  coverage. A focused rerun also checked that the task adapter discards a supplied
+  answers path. The local RE2-OB single-call smoke run used a fake model.
 * No paid runs or manual audit judgments were produced.
 
 To exercise the field suite locally:
@@ -360,9 +381,26 @@ saved runs with distinct repeat IDs. `scripts.audit_reports prepare` consumes
 human-edited copy. Run `make baselines` to create the tuning-selected
 reference used in paired comparisons.
 
+For an offline baseline run and comparison after exporting the blind tasks
+and generating the saved BARO artifacts with `make baselines`:
+
+```sh
+make eval EVAL_ARGS='--agent single_call --cases tuning --limit 3 --dry-run'
+make compare COMPARE_ARGS='--models haiku gpt-small --cases tuning --limit 3 --dry-run'
+uv run --locked --group benchmark python -m scripts.failure_report RUN_DIR
+```
+
+Use the run directory printed by `make eval` in the last command. Add
+`--agent single_call` to `COMPARE_ARGS` to compare the baseline across models.
+Comparison publishes Markdown, CSV, and JSON in `results/phase-06/`.
+Re-running the same command reuses completed case results. Optional
+`--noise-runs DIR DIR ...` attaches measurements from matching repeat runs.
+
 ## 6. AI-use notes (feeds `REPORT.md`)
 
 * Codex implemented B scoring, onset evaluation and audit tooling, plus D
   fixture generation, gold anchors and deterministic scoring.
 * Codex wired the runner to the merged Phase 5 contracts. Owner review and
   manual audits remain pending.
+* Codex completed the Wave 4 runner and scripts and tested them with fake models,
+  synthetic fixtures, and a local RE2-OB tuning case.

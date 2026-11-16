@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import tempfile
+import time
 import uuid
 from collections.abc import Callable
 from collections.abc import Mapping
@@ -15,6 +16,7 @@ from datetime import UTC
 from datetime import datetime
 from pathlib import Path
 
+from incidents_agent.eval import retry
 from incidents_agent.llm import contracts
 
 
@@ -161,106 +163,141 @@ def _cached_case(
             raise ValueError('Invalid cache attempt journal')
         attempts: list[dict[str, object]] = raw_attempts
         terminal: dict[str, object] | None = None
-        if (
-            attempts
-            and (
-                folder
-                / 'attempts'
-                / str(attempts[-1]['run_id'])
-                / 'execution.json'
-            ).exists()
-        ):
-            terminal = read_object(
-                folder
-                / 'attempts'
-                / str(attempts[-1]['run_id'])
-                / 'execution.json'
-            )
-        if (
-            terminal is None
-            and attempts
-            and attempts[-1].get('status') == 'blocked'
-        ):
-            terminal = {
-                'ranks': [],
-                'error': attempts[-1].get('error', 'blocked_attempt'),
-                'stop_reason': 'billing_reconciliation_required',
-            }
-        if (
-            terminal is None
-            and attempts
-            and attempts[-1].get('status') == 'running'
-        ):
-            attempt = attempts[-1]
-            relative = str(attempt['run_id'])
-            report = folder / 'attempts' / relative / 'report.json'
-            if report.exists():
-                # Recover a durable report without repeating model calls.
-                try:
-                    terminal = execute(case, folder / 'attempts', relative)
-                except (
-                    contracts.BudgetRefused,
-                    contracts.BillingUncertain,
-                ) as error:
-                    terminal = {
-                        'ranks': [],
-                        'error': type(error).__name__,
-                        'stop_reason': 'billing_or_budget_refused',
-                    }
-                    attempt.update(status='blocked', error=type(error).__name__)
-                except (OSError, ValueError, RuntimeError) as error:
-                    attempt.update(status='failed', error=type(error).__name__)
-                else:
-                    attempt['status'] = 'recovered'
-                if terminal is not None:
-                    atomic_json(
-                        folder / 'attempts' / relative / 'execution.json',
-                        terminal,
-                    )
-                atomic_json(attempts_path, {'attempts': attempts})
-            elif manifest['dry_run'] is True:
-                attempt['status'] = 'interrupted'
-            else:
-                terminal = {
-                    'ranks': [],
-                    'error': 'interrupted_paid_attempt',
-                    'stop_reason': 'billing_reconciliation_required',
-                }
-                attempt['status'] = 'blocked'
-        while terminal is None and len(attempts) < 2:
-            run_id = f'{key[:24]}-attempt-{len(attempts) + 1}'
-            entry: dict[str, object] = {'run_id': run_id, 'status': 'running'}
-            attempts.append(entry)
-            atomic_json(attempts_path, {'attempts': attempts})
+        configuration = manifest.get('configuration')
+        settings = (
+            configuration.get('agent')
+            if isinstance(configuration, dict)
+            else None
+        )
+        primary = (
+            str(settings.get('model_alias', ''))
+            if isinstance(settings, dict)
+            else ''
+        )
+        strategy = retry.PrimaryOnly()
+
+        def invoke(entry: dict[str, object]) -> dict[str, object] | None:
+            run_id = str(entry['run_id'])
+            attempt_dir = folder / 'attempts' / run_id
             try:
-                terminal = execute(case, folder / 'attempts', run_id)
-                atomic_json(
-                    folder / 'attempts' / run_id / 'execution.json', terminal
-                )
-                entry['status'] = 'complete'
+                output = execute(case, folder / 'attempts', run_id)
             except (
+                retry.AttemptFailure,
                 contracts.BudgetRefused,
                 contracts.BillingUncertain,
+                contracts.ModelUnavailable,
+                contracts.ProviderError,
+                contracts.RetryDeferred,
             ) as error:
-                terminal = {
-                    'ranks': [],
-                    'error': type(error).__name__,
-                    'stop_reason': 'billing_or_budget_refused',
-                }
-                entry.update(status='blocked', error=type(error).__name__)
-            except (OSError, ValueError, RuntimeError) as error:
+                usage_path = attempt_dir / 'usage.json'
+                usage = read_object(usage_path) if usage_path.exists() else {}
+                held = bool(usage.get('held_usd'))
+                failure = (
+                    error.failure
+                    if isinstance(error, retry.AttemptFailure)
+                    else retry.classify(error, held=held)
+                )
+                if held:
+                    failure = dataclasses.replace(
+                        failure,
+                        category='billing_reconciliation_required',
+                        retryable=False,
+                        billing='unknown',
+                        delay_s=0,
+                    )
                 entry.update(
                     status='failed',
-                    error=type(error).__name__,
-                    message=str(error),
+                    failure=failure.to_dict(),
+                    error=failure.error,
+                    retry_at=time.time() + failure.delay_s,
                 )
+                atomic_json(attempts_path, {'attempts': attempts})
+                return None
+            # Persistence failures must abort, never cause another paid call.
+            atomic_json(attempt_dir / 'execution.json', output)
+            entry.update(
+                status='complete',
+                requested_models=output.get('requested_models', []),
+                served_models=output.get('served_models', []),
+            )
             atomic_json(attempts_path, {'attempts': attempts})
-        if terminal is None:
-            terminal = {
-                'ranks': [],
-                'error': 'retry_exhausted',
-                'stop_reason': 'execution_error',
+            return output
+
+        if attempts:
+            last = attempts[-1]
+            attempt_dir = folder / 'attempts' / str(last['run_id'])
+            completed_attempt = attempt_dir / 'execution.json'
+            if completed_attempt.exists():
+                terminal = read_object(completed_attempt)
+            elif last.get('status') == 'running':
+                if any(
+                    (attempt_dir / name).exists()
+                    for name in (
+                        'report.json',
+                        'response.json',
+                    )
+                ):
+                    terminal = invoke(last)
+                elif manifest['dry_run'] is True:
+                    last.update(
+                        status='failed',
+                        failure=retry.Failure(
+                            'interrupted_dry_attempt',
+                            'interrupted',
+                            True,
+                            billing='unbilled',
+                        ).to_dict(),
+                    )
+                else:
+                    last.update(
+                        status='blocked',
+                        error='interrupted_paid_attempt',
+                    )
+            if terminal is None and last.get('status') == 'blocked':
+                terminal = {
+                    'ranks': [],
+                    'error': last.get('error', 'blocked_attempt'),
+                    'stop_reason': 'billing_reconciliation_required',
+                }
+
+        while terminal is None:
+            if attempts:
+                last = attempts[-1]
+                raw = last.get('failure')
+                if not isinstance(raw, dict):
+                    raise ValueError(
+                        'Attempt journal lacks a classified failure'
+                    )
+                failure = retry.Failure(
+                    str(raw['category']),
+                    str(raw['error']),
+                    raw.get('retryable') is True,
+                    float(str(raw.get('delay_s', 0))),
+                    str(raw.get('billing', 'unknown')),
+                )
+                if strategy.next_model(primary, failure, attempts) is None:
+                    terminal = {
+                        'ranks': [],
+                        'error': failure.error,
+                        'failure': failure.to_dict(),
+                        'stop_reason': failure.category,
+                        'retry_exhausted': failure.retryable
+                        and len(attempts) >= 2,
+                    }
+                    break
+                delay = max(
+                    0, float(str(last.get('retry_at', 0))) - time.time()
+                )
+                time.sleep(min(delay, 90))
+            run_id = f'{key[:24]}-attempt-{len(attempts) + 1}'
+            entry: dict[str, object] = {
+                'run_id': run_id,
+                'status': 'running',
+                'primary_model': primary,
             }
+            attempts.append(entry)
+            atomic_json(attempts_path, {'attempts': attempts})
+            terminal = invoke(entry)
         ranks = terminal.get('ranks')
         if not isinstance(ranks, list) or not all(
             isinstance(rank, str) for rank in ranks
@@ -281,6 +318,9 @@ def _cached_case(
                     'wall_time_s',
                     'tool_calls',
                     'held_usd',
+                    'model_turns',
+                    'preprocessing_calls',
+                    'preprocessing_time_s',
                 ):
                     value = usage.get(name)
                     if isinstance(value, (int, float)):

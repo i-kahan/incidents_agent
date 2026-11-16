@@ -30,18 +30,9 @@ def compare(
         }
         runner.atomic_json(folder / 'baseline-comparison.json', result)
         return result
-    chosen = runner.read_object(reference)
+    chosen_name = validate(reference, baseline_runs, split_path)
     partition = split.from_json(json.loads(split_path.read_text()))
-    if chosen.get('split_sha256') != answers.file_sha256(
-        split_path
-    ) or chosen.get('tuning_ids') != list(partition.tuning):
-        raise ValueError('Baseline selection belongs to another split')
-    name = chosen.get('baseline')
-    if name not in ('baro', 'guarded_baro'):
-        raise ValueError('Unknown baseline selection')
-    tuning = baseline_runs / f'{name}.tuning.predictions.jsonl'
-    if answers.file_sha256(tuning) != chosen.get('predictions_sha256'):
-        raise ValueError('Baseline tuning predictions changed after selection')
+    name = chosen_name
     intended = {case.case_id for case in agent.cases}
     records = {}
     sides = []
@@ -75,3 +66,20 @@ def compare(
         tasks_dir=tasks_dir,
     )
     return reporting.compare_baseline(folder, agent, baseline, name=str(name))
+
+
+def validate(reference: Path, baseline_runs: Path, split_path: Path) -> str:
+    """Validate the saved full-tuning reference before model calls."""
+    chosen = runner.read_object(reference)
+    partition = split.from_json(json.loads(split_path.read_text()))
+    if chosen.get('split_sha256') != answers.file_sha256(
+        split_path
+    ) or chosen.get('tuning_ids') != list(partition.tuning):
+        raise ValueError('Baseline selection belongs to another split')
+    name = chosen.get('baseline')
+    if name not in ('baro', 'guarded_baro'):
+        raise ValueError('Unknown baseline selection')
+    tuning = baseline_runs / f'{name}.tuning.predictions.jsonl'
+    if answers.file_sha256(tuning) != chosen.get('predictions_sha256'):
+        raise ValueError('Baseline tuning predictions changed after selection')
+    return str(name)

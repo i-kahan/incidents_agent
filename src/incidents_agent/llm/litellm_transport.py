@@ -245,7 +245,6 @@ class _Wire:
             or (status is not None and 500 <= status < 600)
             or (
                 status is None
-                and self.sent
                 and isinstance(exc, (httpx.TransportError, TimeoutError))
             )
         )
@@ -414,7 +413,7 @@ class LiteLLMTransport:
                 raise failure from None
             raise client.TransportFailure(
                 str(failure),
-                retryable=wire.sent,
+                retryable=True,
                 unbilled=not wire.sent,
                 request_id=failure.request_id,
                 served_model=failure.served_model,
