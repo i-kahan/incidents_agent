@@ -36,8 +36,7 @@ eval:
 	uv run --locked --group benchmark python -m scripts.run_eval $(EVAL_ARGS)
 
 compare:
-	@printf '%s\n' 'make $@ becomes available in Phase 06.' >&2
-	@exit 1
+	uv run --locked --group benchmark python -m scripts.compare_models $(COMPARE_ARGS)
 
 app:
 	uv run --locked streamlit run app/main.py --server.address 127.0.0.1 --server.headless true $(APP_ARGS)

@@ -354,6 +354,11 @@ def _record_failure(
         reason=reason,
         error=type(exc).__name__,
         message=str(exc),
+        retry_after=(
+            exc.retry_after
+            if isinstance(exc, contracts.RetryDeferred)
+            else None
+        ),
     )
 
 

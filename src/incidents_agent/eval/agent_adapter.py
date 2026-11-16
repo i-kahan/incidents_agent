@@ -18,6 +18,7 @@ from incidents_agent.agent import results
 from incidents_agent.agent import state
 from incidents_agent.agent import trajectory
 from incidents_agent.eval import field
+from incidents_agent.eval import retry
 from incidents_agent.eval import runner
 from incidents_agent.eval import scoring
 from incidents_agent.llm import contracts
@@ -108,6 +109,7 @@ def trajectory_metrics(
         'input_tokens': input_tokens,
         'output_tokens': output_tokens,
         'tool_calls': final.counters.get('tool_calls', 0),
+        'model_turns': sum(e.get('type') == 'model_call' for e in events),
         'cost_usd': float(str(final.counters.get('cost_usd', 0))),
         'wall_time_s': float(str(final.counters.get('elapsed_s', 0))),
     }
@@ -302,11 +304,17 @@ class Executor:
         self, case: runner.Case, attempts: Path, run_id: str
     ) -> dict[str, object]:
         """Run once or recover an already written report without model calls."""
-        task = task_for(case)
+        try:
+            task = task_for(case)
+        except (ValueError, FileNotFoundError) as task_error:
+            raise retry.AttemptFailure(
+                retry.classify(task_error)
+            ) from task_error
         folder = attempts / run_id
         started = time.monotonic()
+        recovering = (folder / 'report.json').exists()
         try:
-            if not (folder / 'report.json').exists():
+            if not recovering:
                 graph.run_investigation(
                     task,
                     self.client_factory(task),
@@ -315,8 +323,12 @@ class Executor:
                     run_id=run_id,
                     reserve_name=self.reserve,
                 )
+        except (ValueError, FileNotFoundError) as input_error:
+            raise retry.AttemptFailure(
+                retry.classify(input_error)
+            ) from input_error
         finally:
-            if self.spend is not None:
+            if self.spend is not None and not recovering:
                 counters = self.spend.counters(
                     contracts.Run(run_id, self.reserve)
                 )
@@ -332,8 +344,15 @@ class Executor:
         )
         events = trajectory.read_trajectory(folder / 'trajectory.jsonl')
         metrics = trajectory_metrics(events, final)
-        if self.spend is not None:
+        if (folder / 'usage.json').exists():
             metrics.update(runner.read_object(folder / 'usage.json'))
+        elif self.spend is not None:
+            # A crash can leave a durable report before the usage write.
+            counters = self.spend.counters(contracts.Run(run_id, self.reserve))
+            metrics.update(dataclasses.asdict(counters.usage))
+            metrics.update(
+                cost_usd=float(counters.spent), held_usd=float(counters.held)
+            )
         runner.atomic_json(folder / 'usage.json', metrics)
         projected = folder / 'rcaeval-trajectory.jsonl'
         scoring.export_trajectory(
@@ -364,6 +383,27 @@ class Executor:
                 (folder / 'trajectory.jsonl').resolve()
             ),
             'report': final.to_dict(),
+            'primary_model': self.settings.model_alias,
+            'requested_models': sorted(
+                {
+                    str(e['requested_model'])
+                    for e in events
+                    if e.get('type') == 'model_call'
+                }
+            ),
+            'served_models': sorted(
+                {
+                    str(e['served_model'])
+                    for e in events
+                    if e.get('type') == 'model_call'
+                }
+            ),
+            'forced': checkpoint.get('submission') is None
+            or any(
+                reason.startswith('forced finalisation:')
+                for cause in final.causes
+                for reason in cause.confidence_reasons
+            ),
         }
         errors = [
             event for event in events if event.get('type') == 'model_error'
@@ -371,16 +411,23 @@ class Executor:
         if errors:
             error = str(errors[-1].get('error'))
             output.update(ranks=[], error=error, stop_reason=final.stop_reason)
-            if error in ('ProviderError', 'RetryDeferred') and not metrics.get(
-                'held_usd'
-            ):
-                raise RuntimeError(error)
-            if error in ('BudgetRefused', 'BillingUncertain'):
-                raise (
-                    contracts.BudgetRefused
-                    if error == 'BudgetRefused'
-                    else contracts.BillingUncertain
-                )(error)
+            kinds: dict[str, Exception] = {
+                'ProviderError': contracts.ProviderError(error),
+                'RetryDeferred': contracts.RetryDeferred(
+                    float(str(errors[-1].get('retry_after') or 0))
+                ),
+                'ModelUnavailable': contracts.ModelUnavailable(error),
+                'BudgetRefused': contracts.BudgetRefused(error),
+                'BillingUncertain': contracts.BillingUncertain(error),
+            }
+            if error not in kinds:
+                raise ValueError(f'Unknown model failure: {error}')
+            raise retry.AttemptFailure(
+                retry.classify(
+                    kinds[error],
+                    held=bool(metrics.get('held_usd')),
+                )
+            )
         if view is not None and not errors:
             output['field_prediction'] = dataclasses.asdict(view)
         return output

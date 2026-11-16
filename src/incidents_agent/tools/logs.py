@@ -76,12 +76,14 @@ def _resolve_text_column(
 
 
 def search_text(
-    ctx: tables.ToolContext, args: dict[str, object]
+    ctx: tables.ToolContext, args: dict[str, object], *, new_only: bool = False
 ) -> dict[str, object]:
     """Search a text column by regex and group matches by message pattern.
 
     When `split_time` is provided, requires `time_usable=True` on the table
     and counts occurrences before (`<= split_time`) and after (`> split_time`).
+    Internal `new_only` selects new patterns before truncation for evaluation;
+    the registered tool retains its existing schema and defaults.
     """
     table_name = args.get('table')
     if not isinstance(table_name, str) or not table_name.strip():
@@ -134,6 +136,9 @@ def search_text(
             )
         split_time = float(raw_split)
 
+    if new_only and split_time is None:
+        return tables.error_result('invalid_args', 'new_only needs split_time')
+
     table_sql = time_detect.quote_ident(entry.name)
     col_sql = time_detect.quote_ident(col_name)
     col_map = {col.name.lower(): col.name for col in entry.columns}
@@ -185,12 +190,16 @@ def search_text(
 
     groups: dict[str, dict[str, object]] = {}
     components_seen: set[str] = set()
+    pattern_components: dict[str, set[str]] = {}
 
     for raw_txt, ts_val, line_val, comp_val in matched_rows:
         text = str(raw_txt)
         template = mask_message_pattern(text)
         if comp_val is not None and str(comp_val).strip():
             components_seen.add(str(comp_val).strip())
+            pattern_components.setdefault(template, set()).add(
+                str(comp_val).strip()
+            )
 
         bucket = groups.get(template)
         if bucket is None:
@@ -218,6 +227,31 @@ def search_text(
         key=lambda item: int(str(item['total_count'])),
         reverse=True,
     )[:top_k]
+
+    if new_only:
+        ranked = sorted(
+            (
+                item
+                for item in groups.values()
+                if item['count_before'] == 0
+                and int(str(item['count_after'])) > 0
+            ),
+            key=lambda item: (
+                -int(str(item['count_after'])),
+                str(item['pattern_template']),
+            ),
+        )[:top_k]
+
+    if new_only:
+        ranked = [
+            {
+                **item,
+                'components': sorted(
+                    pattern_components.get(str(item['pattern_template']), set())
+                ),
+            }
+            for item in ranked
+        ]
 
     window = (None, split_time) if split_time is not None else None
     return {
