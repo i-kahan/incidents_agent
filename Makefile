@@ -1,4 +1,4 @@
-.PHONY: test lint format export smoke eval compare app
+.PHONY: test lint format export split smoke eval compare app
 
 test:
 	uv run --locked --group benchmark pytest $(PYTEST_ARGS)
@@ -13,6 +13,9 @@ format:
 
 export:
 	uv run --locked --group benchmark rcaeval-agent export --dataset re2-ob --out agent_tasks
+
+split:
+	uv run --locked python -m scripts.make_split
 
 smoke:
 	uv run --locked --group benchmark python -m scripts.benchmark_smoke
