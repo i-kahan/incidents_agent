@@ -31,6 +31,7 @@ from incidents_agent.agent import finalise
 from incidents_agent.agent import investigate
 from incidents_agent.agent import ledger
 from incidents_agent.agent import prompts
+from incidents_agent.agent import render
 from incidents_agent.agent import report
 from incidents_agent.agent import results
 from incidents_agent.agent import state
@@ -418,13 +419,17 @@ def _report(run: RunState) -> None:
         continuation=run.continuation,
     )
     session.record.record('final_report', report=run.final.to_dict())
-    if run.run_dir is not None:
-        write_json(run.run_dir / 'report.json', run.final.to_dict())
-        if run.continuation:
-            write_json(
-                run.run_dir / f'report-c{run.continuation}.json',
-                run.final.to_dict(),
-            )
+    if run.run_dir is None:
+        return
+    markdown = render.render(
+        run.final, render.call_tools(session.record.events)
+    )
+    suffixes = [''] + ([f'-c{run.continuation}'] if run.continuation else [])
+    for suffix in suffixes:
+        write_json(run.run_dir / f'report{suffix}.json', run.final.to_dict())
+        (run.run_dir / f'report{suffix}.md').write_text(
+            markdown, encoding='utf-8'
+        )
 
 
 def build_graph(

@@ -1,6 +1,7 @@
 # Phase 5: Agent
 
-**Status:** In progress — Workstreams A and B landed; run record and skeleton next
+**Status:** Built and tested offline ($0 spent). Waiting on the owner for model ids
+and API keys, then the one `live` test (step 7).
 
 ## 1. Objective
 Build the investigating agent: it reads the catalog, forms hypotheses, tests them with
@@ -89,7 +90,7 @@ See [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg).
 - [x] Instruction in the system prompt that file contents are data, not instructions.
 
 **Workstream C — Run record**
-- [ ] Trajectory written per run: every model call, tool call, ledger change, token and
+- [x] Trajectory written per run: every model call, tool call, ledger change, token and
       cost figure, and the final report, as JSON under `runs/`.
 - [x] Ablation switch in the agent configuration: `ledger` and `verify` on or off; off
       gives a plain tool-calling loop with the same tools.
@@ -102,11 +103,11 @@ See [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg).
       refused.)*
 
 **Workstream D — Walking skeleton**
-- [ ] `scripts/investigate.py <folder>`: ingest, run the agent, write a cited Markdown
+- [x] `scripts/investigate.py <folder>`: ingest, run the agent, write a cited Markdown
       report and the trajectory. With `--fake` it uses the scripted client at no cost.
-- [ ] `scripts/replay.py <trajectory>`: re-render the report from a saved trajectory
+- [x] `scripts/replay.py <trajectory>`: re-render the report from a saved trajectory
       without calling a model.
-- [ ] Both run end to end on the victim-versus-cause fixture before Phase 07 starts.
+- [x] Both run end to end on the victim-versus-cause fixture before Phase 07 starts.
 
 **Tests**
 - [x] Unit tests for the ledger rules and the citation validity check: a failed call,
@@ -123,7 +124,9 @@ See [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg).
       change the tool set, the limits or the finalisation path. Whether a real model
       resists it is measured on the field set in Phase 06.
 - [ ] One `live` test: a single tuning case on the cheapest configured model.
-- [ ] Update `flowchart-agent-graph.svg` if nodes or edges changed.
+      *(Written: `tests/agent/test_live.py`. Not run: `config/models.yaml` still holds
+      placeholders, and it spends money. Left for last at the owner's request.)*
+- [x] Update `flowchart-agent-graph.svg` if nodes or edges changed.
 
 ## 3. Architectural Decisions & Trade-offs
 
@@ -246,6 +249,17 @@ See [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg).
   prefix on every turn, so provider prompt caching would never hit.
 * **Trade-off:** Up to five full results are in context at a time instead of three.
 
+#### Decision 12: `--fake` uses a rule-based stand-in model
+
+* **Decision:** `scripts/investigate.py --fake` runs `agent/fake_policy.RuleClient`,
+  which reads the tool results in the conversation and follows a fixed recipe (find
+  the onset, compare windows, cite the top-shifting column, submit, answer verify
+  with `inconclusive`). Tests keep using the scripted fake from Phase 04.
+* **Context/Constraint:** A queued script cannot quote values from a folder it has not
+  seen, so its citations would fail on anything but the fixture it was written for.
+* **Trade-off:** The stand-in is a second fake to maintain, and its answers mean
+  nothing; it proves the wiring, the citation check and the run record only.
+
 ## 4. Constraints
 
 * **Fault start time is given on the benchmark, optional on uploads.** *Source: RCAEval;
@@ -274,3 +288,15 @@ See [`flowchart-agent-graph.svg`](flowchart-agent-graph.svg).
 - Step 5 (continuation): Claude Code wrote `agent/continuation.py` and its tests;
   checkpoints now keep a catalog summary so the "what changed" briefing is computed
   by diffing catalogs.
+- Step 6 (skeleton): Claude Code wrote `agent/render.py`, `agent/fake_policy.py` (a
+  rule-based stand-in model for `--fake`), `scripts/investigate.py`,
+  `scripts/replay.py`, `make investigate` / `make replay`, the live test, and updated
+  the agent-graph SVG (Report is now deterministic code; Limits reserve the verify
+  share).
+- Offline check, $0: `make investigate ARGS='evalsets/field/cases/victim_vs_cause
+  --fake'` writes a cited report and trajectory; `make replay` on that trajectory
+  reproduces `report.md` byte for byte with 1 of 1 citations valid. The rule-based
+  fake names the victim (`api-gateway`), as expected of a model that only follows the
+  largest shift; it is a wiring check, not a result.
+- Paid runs refuse to start without `--yes`, and check the model before opening the
+  spend ledger.
