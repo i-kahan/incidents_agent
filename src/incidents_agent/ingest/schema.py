@@ -1,12 +1,14 @@
 """Data models and configuration schemas for Phase 03 ingest."""
 
 import dataclasses
+import decimal
 import pathlib
 from collections.abc import Mapping
 from typing import Literal
-from typing import Protocol
 
 import duckdb
+
+from incidents_agent.llm import contracts
 
 FileKind = Literal['tabular', 'log', 'document']
 ChunkStrategy = Literal[
@@ -86,16 +88,7 @@ class ModelClassifierDecision:
     kind: str
     chunk_strategy: str
     reason: str
-    cost_usd: float = 0.0
-
-
-class ModelClassifierClient(Protocol):
-    """Protocol for an optional model-assisted classification client."""
-
-    def classify_file(
-        self, relative_path: str, sample: str
-    ) -> ModelClassifierDecision:
-        """Classify an ambiguous file using its path and bounded sample."""
+    cost_usd: decimal.Decimal = decimal.Decimal(0)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -107,7 +100,12 @@ class IngestConfig:
         enable_model_classification: Enables the model fallback when true.
         classifier_confidence_threshold: Minimum rule confidence to skip model.
         time_confidence_threshold: Minimum time detection confidence required.
-        classifier_client: Optional client implementing ModelClassifierClient.
+        classifier_client: Optional Phase 04 ModelClient for fallback calls.
+        classifier_model_alias: Model alias passed in ChatRequest (empty uses
+            the configured default model).
+        classifier_run: Run identity recorded against SpendLedger reservations.
+        classifier_case_id: Optional case identifier for per-case spend caps.
+        classifier_max_output_tokens: Output token cap for fallback calls.
         classifier_cache: Optional mutable cache keyed by SHA-256 file hash.
         classification_overrides: Optional per-path user overrides.
     """
@@ -116,7 +114,13 @@ class IngestConfig:
     enable_model_classification: bool = False
     classifier_confidence_threshold: float = 0.70
     time_confidence_threshold: float = 0.70
-    classifier_client: ModelClassifierClient | None = None
+    classifier_client: contracts.ModelClient | None = None
+    classifier_model_alias: str = ''
+    classifier_run: contracts.Run = dataclasses.field(
+        default_factory=lambda: contracts.Run('ingest')
+    )
+    classifier_case_id: str | None = None
+    classifier_max_output_tokens: int = 96
     classifier_cache: dict[str, ModelClassifierDecision] | None = None
     classification_overrides: (
         Mapping[str, tuple[FileKind, ChunkStrategy]] | None
@@ -137,6 +141,8 @@ class FileClassification:
         reason: Human-readable explanation of how the classification was chosen.
         used_model_fallback: True if the optional model fallback decided it.
         model_cost_usd: Cost in USD attributed to classifying this file.
+        fallback_halted: True if a budget, billing, or model error halted
+            subsequent model fallback calls for this ingest run.
     """
 
     relative_path: str
@@ -147,7 +153,8 @@ class FileClassification:
     confidence: float
     reason: str
     used_model_fallback: bool = False
-    model_cost_usd: float = 0.0
+    model_cost_usd: decimal.Decimal = decimal.Decimal(0)
+    fallback_halted: bool = False
 
     def to_dict(self) -> dict[str, object]:
         """Return a JSON-serialisable dictionary representation."""
@@ -160,7 +167,7 @@ class FileClassification:
             'confidence': self.confidence,
             'reason': self.reason,
             'used_model_fallback': self.used_model_fallback,
-            'model_cost_usd': self.model_cost_usd,
+            'model_cost_usd': str(self.model_cost_usd),
         }
 
 
