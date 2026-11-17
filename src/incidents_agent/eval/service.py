@@ -16,6 +16,7 @@ from incidents_agent.eval import answers
 from incidents_agent.eval import baseline_reference
 from incidents_agent.eval import field
 from incidents_agent.eval import memory_seed
+from incidents_agent.eval import reference_agent
 from incidents_agent.eval import reporting
 from incidents_agent.eval import retry
 from incidents_agent.eval import runner
@@ -82,6 +83,7 @@ class Prepared:
     executor: runner.Execute
     spend: ledger.SpendLedger | None
     snapshot: memory_seed.FrozenSnapshot | None = None
+    reserve: str | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -168,7 +170,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def prepare(args: Options) -> Prepared:
+def prepare(args: Options, *, release_arm: str | None = None) -> Prepared:
     """Validate and freeze inputs before any paid calls."""
     shared = shared_root()
     baseline_root = args.baseline_root or shared
@@ -182,8 +184,22 @@ def prepare(args: Options) -> Prepared:
         limit=args.limit,
         field_ids=field.CASE_IDS,
     )
+    heldout = bool(set(ids) & set(partition.heldout))
+    if heldout and not args.dry_run and release_arm is None:
+        raise ValueError('Paid held-out cases require scripts.final_eval')
+    use_reserve = (
+        heldout
+        and args.final
+        and release_arm
+        not in (
+            'memory',
+            'multi',
+            'rcaeval-reference',
+        )
+    )
     if args.workers < 1:
         raise ValueError('workers must be positive')
+    is_reference = release_arm == 'rcaeval-reference'
     if args.agent not in ('single', 'single_call'):
         raise ValueError('Unknown agent mode')
     if args.agent == 'single_call' and args.cases == 'field':
@@ -333,7 +349,10 @@ def prepare(args: Options) -> Prepared:
         'memory': settings.memory,
         'memory_frozen': settings.memory_frozen,
         'memory_snapshot_hash': snapshot.digest if snapshot else None,
-        'mode': args.agent,
+        'mode': release_arm if is_reference else args.agent,
+        **(
+            {'reference_policy': reference_agent.POLICY} if is_reference else {}
+        ),
         'retry_policy': retry.POLICY,
         'summary_policy': single_call.POLICY
         if args.agent == 'single_call'
@@ -355,15 +374,17 @@ def prepare(args: Options) -> Prepared:
     manifest['partition'] = partition.to_json()
     manifest['heldout_ids'] = sorted(set(ids) & set(partition.heldout))
     executor: runner.Execute
-    if args.agent == 'single_call':
+    if is_reference:
+        executor = reference_agent.Executor(make_client, settings, spend)
+    elif args.agent == 'single_call':
         executor = single_call.Executor(
-            make_client, settings, final=args.final, spend=spend
+            make_client, settings, final=use_reserve, spend=spend
         )
     else:
         executor = agent_adapter.Executor(
             make_client,
             settings,
-            final=args.final,
+            final=use_reserve,
             spend=spend,
             memory_store=snapshot.memory if snapshot else None,
             snapshot_owner=snapshot,
@@ -379,6 +400,7 @@ def prepare(args: Options) -> Prepared:
         executor,
         spend,
         snapshot,
+        'final' if use_reserve else None,
     )
 
 
@@ -390,7 +412,7 @@ def execute(
     charges: list[Decimal] = []
     charge_lock = Lock()
     spend = prepared.spend
-    reserve = 'final' if args.final else None
+    reserve = prepared.reserve
 
     def execute_attempt(
         case: runner.Case, attempts: Path, run_id: str

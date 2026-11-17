@@ -157,11 +157,16 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
       4 of 30 cases can change top-1 between identical runs, so differences of about
       0.13 in AC@1 are within noise. An earlier attempt ran on claude-haiku-4-5 by
       mistake ($0.69) and is not counted.)*
-- [ ] Onset evaluation on the tuning cases (free).
-- [ ] First full pass on the tuning set.
-- [ ] Single-call baseline on the tuning set. If the agent does not beat it, that is
-      the finding to understand before any further tuning.
-- [ ] Iterate on prompts and tool descriptions using the failure report; tuning set only.
+- [x] Onset evaluation on the tuning cases (free). Thirty detections in 30
+      cases, median absolute error 0 seconds, p90 71.3 seconds, and 26/30
+      within 60 seconds. [Evidence](../results/phase-06/onset-tuning.json).
+- [x] First full pass on the tuning set. Phase 10 reconciled the historical
+      runs and reran the selected configuration after #40. See
+      [paired tuning evidence](../results/phase-06/phase-10-tuning.json).
+- [x] Single-call baseline on the tuning set. The selected configuration's
+      gain in service AC@1 was +0.533 [0.233, 0.800], with historical tuning
+      top-1 flip rate 0.133 (five cases, three repeats).
+- [x] Iterate on prompts and tool descriptions using the failure report; tuning set only.
       *(Iteration 1, from the single-mode failure report at `8bb180b`, 24/30 correct:
       23 of the 24 correct reports were `inconclusive` because locators written as
       `table:column` were refused; 10 submits used `frontendservice` for `frontend`;
@@ -170,13 +175,18 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
       result; a rank that matches one candidate up to spelling is mapped to it; the
       prompts ask for exact candidate names and say entry points show the trouble of
       everything they call. `PROMPT_VERSION` 07.6. Measured after merge.)*
-- [ ] Ablation: ledger and verify both off versus both on, tuning set (`--config
-      config/agent-plain.yaml`). This is a joint
-      ablation and is reported as one; it does not show which of the two helps. Separate
-      arms are run only from savings.
-- [ ] Model comparison across the configured cheap models, tuning set.
-- [ ] Field set with the selected configuration; repeated after any change to ingest,
-      document handling or `find_onset`.
+- [x] Joint ablation on the tuning set. The agent with both ledger and verify
+      enabled had service AC@1 of 0.800. The arm with both disabled scored
+      0.900. The paired difference was −0.100 [−0.200, 0.000], against a
+      historical top-1 flip rate of 0.133. This experiment does not isolate
+      either feature, and the evidence-grounding configuration was retained.
+- [x] Model comparison on the 30 tuning cases. Service AC@1 was 0.800
+      for `gpt-small`, 0.533 for `gemini-small`, and 0.000 for `haiku`.
+      Paired intervals, served IDs, and spend are in the
+      [tuning evidence](../results/phase-06/phase-10-tuning.json).
+- [x] Field set with the selected configuration. One of seven synthetic
+      development fixtures met the full rubric. Recheck after any change to
+      ingest, document handling or `find_onset`.
 
 **Tests**
 - [x] Unit tests: cache key changes when and only when configuration changes; resume
@@ -218,7 +228,9 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
 #### Decision 4: The held-out set is locked by what a run contains, not by its name
 
 * **Decision:** The gate looks at the resolved list of case ids. Any held-out case in
-  it requires `--final`, whichever option or script selected it.
+  it requires `--final`, whichever option or script selected it. Phase 10
+  additionally admits paid held-out cases only through named, frozen arms.
+  The primary and single-call arms use the final reserve.
 * **Context/Constraint:** The value of held-out numbers is that nothing was tuned on
   them. A gate on the word `heldout` is bypassed by `--cases all`, by explicit ids and
   by the comparison script, any of which could end that quietly.

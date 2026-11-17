@@ -39,4 +39,4 @@ compare:
 	uv run --locked --group benchmark python -m scripts.compare_models $(COMPARE_ARGS)
 
 app:
-	uv run --locked streamlit run app/main.py --server.address 127.0.0.1 --server.headless true $(APP_ARGS)
+	uv run --locked python -m streamlit run app/main.py --server.address 127.0.0.1 --server.headless true $(APP_ARGS)
