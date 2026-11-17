@@ -162,6 +162,14 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
 - [ ] Single-call baseline on the tuning set. If the agent does not beat it, that is
       the finding to understand before any further tuning.
 - [ ] Iterate on prompts and tool descriptions using the failure report; tuning set only.
+      *(Iteration 1, from the single-mode failure report at `8bb180b`, 24/30 correct:
+      23 of the 24 correct reports were `inconclusive` because locators written as
+      `table:column` were refused; 10 submits used `frontendservice` for `frontend`;
+      4 of 6 misses ranked the entry point `frontend` first for a fault in a service
+      it calls. Changes: `table:column` locators accepted when both halves locate the
+      result; a rank that matches one candidate up to spelling is mapped to it; the
+      prompts ask for exact candidate names and say entry points show the trouble of
+      everything they call. `PROMPT_VERSION` 07.6. Measured after merge.)*
 - [ ] Ablation: ledger and verify both off versus both on, tuning set (`--config
       config/agent-plain.yaml`). This is a joint
       ablation and is reported as one; it does not show which of the two helps. Separate

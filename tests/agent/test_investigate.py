@@ -736,3 +736,61 @@ def test_data_call_on_the_final_turn_is_still_refused(
     assert _single(session).tool_calls == 1
     assert len(data_calls) == 1
     assert len(client.requests) == 2
+
+
+@pytest.mark.parametrize(
+    ('candidates', 'ranked', 'expected'),
+    [
+        pytest.param(
+            ('frontend', 'cartservice'),
+            'frontendservice',
+            ['frontend'],
+            id='service_suffix',
+        ),
+        pytest.param(
+            ('cartservice', 'frontend'),
+            'Cart-Service',
+            ['cartservice'],
+            id='case_and_hyphen',
+        ),
+    ],
+)
+def test_submit_maps_candidate_spelling_variants(
+    field_ingest: ingest.IngestResult,
+    tmp_path: Path,
+    candidates: tuple[str, ...],
+    ranked: str,
+    expected: list[str],
+) -> None:
+    """A rank that differs from one candidate only in spelling maps to it."""
+    task = state.Task(scripted.FIELD_CASE, candidate_services=candidates)
+    session = scripted.make_session(
+        field_ingest, fake.ScriptedClient([]), tmp_path, task=task
+    )
+
+    accepted, errors = investigate.submit_tool(session).validate(
+        {'outcome': 'diagnosis', 'ranks': [ranked]}
+    )
+
+    assert errors == []
+    assert accepted is not None
+    assert accepted['ranks'] == expected
+
+
+def test_submit_refuses_a_spelling_shared_by_two_candidates(
+    field_ingest: ingest.IngestResult, tmp_path: Path
+) -> None:
+    """An ambiguous variant is not guessed."""
+    task = state.Task(
+        scripted.FIELD_CASE, candidate_services=('cart', 'cartservice')
+    )
+    session = scripted.make_session(
+        field_ingest, fake.ScriptedClient([]), tmp_path, task=task
+    )
+
+    accepted, errors = investigate.submit_tool(session).validate(
+        {'outcome': 'diagnosis', 'ranks': ['cart-service']}
+    )
+
+    assert accepted is None
+    assert 'not in the candidate list' in errors[0]

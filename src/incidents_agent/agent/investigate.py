@@ -8,6 +8,7 @@ reuse it with a different brief and terminal tool.
 import dataclasses
 import json
 from collections.abc import Callable
+from collections.abc import Iterable
 
 from incidents_agent.agent import config
 from incidents_agent.agent import context
@@ -493,6 +494,20 @@ SUBMIT_SCHEMA: dict[str, object] = {
 }
 
 
+def _alias_key(name: str) -> str:
+    """Return a spelling-insensitive key: `frontendservice` ~ `frontend`."""
+    flat = ''.join(ch for ch in name.casefold() if ch.isalnum())
+    return flat.removesuffix('service') or flat
+
+
+def _candidate_aliases(names: Iterable[str]) -> dict[str, str]:
+    """Map alias keys to candidates, leaving out keys two candidates share."""
+    seen: dict[str, list[str]] = {}
+    for name in names:
+        seen.setdefault(_alias_key(name), []).append(name)
+    return {key: found[0] for key, found in seen.items() if len(found) == 1}
+
+
 def submit_tool(session: Session) -> TerminalTool:
     """Return the `submit` tool and its validator for this run.
 
@@ -535,6 +550,12 @@ def submit_tool(session: Session) -> TerminalTool:
             errors.append('ranks must not repeat a name')
         if allowed:
             unknown = [name for name in names if name.casefold() not in allowed]
+            aliases = _candidate_aliases(allowed.values())
+            for name in list(unknown):
+                match = aliases.get(_alias_key(name))
+                if match is not None:
+                    allowed[name.casefold()] = match
+                    unknown.remove(name)
             if unknown:
                 errors.append(
                     f'not in the candidate list: {unknown}; choose from '

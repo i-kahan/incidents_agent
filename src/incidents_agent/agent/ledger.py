@@ -90,6 +90,23 @@ UPDATE_TOOL_SCHEMA: dict[str, object] = {
 }
 
 
+_LOCATOR_SEPARATORS = (':', '/', '.')
+
+
+def _composite_locator(locator: str, tokens: set[str]) -> bool:
+    """Return True for `table:column`-style locators made of two tokens.
+
+    Models often write a table and a column together (`metrics:cpu`,
+    `metrics/cpu`). Both halves must be locators of the same result, so
+    this is no looser than citing either one alone.
+    """
+    for separator in _LOCATOR_SEPARATORS:
+        first, found, rest = locator.partition(separator)
+        if found and first.strip() in tokens and rest.strip() in tokens:
+            return True
+    return False
+
+
 def check_citation(
     item: object,
     store: results.ResultStore,
@@ -132,7 +149,7 @@ def check_citation(
     if results.is_empty(stored.result):
         return None, f'{call_id}: the call returned an empty result'
     tokens = results.locator_tokens(stored)
-    if locator not in tokens:
+    if locator not in tokens and not _composite_locator(locator, tokens):
         hints = ', '.join(sorted(tokens)[:_MAX_TOKEN_HINTS])
         return None, (
             f'{call_id}: locator {locator!r} is not in that result; '
