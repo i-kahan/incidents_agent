@@ -75,10 +75,10 @@ Diagrams (kept in this folder, see §8):
 | 03 | [Ingest & Tools](03-ingest-and-tools.md) | 01 (its optional model fallback: 04) | Merged (#3, #5) |
 | 04 | [Model Layer](04-model-layer.md) | 01 | Offline checks complete |
 | 05 | [Agent](05-agent.md) | 03, 04 | Built offline; live check waits for model ids and keys |
-| 06 | [Evaluation Harness](06-evaluation-harness.md) | 02, 05 | Not started |
+| 06 | [Evaluation Harness](06-evaluation-harness.md) | 02, 05 | In progress (Wave 4 merged: #24) |
 | 07 | [Multi-Agent Investigation](07-multi-agent.md) | 05, 06 | Not started |
-| 08 | [Upload App](08-upload-app.md) | 05, 07 | Not started |
-| 09 | [Incident Memory](09-incident-memory.md) | 05, 06, 07, 08 | Not started |
+| 08 | [Upload App](08-upload-app.md) | 05, 07 | In progress (Wave 4 merged: #23) |
+| 09 | [Incident Memory](09-incident-memory.md) | 05, 06, 07, 08 | In progress (Wave 4 merged: #22) |
 | 10 | [Verification & Report](10-verification-and-report.md) | all | Not started |
 
 **Ordering rationale:** the baseline (02) comes before the agent so the target is known.

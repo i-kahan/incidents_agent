@@ -5,10 +5,12 @@ import json
 import pathlib
 import tempfile
 from collections.abc import Mapping
+from collections.abc import Sequence
 from typing import Literal
 
 import streamlit as st
 from streamlit import delta_generator
+from streamlit.runtime import uploaded_file_manager
 
 from app import runtime
 from app import view
@@ -63,10 +65,114 @@ def _init_session_state() -> None:
         'active_run_error': None,
         'active_fault_start_s': None,
         'active_use_fake': False,
+        'continuation_stage': None,
     }
     for key, val in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = val
+
+
+@dataclasses.dataclass(frozen=True)
+class _ContinuationStage:
+    """Files staged for one run's continuation, kept across Streamlit reruns.
+
+    Attributes:
+        owner: Report key prefix the stage belongs to.
+        signature: Name and size of each uploaded file.
+        folder: Temporary folder holding the copies, or None after an error.
+        paths: Staged file paths.
+        preview: Catalog preview, when staging succeeded.
+        error: Why staging failed, when it did.
+    """
+
+    owner: str
+    signature: tuple[tuple[str, int], ...]
+    folder: pathlib.Path | None
+    paths: tuple[pathlib.Path, ...]
+    preview: runtime.ContinuationPreview | None
+    error: str | None
+
+
+def _discard_continuation_stage() -> None:
+    stage = st.session_state.get('continuation_stage')
+    if isinstance(stage, _ContinuationStage):
+        runtime.cleanup_session_dir(stage.folder)
+    st.session_state['continuation_stage'] = None
+
+
+def _stage_continuation(
+    owner: str,
+    run_dir: pathlib.Path,
+    uploads: Sequence[uploaded_file_manager.UploadedFile],
+) -> _ContinuationStage | None:
+    """Stage uploads once per distinct selection, not on every rerun.
+
+    Streamlit reruns the script on every interaction. Copying the files and
+    re-ingesting the combined inputs each time would pile up temporary copies
+    of private data, so the stage is cached by selection and removed when the
+    selection changes, is cleared, or is used.
+
+    Args:
+        owner: Report key prefix the stage belongs to.
+        run_dir: Run being continued.
+        uploads: Files chosen in the uploader.
+
+    Returns:
+        The stage, or None when nothing is selected.
+    """
+    if not uploads:
+        _discard_continuation_stage()
+        return None
+    signature = tuple((item.name, len(item.getvalue())) for item in uploads)
+    current = st.session_state.get('continuation_stage')
+    if (
+        isinstance(current, _ContinuationStage)
+        and current.owner == owner
+        and current.signature == signature
+    ):
+        return current
+    _discard_continuation_stage()
+    folder = pathlib.Path(tempfile.mkdtemp(prefix='incidents-add-'))
+    paths: list[pathlib.Path] = []
+    for item in uploads:
+        target = folder / pathlib.Path(item.name).name
+        target.write_bytes(item.getvalue())
+        paths.append(target)
+    try:
+        stage = _ContinuationStage(
+            owner,
+            signature,
+            folder,
+            tuple(paths),
+            runtime.preview_continuation(run_dir, paths),
+            None,
+        )
+    except (FileNotFoundError, ValueError, OSError) as exc:
+        runtime.cleanup_session_dir(folder)
+        stage = _ContinuationStage(owner, signature, None, (), None, str(exc))
+    st.session_state['continuation_stage'] = stage
+    return stage
+
+
+def _paid_action_blocker(
+    status: runtime.RuntimeStatus, use_fake: bool
+) -> str | None:
+    """Explain why a paid model call cannot start now, or None when it can."""
+    if use_fake:
+        return None
+    if not status.usable_aliases:
+        return 'No usable model is configured.'
+    if status.remaining_usd <= 0 or status.halted:
+        return 'The budget is exhausted or halted.'
+    return None
+
+
+def _paid_action_allowed(blocker: str | None, use_fake: bool, key: str) -> bool:
+    """Apply the same model, budget and privacy checks as a first run."""
+    if blocker is not None:
+        st.warning(blocker)
+        return False
+    return _render_privacy_gate(use_fake, key=key)
 
 
 def _reset_staged_session() -> None:
@@ -181,7 +287,7 @@ def _render_sidebar(
     return use_fake, selected_alias, fault_start_s, time_err, question
 
 
-def _render_privacy_gate(use_fake: bool) -> bool:
+def _render_privacy_gate(use_fake: bool, key: str = 'privacy_checkbox') -> bool:
     if use_fake:
         return True
     st.info(
@@ -195,7 +301,7 @@ def _render_privacy_gate(use_fake: bool) -> bool:
         'I understand and want to send this investigation to the model '
         'provider.',
         value=bool(st.session_state.get('privacy_acknowledged', False)),
-        key='privacy_checkbox',
+        key=key,
     )
     st.session_state['privacy_acknowledged'] = acknowledged
     return bool(acknowledged)
@@ -552,6 +658,7 @@ def _render_report_section(
     model_alias: str,
     key_prefix: str,
     runs_root: pathlib.Path,
+    paid_blocker: str | None,
 ) -> None:
     _render_banner(loaded_report.banner)
     st.caption(
@@ -581,6 +688,9 @@ def _render_report_section(
                 run_dir / 'inputs' / 'c0' if run_dir is not None else None
             )
             if inputs_c0 is not None and inputs_c0.is_dir():
+                onset_allowed = _paid_action_allowed(
+                    paid_blocker, use_fake, f'{key_prefix}_onset_privacy'
+                )
                 c_in, c_btn = st.columns([2, 1])
                 new_onset = c_in.text_input(
                     'Correct onset time (Unix seconds)',
@@ -590,6 +700,7 @@ def _render_report_section(
                 if c_btn.button(
                     'Re-run with corrected onset',
                     key=f'{key_prefix}_onset_rerun',
+                    disabled=not onset_allowed,
                 ):
                     parsed, err = _parse_fault_start(new_onset)
                     if err or parsed is None:
@@ -731,51 +842,51 @@ def _render_report_section(
                 accept_multiple_files=True,
                 key=f'{key_prefix}_continue_files',
             )
-            if extra_uploads:
-                add_tmp = pathlib.Path(
-                    tempfile.mkdtemp(prefix='incidents-add-')
+            stage = _stage_continuation(
+                key_prefix, run_dir, extra_uploads or []
+            )
+            if stage is not None and stage.error is not None:
+                st.error(stage.error)
+            elif stage is not None and stage.preview is not None:
+                st.write('**Catalog additions preview:**')
+                for line in stage.preview.changes:
+                    st.write(line)
+                st.write(
+                    'Estimated continuation cost cap: '
+                    f'${stage.preview.estimated_cost_usd:.2f}'
                 )
-                added_paths: list[pathlib.Path] = []
-                for extra_file in extra_uploads:
-                    target = add_tmp / pathlib.Path(extra_file.name).name
-                    target.write_bytes(extra_file.getvalue())
-                    added_paths.append(target)
-                try:
-                    cont_preview = runtime.preview_continuation(
-                        run_dir, added_paths
-                    )
-                    st.write('**Catalog additions preview:**')
-                    for line in cont_preview.changes:
-                        st.write(line)
-                    st.write(
-                        'Estimated continuation cost cap: '
-                        f'${cont_preview.estimated_cost_usd:.2f}'
-                    )
-                    if st.button(
-                        'Continue run with added files',
-                        key=f'{key_prefix}_continue_btn',
-                    ):
-                        cont_live = st.empty()
-                        cont_events = list(events)
+                cont_allowed = _paid_action_allowed(
+                    paid_blocker, use_fake, f'{key_prefix}_cont_privacy'
+                )
+                if st.button(
+                    'Continue run with added files',
+                    key=f'{key_prefix}_continue_btn',
+                    disabled=not cont_allowed,
+                ):
+                    cont_live = st.empty()
+                    cont_events = list(events)
 
-                        def _on_cont_event(ev: dict[str, object]) -> None:
-                            cont_events.append(ev)
-                            _render_live_snapshot(cont_live, cont_events)
+                    def _on_cont_event(ev: dict[str, object]) -> None:
+                        cont_events.append(ev)
+                        _render_live_snapshot(cont_live, cont_events)
 
+                    # The run removes the staged folder when it ends.
+                    st.session_state['continuation_stage'] = None
+                    try:
                         cont_res = runtime.continue_app_run(
                             run_dir,
-                            added_paths,
+                            list(stage.paths),
                             use_fake=use_fake,
                             model_alias=model_alias if not use_fake else None,
                             on_event=_on_cont_event,
-                            cleanup_added_dir=add_tmp,
+                            cleanup_added_dir=stage.folder,
                         )
+                    except (FileNotFoundError, ValueError, OSError) as exc:
+                        st.error(str(exc))
+                    else:
                         st.session_state['active_run_report'] = cont_res.report
                         st.session_state['active_run_events'] = cont_res.events
                         st.rerun()
-                except (FileNotFoundError, ValueError, OSError) as exc:
-                    st.error(str(exc))
-                    runtime.cleanup_session_dir(add_tmp)
 
     with st.expander('Feedback (saved locally for Phase 09 memory)'):
         existing_fb = runtime.load_feedback(run_dir)
@@ -829,6 +940,7 @@ def _render_report_section(
             disabled=not confirm_del,
             key=f'{key_prefix}_del_btn',
         ):
+            _discard_continuation_stage()
             runtime.delete_run(run_dir, runs_root=runs_root)
             if st.session_state.get('active_run_dir') == run_dir:
                 st.session_state['active_run_dir'] = None
@@ -1008,10 +1120,13 @@ def _render_investigate_tab(
             model_alias=selected_alias,
             key_prefix='active',
             runs_root=runtime.DEFAULT_RUNS_DIR,
+            paid_blocker=_paid_action_blocker(status, use_fake),
         )
 
 
-def _render_past_runs_tab(use_fake: bool, selected_alias: str) -> None:
+def _render_past_runs_tab(
+    status: runtime.RuntimeStatus, use_fake: bool, selected_alias: str
+) -> None:
     st.subheader('Past-Runs Viewer (offline replay)')
     summaries = runtime.list_past_runs(runtime.DEFAULT_RUNS_DIR)
     if not summaries:
@@ -1085,6 +1200,7 @@ def _render_past_runs_tab(use_fake: bool, selected_alias: str) -> None:
         model_alias=selected_alias,
         key_prefix=f'replay_{loaded.run_id}_c{loaded.continuation}',
         runs_root=runtime.DEFAULT_RUNS_DIR,
+        paid_blocker=_paid_action_blocker(status, use_fake),
     )
 
 
@@ -1116,7 +1232,7 @@ def main() -> None:
             question,
         )
     with tab_replay:
-        _render_past_runs_tab(use_fake, selected_alias)
+        _render_past_runs_tab(status, use_fake, selected_alias)
 
 
 if __name__ == '__main__':

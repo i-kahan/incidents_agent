@@ -28,6 +28,9 @@ agent_tasks/
 # Run outputs: trajectories, predictions, spend ledger, incident memory
 runs/
 
+# Synthetic dry-run comparison tables; real tables are committed on purpose
+results/phase-06/dry/
+
 # Local working documents
 /review*.md
 planning/review*.md

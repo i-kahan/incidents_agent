@@ -101,6 +101,17 @@ folder of files the agent has never seen.
 * **Trade-off:** `classification_overrides` and `TimeOverride` are applied in `app/`
   (scoping `IngestConfig` and materialising `unix_time` on staged copies) rather than
   changing core agent signatures; Wave 5 can promote overrides directly if desired.
+  *Revised after review:* overrides now travel as an explicit `ingest_config`
+  argument of `run_investigation` and `continue_run` instead of a process-wide
+  monkeypatch, so concurrent sessions cannot inherit each other's choices. They are saved
+  as `classification_overrides.json` in the run folder and reused by continuations.
+* **Decision (review):** The past-runs viewer lists only app runs. Evaluation output
+  under `runs/phase-NN/` (including cached attempts and, after Phase 10, held-out
+  runs) is never listed, continued or deleted from the page.
+* **Decision (review):** Every paid action in a report (continue with added files,
+  re-run with a corrected onset) applies the same model, budget and privacy checks as
+  a first run. Added files are staged once per selection and removed when the selection
+  changes, is cleared, or is used, not on every Streamlit rerun.
 
 ## 4. Constraints
 

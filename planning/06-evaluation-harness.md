@@ -332,16 +332,27 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
   returned SQL data and document text. It does not project model guesses or
   failed calls, and raw canonical tool counts remain authoritative.
 
-#### Decision 12: One retry owner and one model per comparison arm
+#### Decision 12: Request retries in place, case reruns by the runner, one model per arm
 
-* The evaluation runner can retry once on a confirmed unbilled transient error
-  or a malformed settled baseline response. It honors a retry delay up to 90
+* A transient provider error is retried once in place by the guarded client
+  (`retry.REQUEST_ATTEMPTS`), inside a 90 second window, so a failure late in a
+  multi-turn agent run does not repay the earlier turns. Both arms use this
+  same request policy, which keeps cost per case comparable.
+* The runner reruns a whole case at most once (`retry.CASE_ATTEMPTS`): after a
+  confirmed unbilled deferral that still escapes the request retry, or for a
+  malformed settled baseline response. It honors a retry delay up to 90
   seconds. Permanent failures, invalid inputs, budget refusals, and unresolved
-  billing holds end the case as a miss. Unexpected exceptions and persistence
-  failures abort the run for repair.
+  billing holds end the case as a miss. Only a bad input raised *before* the
+  first model call is classified as an invalid input; any exception after a
+  model call, and persistence failures, abort the run for repair.
+* Memory is refused in evaluation (`memory: false`) until a frozen snapshot is
+  wired in. The cache key records the flag and hashes the `memory/` package.
 * A durable model response or agent report can be recovered without another
   provider call. Attempts record billing state and usage. Automatic model
   fallback is disabled to preserve attribution to the requested model.
+* The single-call response must be a JSON object with exactly a `ranks` list.
+  One surrounding code fence is tolerated, because it is a formatting habit and
+  not a diagnosis; commentary or nested fences are a malformed response.
 * The single-call input uses a fixed maximum of 15 metric shifts and 20 new log
   patterns in a 16 KiB evidence section. The model receives no tools. Reports
   count deterministic preprocessing separately from model-directed calls.
@@ -365,6 +376,8 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
 * Wave 4 passed lint, type checking, and 521 offline tests with 90.61% evaluation
   coverage. A focused rerun also checked that the task adapter discards a supplied
   answers path. The local RE2-OB single-call smoke run used a fake model.
+* The follow-up review fixes (`feature/wave-4-review-fixes`) pass lint, type
+  checking, and 600 offline tests; evaluation coverage was not remeasured.
 * No paid runs or manual audit judgments were produced.
 
 To exercise the field suite locally:

@@ -283,6 +283,28 @@ def inspection_events(
     return projected
 
 
+class _CallCounter:
+    """Delegating client that records whether any model call was made."""
+
+    def __init__(self, inner: contracts.ModelClient | None) -> None:
+        """Wrap `inner`; `calls` counts requests, including failed ones."""
+        self._inner = inner
+        self.calls = 0
+
+    def complete(
+        self,
+        request: contracts.ChatRequest,
+        *,
+        run: contracts.Run,
+        case_id: str | None = None,
+    ) -> contracts.ChatResult:
+        """Count the request, then delegate it."""
+        if self._inner is None:
+            raise RuntimeError('No model client was configured')
+        self.calls += 1
+        return self._inner.complete(request, run=run, case_id=case_id)
+
+
 class Executor:
     """Adapt the owned Phase 5 run function to the evaluation cache."""
 
@@ -313,17 +335,23 @@ class Executor:
         folder = attempts / run_id
         started = time.monotonic()
         recovering = (folder / 'report.json').exists()
+        counter = _CallCounter(None)
         try:
             if not recovering:
+                counter = _CallCounter(self.client_factory(task))
                 graph.run_investigation(
                     task,
-                    self.client_factory(task),
+                    counter,
                     self.settings,
                     runs_dir=attempts,
                     run_id=run_id,
                     reserve_name=self.reserve,
                 )
         except (ValueError, FileNotFoundError) as input_error:
+            if counter.calls:
+                # After a model call this is a defect, not a bad input: let
+                # it abort the run instead of caching a free-looking miss.
+                raise
             raise retry.AttemptFailure(
                 retry.classify(input_error)
             ) from input_error

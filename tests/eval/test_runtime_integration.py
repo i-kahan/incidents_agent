@@ -15,6 +15,7 @@ from incidents_agent.agent import state
 from incidents_agent.eval import agent_adapter
 from incidents_agent.eval import field
 from incidents_agent.eval import reporting
+from incidents_agent.eval import retry
 from incidents_agent.eval import runner
 from incidents_agent.llm import contracts
 from incidents_agent.llm import fake
@@ -390,3 +391,37 @@ def test_inspection_projects_candidate_observed_in_returned_content(
 
     assert projected[0]['target_components'] == ['checkout']
     assert 'target_components' not in event
+
+
+class _ExplodingClient:
+    """Raises a plain ValueError on every model call."""
+
+    def complete(self, request, *, run, case_id=None):
+        del request, run, case_id
+        raise ValueError('defect after a model call')
+
+
+def test_bad_input_before_any_model_call_is_a_free_invalid_input(tmp_path):
+    """An unreadable case folder fails before spending and is not retried."""
+    case = runner.Case('gone', tmp_path / 'missing', 'field')
+    executor = agent_adapter.Executor(
+        lambda _: _ExplodingClient(), config.AgentConfig()
+    )
+
+    with pytest.raises(retry.AttemptFailure) as caught:
+        executor(case, tmp_path / 'attempts', 'run-1')
+
+    assert caught.value.failure.category == 'invalid_input'
+    assert caught.value.failure.billing == 'unbilled'
+    assert not caught.value.failure.retryable
+
+
+def test_value_error_after_a_model_call_aborts_instead_of_caching(tmp_path):
+    """A defect after a paid call must not become a cached unbilled miss."""
+    case = runner.Case('healthy', FIELD / 'cases/healthy', 'field')
+    executor = agent_adapter.Executor(
+        lambda _: _ExplodingClient(), config.AgentConfig()
+    )
+
+    with pytest.raises(ValueError, match='defect after a model call'):
+        executor(case, tmp_path / 'attempts', 'run-1')

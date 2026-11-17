@@ -98,6 +98,29 @@ app, and (budget permitting) an on-versus-off result.
   no memory.
 * **Trade-off:** None for the headline; the experiment is a separate, labelled result.
 
+#### Decision 6: A continuation keeps human feedback; undiagnosed runs are not stored
+
+* **Decision:** When a continuation re-saves a run's record, `created_at` and the
+  fix note carry over. A `confirmed` or `rejected` outcome carries over only while the
+  diagnosed root cause is unchanged; a changed diagnosis returns to `unverified`.
+  A run that ranked no cause is not written to memory.
+* **Context/Constraint:** Adding files is the normal way to firm up a diagnosis, and it
+  must not wipe what a person already confirmed. A confirmation of one cause says
+  nothing about a different one. A run that failed before ranking has nothing to lead
+  from, and would only add noise to retrieval.
+* **Trade-off:** A person must re-confirm after the diagnosis changes.
+
+#### Decision 7: Memory depends on nothing above it
+
+* **Decision:** `memory/` imports no other project package. `build_record_from_run`,
+  which reads the agent's report and result types, lives in
+  `agent/memory_record.py`. `tests/test_layering.py` fails if a lower package imports
+  a higher one (`llm` < `ingest` < `memory` < `tools` < `agent` < `eval`).
+* **Context/Constraint:** `tools` registers the memory search tool and `agent` calls
+  `tools`, so a `memory` import of `agent` closed a package-level loop that only
+  worked because it touched leaf modules.
+* **Trade-off:** One more small module in `agent/`.
+
 ## 4. Constraints
 
 * **Seeding uses tuning answers only.** *Source: agreed experiment design.*
@@ -112,5 +135,5 @@ app, and (budget permitting) an on-versus-off result.
 *Experiment table and tool-usage counts go here, if the experiment runs.*
 
 ## 6. AI-use notes (feeds `REPORT.md`)
-- Wave 4 (`feature/phase-09a-memory`): implemented `incidents_agent.memory.store` (`MemoryStore` over SQLite with `BEGIN IMMEDIATE` writes, `FrozenMemoryError`, `MemoryRecord`, `snapshot_hash()`, Okapi BM25 + component-boost search, `build_record_from_run`, and `search_past_incidents`), wired `search_past_incidents` into `ToolRegistry` behind `AgentConfig.memory`, enforced memory-evidence isolation in `HypothesisLedger` and verification checks, wired end-of-run `unverified` persistence in `run_investigation` and `continue_run`, added `--memory` / `--memory-path` to `scripts/investigate.py`, and added unit and integration tests in `tests/memory/test_store.py`.
+- Wave 4 (`feature/phase-09a-memory`): implemented `incidents_agent.memory.store` (`MemoryStore` over SQLite with `BEGIN IMMEDIATE` writes, `FrozenMemoryError`, `MemoryRecord`, `snapshot_hash()`, Okapi BM25 + component-boost search, and `search_past_incidents`; `build_record_from_run` later moved to `agent/memory_record.py`), wired `search_past_incidents` into `ToolRegistry` behind `AgentConfig.memory`, enforced memory-evidence isolation in `HypothesisLedger` and verification checks, wired end-of-run `unverified` persistence in `run_investigation` and `continue_run`, added `--memory` / `--memory-path` to `scripts/investigate.py`, and added unit and integration tests in `tests/memory/test_store.py`.
 - Note: `memory/store.py` avoids importing `incidents_agent.tools` because `tools/__init__.py` imports `registry` eagerly; `registry.py` registers `search_past_incidents` directly against `memory/store.py`.

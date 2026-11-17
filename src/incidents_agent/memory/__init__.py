@@ -12,7 +12,6 @@ MemoryRecord = store.MemoryRecord
 SearchMatch = store.SearchMatch
 SearchResult = store.SearchResult
 MemoryStore = store.MemoryStore
-build_record_from_run = store.build_record_from_run
 search_past_incidents = store.search_past_incidents
 
 __all__ = [
@@ -26,7 +25,6 @@ __all__ = [
     'SEARCH_TOOL_NAME',
     'SearchMatch',
     'SearchResult',
-    'build_record_from_run',
     'search_past_incidents',
     'store',
 ]

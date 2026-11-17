@@ -183,3 +183,18 @@ def test_recover_durable_response_marker(tmp_path, frozen_case):
     assert records[0]['ranks'] == ['checkout']
     assert isinstance(records[0]['attempts'], list)
     assert len(records[0]['attempts']) == 1
+
+
+def test_policy_constants_drive_every_retry_decision():
+    """The fingerprinted policy and the behavior come from one set of values."""
+    assert retry.POLICY['request_attempts'] == retry.REQUEST_ATTEMPTS
+    assert retry.POLICY['attempts'] == retry.CASE_ATTEMPTS
+    assert retry.POLICY['window_s'] == retry.WINDOW_S
+    assert retry.classify(contracts.RetryDeferred(retry.WINDOW_S)).retryable
+    assert not retry.classify(
+        contracts.RetryDeferred(retry.WINDOW_S + 1)
+    ).retryable
+    failure = retry.Failure('provider_deferred', 'x', retryable=True)
+    history: list[dict[str, object]] = [{}] * retry.CASE_ATTEMPTS
+    assert retry.PrimaryOnly().next_model('m', failure, history) is None
+    assert retry.PrimaryOnly().next_model('m', failure, history[:1]) == 'm'

@@ -114,6 +114,40 @@ def test_invalid_model_response_rejected(text, blind_case):
         )
 
 
+@pytest.mark.parametrize(
+    'text',
+    [
+        '```json\n{"ranks":["cart"]}\n```',
+        '```\n{"ranks":["cart"]}\n```',
+        '  ```json\n{"ranks":["cart"]}```  ',
+    ],
+)
+def test_single_code_fence_around_exact_json_is_accepted(text, blind_case):
+    """A formatting wrapper alone does not turn a valid ranking into a miss."""
+    message = contracts.Message('assistant', text)
+
+    ranks = single_call.parse_ranks(message, agent_adapter.task_for(blind_case))
+
+    assert ranks == ['cart']
+
+
+@pytest.mark.parametrize(
+    'text',
+    [
+        'Here you go: ```json\n{"ranks":["cart"]}\n```',
+        '```json\n{"ranks":["cart"]}\n``` and more',
+        '```json\n```json\n{"ranks":["cart"]}\n```\n```',
+    ],
+)
+def test_prose_or_nested_fences_remain_rejected(text, blind_case):
+    """Only a lone wrapper is tolerated; commentary is still malformed."""
+    with pytest.raises(ValueError):
+        single_call.parse_ranks(
+            contracts.Message('assistant', text),
+            agent_adapter.task_for(blind_case),
+        )
+
+
 @pytest.mark.parametrize('ranks', [[], ['checkout'], ['checkout_cpu', 'cart']])
 def test_valid_rankings_preserved(ranks, blind_case):
     """Service, indicator and empty rankings retain their semantics."""

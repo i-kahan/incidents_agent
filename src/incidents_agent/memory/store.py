@@ -15,10 +15,6 @@ from collections.abc import Mapping
 from collections.abc import Sequence
 from typing import Literal
 
-from incidents_agent.agent import report
-from incidents_agent.agent import results
-from incidents_agent.agent import state
-
 DEFAULT_PATH = pathlib.Path('runs/memory.sqlite3')
 SEARCH_TOOL_NAME = 'search_past_incidents'
 COMPONENT_BOOST = 2.0
@@ -100,6 +96,33 @@ class MemoryRecord:
         updated = self.updated_at or created
         object.__setattr__(self, 'created_at', created)
         object.__setattr__(self, 'updated_at', updated)
+
+    def carrying_feedback_from(
+        self, previous: 'MemoryRecord'
+    ) -> 'MemoryRecord':
+        """Rebuild this record from a new pass, keeping human feedback.
+
+        A continuation re-derives the diagnosis but cannot know what a person
+        later learned, so `created_at` and the fix note always carry over. The
+        `confirmed` or `rejected` outcome carries over only while the
+        diagnosed root cause is unchanged; a different diagnosis has not been
+        reviewed, so it goes back to `unverified`.
+
+        Args:
+            previous: The record currently stored for the same run.
+
+        Returns:
+            A copy of this record with `previous` feedback applied.
+        """
+        same_diagnosis = (
+            self.diagnosed_root_cause == previous.diagnosed_root_cause
+        )
+        return dataclasses.replace(
+            self,
+            created_at=previous.created_at,
+            outcome=previous.outcome if same_diagnosis else 'unverified',
+            what_fixed_it=previous.what_fixed_it or self.what_fixed_it,
+        )
 
     def to_dict(self) -> dict[str, object]:
         """Return a JSON-ready dictionary representation."""
@@ -196,7 +219,8 @@ def _tokenise(text: str) -> list[str]:
     return _TOKEN_RE.findall(text.lower())
 
 
-def _norm_component(name: str) -> str:
+def normalise_component(name: str) -> str:
+    """Return the case- and separator-insensitive key for a component name."""
     return name.strip().casefold().replace('_', '-')
 
 
@@ -430,9 +454,9 @@ class MemoryStore:
 
         query_tokens = list(dict.fromkeys(_tokenise(query)))
         wanted_components = {
-            _norm_component(comp) for comp in components if comp.strip()
+            normalise_component(comp) for comp in components if comp.strip()
         }
-        norm_query = _norm_component(query)
+        norm_query = normalise_component(query)
         if not query_tokens and not wanted_components:
             return SearchResult(len(candidates), (), (), ())
 
@@ -533,7 +557,7 @@ def _matched_components(
     if record.diagnosed_root_cause:
         pool.append(record.diagnosed_root_cause)
     for comp in pool:
-        norm = _norm_component(comp)
+        norm = normalise_component(comp)
         if not norm or norm in seen:
             continue
         if norm in wanted_components:
@@ -543,93 +567,6 @@ def _matched_components(
         if norm_query and re.search(pattern, norm_query):
             seen[norm] = comp
     return tuple(seen.values())
-
-
-def build_record_from_run(
-    task: state.Task,
-    catalog: Mapping[str, object],
-    final: report.Report,
-    store: results.ResultStore | None = None,
-) -> MemoryRecord:
-    """Build an `unverified` memory record from a finished run.
-
-    Args:
-        task: Investigated task.
-        catalog: Catalog summary dictionary from the run checkpoint.
-        final: Final report produced by the agent.
-        store: Optional tool result store for extra component context.
-
-    Returns:
-        A `MemoryRecord` marked `unverified`.
-    """
-    summary_parts: list[str] = []
-    if task.question.strip():
-        summary_parts.append(task.question.strip())
-    if final.fault_type:
-        summary_parts.append(f'fault_type: {final.fault_type}')
-    for cause in final.causes:
-        if cause.statement.strip():
-            summary_parts.append(cause.statement.strip())
-
-    key_evidence: list[str] = []
-    for cause in final.causes:
-        for ref in cause.evidence:
-            if ref.stance == 'for':
-                entry = f'{ref.locator}: {ref.quote}'
-                if entry not in key_evidence:
-                    key_evidence.append(entry)
-    summary_parts.extend(key_evidence)
-
-    raw_tables = catalog.get('tables')
-    if isinstance(raw_tables, Mapping) and raw_tables:
-        names = ', '.join(sorted(str(name) for name in raw_tables))
-        summary_parts.append(f'tables: {names}')
-    raw_docs = catalog.get('documents')
-    if isinstance(raw_docs, list) and raw_docs:
-        docs = ', '.join(str(doc) for doc in raw_docs)
-        summary_parts.append(f'documents: {docs}')
-
-    symptom_summary = ' | '.join(summary_parts) or f'outcome={final.outcome}'
-
-    components: list[str] = []
-    seen_components: set[str] = set()
-
-    def _add_component(name: str) -> None:
-        cleaned = name.strip()
-        key = _norm_component(cleaned)
-        if cleaned and key not in seen_components:
-            seen_components.add(key)
-            components.append(cleaned)
-
-    for rank in final.ranks:
-        _add_component(rank)
-    for cause in final.causes:
-        _add_component(cause.component)
-    if store is not None:
-        for item in store:
-            if item.ok and not item.from_memory:
-                for comp in item.target_components:
-                    _add_component(comp)
-
-    diagnosed_root_cause = (
-        final.ranks[0]
-        if final.outcome != 'no_fault_found' and final.ranks
-        else None
-    )
-    recommended_actions = tuple(
-        action.action for action in final.actions if action.action.strip()
-    )
-    return MemoryRecord(
-        run_id=final.run_id,
-        symptom_summary=symptom_summary,
-        affected_components=tuple(components),
-        diagnosed_root_cause=diagnosed_root_cause,
-        fault_type=final.fault_type,
-        key_evidence=tuple(key_evidence),
-        recommended_actions=recommended_actions,
-        outcome='unverified',
-        what_fixed_it=None,
-    )
 
 
 def _tool_error(code: str, message: str) -> dict[str, object]:
