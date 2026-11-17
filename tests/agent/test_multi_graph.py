@@ -489,3 +489,52 @@ def test_role_without_script_fails_loudly(tmp_path: Path, missing: str) -> None:
 
     with pytest.raises(AssertionError, match='No scripted turn'):
         _run(tmp_path, scripted.RoutedClient(scripts))
+
+
+def test_lead_that_spends_every_call_on_data_still_dispatches(
+    tmp_path: Path,
+) -> None:
+    """Hypotheses arrive with dispatch, so a lead out of calls still briefs.
+
+    This is the failure the live test found: the lead batched its three
+    tool calls on data, and `update_hypotheses` was refused.
+    """
+    data = scripted.calls(
+        ('search_text', scripted.LOCK_SEARCH),
+        ('search_text', _GATEWAY_SEARCH),
+        ('list_tables', {}),
+    )
+    briefs = scripted.call(
+        'dispatch',
+        outcome='dispatch',
+        briefs=[
+            {
+                'component': 'inventory-db',
+                'statement': 'lock contention',
+                'evidence': [scripted.LOCK_EVIDENCE],
+                'confirm_if': 'lock waits start first',
+                'refute_if': 'lock waits follow the gateway',
+            },
+            {
+                'component': 'api-gateway',
+                'statement': 'queue saturation',
+                'confirm_if': 'queue saturates first',
+                'refute_if': 'queue saturates after db errors',
+            },
+        ],
+    )
+    scripts = _testers()
+    del scripts['tester:H3']
+    client = scripted.RoutedClient(
+        {
+            'lead': [data, briefs, scripted.submit('inventory-db')],
+            **scripts,
+            'skeptic': _skeptic(),
+        }
+    )
+
+    result = _run(tmp_path, client)
+
+    assert set(_ledger(result)) == {'H1', 'H2'}
+    assert result.report.outcome == 'verified'
+    assert result.report.ranks[0] == 'inventory-db'

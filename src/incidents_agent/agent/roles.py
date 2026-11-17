@@ -32,8 +32,15 @@ _CHALLENGES: tuple[ChallengeOutcome, ...] = ('holds', 'disproved')
 
 BRIEF_SCHEMA: dict[str, object] = {
     'type': 'object',
+    'description': (
+        'Name a ledger hypothesis by hypothesis_id, or give component and '
+        'statement (and any evidence) to add a new one with this brief.'
+    ),
     'properties': {
         'hypothesis_id': {'type': 'string'},
+        'component': {'type': 'string'},
+        'statement': {'type': 'string'},
+        'evidence': ledger.EVIDENCE_SCHEMA,
         'confirm_if': {
             'type': 'string',
             'description': 'What observation would confirm it.',
@@ -43,7 +50,7 @@ BRIEF_SCHEMA: dict[str, object] = {
             'description': 'What observation would refute it.',
         },
     },
-    'required': ['hypothesis_id', 'confirm_if', 'refute_if'],
+    'required': ['confirm_if', 'refute_if'],
 }
 
 DISPATCH_SCHEMA: dict[str, object] = {
@@ -259,6 +266,104 @@ def _text(value: object) -> str:
     return value.strip() if isinstance(value, str) else ''
 
 
+def _plan_briefs(
+    book: ledger.HypothesisLedger | None, briefs: list[object]
+) -> tuple[list[dict[str, object]], list[str]]:
+    """Check every brief before the ledger changes; resolve known ids."""
+    errors: list[str] = []
+    planned: list[dict[str, object]] = []
+    seen: set[str] = set()
+    for index, item in enumerate(briefs):
+        prefix = f'briefs[{index}]'
+        if not isinstance(item, dict):
+            errors.append(f'{prefix}: must be an object')
+            continue
+        confirm = _text(item.get('confirm_if'))
+        refute = _text(item.get('refute_if'))
+        if not confirm or not refute:
+            errors.append(f'{prefix}: needs confirm_if and refute_if')
+        hid = _text(item.get('hypothesis_id'))
+        component = _text(item.get('component'))
+        statement = _text(item.get('statement'))
+        entry = None
+        if book is not None and hid:
+            entry = book.entries.get(hid)
+            if entry is None:
+                known = ', '.join(book.entries) or 'none'
+                errors.append(
+                    f'{prefix}: unknown hypothesis {hid!r} (known: {known}); '
+                    'or give component and statement to add one'
+                )
+                continue
+        elif book is not None and component:
+            entry = book.find(component)
+            if entry is None and not statement:
+                errors.append(f'{prefix}: a new hypothesis needs a statement')
+                continue
+        else:
+            errors.append(
+                f'{prefix}: give hypothesis_id, or component and statement'
+            )
+            continue
+        if entry is not None and entry.status == 'rejected':
+            errors.append(f'{prefix}: {entry.id} is rejected')
+            continue
+        key = entry.id if entry is not None else component.casefold()
+        if key in seen:
+            errors.append(f'{prefix}: {key} is briefed twice')
+        seen.add(key)
+        planned.append(
+            {
+                'hypothesis_id': None if entry is None else entry.id,
+                'component': component,
+                'statement': statement,
+                'evidence': item.get('evidence'),
+                'confirm_if': confirm,
+                'refute_if': refute,
+            }
+        )
+    return planned, errors
+
+
+def _add_new(
+    book: ledger.HypothesisLedger, planned: list[dict[str, object]]
+) -> tuple[list[dict[str, object]], list[str]]:
+    """Add the briefs' new hypotheses to the ledger and return the briefs.
+
+    Invalid evidence is dropped by the ledger's own citation check; its
+    errors are returned, as `update_hypotheses` would report them.
+    """
+    accepted: list[dict[str, object]] = []
+    errors: list[str] = []
+    for brief in planned:
+        hid = brief['hypothesis_id']
+        if hid is None:
+            operation: dict[str, object] = {
+                'op': 'add',
+                'component': brief['component'],
+                'statement': brief['statement'],
+            }
+            if brief['evidence'] is not None:
+                operation['evidence'] = brief['evidence']
+            result = book.apply({'operations': [operation]})
+            raw = result.get('errors')
+            errors.extend(
+                str(e) for e in (raw if isinstance(raw, list) else [])
+            )
+            entry = book.find(str(brief['component']))
+            if entry is None:
+                continue
+            hid = entry.id
+        accepted.append(
+            {
+                'hypothesis_id': hid,
+                'confirm_if': brief['confirm_if'],
+                'refute_if': brief['refute_if'],
+            }
+        )
+    return accepted, errors
+
+
 def dispatch_tool(
     session: investigate.Session, max_testers: int
 ) -> investigate.TerminalTool:
@@ -296,49 +401,23 @@ def dispatch_tool(
             return None, ['outcome must be "dispatch" or "no_fault_found"']
         if not 1 <= len(briefs) <= max_testers:
             return None, [f'dispatch needs 1 to {max_testers} briefs']
-        errors: list[str] = []
-        accepted: list[dict[str, object]] = []
-        seen: set[str] = set()
-        for index, item in enumerate(briefs):
-            prefix = f'briefs[{index}]'
-            if not isinstance(item, dict):
-                errors.append(f'{prefix}: must be an object')
-                continue
-            hid = _text(item.get('hypothesis_id'))
-            entry = None if book is None else book.entries.get(hid)
-            if entry is None:
-                known = '' if book is None else ', '.join(book.entries)
-                errors.append(
-                    f'{prefix}: unknown hypothesis {hid!r}; add it to the '
-                    f'ledger first (known: {known or "none"})'
-                )
-            elif entry.status == 'rejected':
-                errors.append(f'{prefix}: {hid} is rejected')
-            elif hid in seen:
-                errors.append(f'{prefix}: {hid} is briefed twice')
-            confirm, refute = (
-                _text(item.get('confirm_if')),
-                _text(item.get('refute_if')),
-            )
-            if not confirm or not refute:
-                errors.append(f'{prefix}: needs confirm_if and refute_if')
-            seen.add(hid)
-            accepted.append(
-                {
-                    'hypothesis_id': hid,
-                    'confirm_if': confirm,
-                    'refute_if': refute,
-                }
-            )
-        if errors:
-            return None, errors
-        return {'outcome': 'dispatch', 'briefs': accepted}, []
+        planned, errors = _plan_briefs(book, briefs)
+        if errors or book is None:
+            return None, errors or ['dispatch needs the hypothesis ledger']
+        accepted, ledger_errors = _add_new(book, planned)
+        return {
+            'outcome': 'dispatch',
+            'briefs': accepted,
+            'ledger_errors': ledger_errors,
+        }, []
 
     return investigate.TerminalTool(
         contracts.Tool(
             DISPATCH_NAME,
-            'Send one brief per ledger hypothesis to the testers, or end '
-            'with "no_fault_found" when the data shows nothing abnormal.',
+            'Send one brief per hypothesis to the testers, naming a ledger '
+            'hypothesis or adding a new one in the brief (this does not use '
+            'a tool call), or end with "no_fault_found" when the data shows '
+            'nothing abnormal.',
             executor.json_schema(DISPATCH_SCHEMA),
         ),
         validate,

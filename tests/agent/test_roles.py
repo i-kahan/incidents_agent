@@ -404,3 +404,92 @@ def test_apply_verdict_leaves_a_refuted_hypothesis_alone(
     )
 
     assert errors == ['H1 was refuted and stays rejected']
+
+
+def test_dispatch_adds_a_new_hypothesis_with_its_evidence(
+    field_ingest: ingest.IngestResult, tmp_path: Path
+) -> None:
+    """A brief may add a hypothesis, cited, without using a tool call."""
+    session = _session(field_ingest, tmp_path)
+    book = session.ledger
+    assert book is not None
+    call_id = _call_as(session, 'lead', None)
+
+    accepted, _ = roles.dispatch_tool(session, 3).validate(
+        {
+            'outcome': 'dispatch',
+            'briefs': [
+                {
+                    'component': 'order-service',
+                    'statement': 'retry storm',
+                    'evidence': _cite(call_id),
+                    'confirm_if': 'a',
+                    'refute_if': 'b',
+                }
+            ],
+        }
+    )
+
+    assert accepted is not None
+    assert [b.hypothesis_id for b in roles.briefs_from(accepted)] == ['H3']
+    assert book.entries['H3'].component == 'order-service'
+    assert book.entries['H3'].evidence_for[0].call_id == call_id
+
+
+def test_dispatch_brief_for_a_known_component_reuses_its_hypothesis(
+    field_ingest: ingest.IngestResult, tmp_path: Path
+) -> None:
+    """Naming a component already in the ledger briefs that entry."""
+    session = _session(field_ingest, tmp_path)
+
+    accepted, _ = roles.dispatch_tool(session, 3).validate(
+        {
+            'outcome': 'dispatch',
+            'briefs': [
+                {
+                    'component': 'inventory-db',
+                    'confirm_if': 'a',
+                    'refute_if': 'b',
+                }
+            ],
+        }
+    )
+
+    assert accepted is not None
+    assert [b.hypothesis_id for b in roles.briefs_from(accepted)] == ['H1']
+    assert session.ledger is not None
+    assert len(session.ledger.entries) == 2
+
+
+@pytest.mark.parametrize(
+    ('brief', 'error'),
+    [
+        pytest.param(
+            {'component': 'order-service'}, 'needs a statement', id='new'
+        ),
+        pytest.param({}, 'give hypothesis_id', id='neither'),
+    ],
+)
+def test_dispatch_refuses_incomplete_new_briefs_and_changes_nothing(
+    field_ingest: ingest.IngestResult,
+    tmp_path: Path,
+    brief: dict[str, object],
+    error: str,
+) -> None:
+    """An invalid dispatch leaves the ledger untouched."""
+    session = _session(field_ingest, tmp_path)
+
+    accepted, errors = roles.dispatch_tool(session, 3).validate(
+        {
+            'outcome': 'dispatch',
+            'briefs': [
+                {'hypothesis_id': 'H1', 'confirm_if': 'a', 'refute_if': 'b'},
+                {**brief, 'confirm_if': 'a', 'refute_if': 'b'},
+            ],
+        }
+    )
+
+    assert accepted is None
+    assert error in ' '.join(errors)
+    assert session.ledger is not None
+    assert len(session.ledger.entries) == 2
