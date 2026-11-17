@@ -1,4 +1,4 @@
-<svg width="100%" viewBox="0 0 680 630" role="img" xmlns="http://www.w3.org/2000/svg"><title>Multi-agent investigation: lead, hypothesis testers and independent skeptic</title><desc>The lead investigator makes a first pass and proposes hypotheses, then sends one brief to each of up to three hypothesis testers. Each tester works on one hypothesis with a few tool calls and a clean context, in parallel, and writes a verdict with grounded evidence to the shared hypothesis ledger. The independent skeptic receives only the top hypothesis and its evidence, with a fresh context, and tries to disprove it. If the hypothesis is disproved, the run returns to the lead once. If it holds, the lead ranks the hypotheses and reports a diagnosis with evidence. All agents share one tool-call and cost budget equal to the single agent's.</desc>
+<svg width="100%" viewBox="0 0 680 630" role="img" xmlns="http://www.w3.org/2000/svg"><title>Multi-agent investigation: lead, hypothesis testers and independent skeptic</title><desc>The lead investigator makes a first pass and proposes hypotheses, then sends one brief to each of up to three hypothesis testers. Each tester works on one hypothesis with a few tool calls and a clean context, in parallel, and returns a verdict with grounded evidence. A merge step writes the verdicts to the shared hypothesis ledger in hypothesis-id order, so the result does not depend on which tester finished first. The independent skeptic receives only the top hypothesis and its evidence, with a fresh context, and tries to disprove it. The lead then ranks the hypotheses and reports; if the skeptic disproved the top one, that report step is a single correction. All agents draw on one budget equal to the single agent's; the skeptic's and the report's shares are set aside before the fan-out, and what testers leave unused goes to the report.</desc>
 <style>
 :root{--ink:#2C2C2A;--sub:#5F5E5A;--line:#8A8A86;--bg:#ffffff}
 @media (prefers-color-scheme: dark){:root{--ink:#EDEDEA;--sub:#B4B2A9;--line:#6b6b68;--bg:#141414}}
@@ -54,25 +54,26 @@ text{font-family:-apple-system,Helvetica,Arial,sans-serif}
 <line x1="340" y1="216" x2="340" y2="274" class="arr" marker-end="url(#arrow)"/>
 <path d="M550 216 L550 308 L506 308" class="arr" marker-end="url(#arrow)"/>
 <text class="ts" x="348" y="246" dominant-baseline="central">verdicts</text>
-<g class="c-coral"><rect x="180" y="280" width="320" height="56" rx="8" stroke-width="0.5"/><text class="th" x="340" y="298" text-anchor="middle" dominant-baseline="central">Shared hypothesis ledger</text><text class="ts" x="340" y="316" text-anchor="middle" dominant-baseline="central">every claim cites a tool call</text></g>
+<g class="c-coral"><rect x="180" y="280" width="320" height="56" rx="8" stroke-width="0.5"/><text class="th" x="340" y="298" text-anchor="middle" dominant-baseline="central">Merge into the ledger</text><text class="ts" x="340" y="316" text-anchor="middle" dominant-baseline="central">hypothesis-id order · cited calls only</text></g>
 
 <!-- Skeptic -->
 <line x1="340" y1="336" x2="340" y2="394" class="arr" marker-end="url(#arrow)"/>
 <text class="ts" x="348" y="366" dominant-baseline="central">top hypothesis + evidence only</text>
 <g class="c-purple"><rect x="220" y="400" width="240" height="56" rx="8" stroke-width="0.5"/><text class="th" x="340" y="418" text-anchor="middle" dominant-baseline="central">Independent skeptic</text><text class="ts" x="340" y="436" text-anchor="middle" dominant-baseline="central">fresh context · tries to disprove</text></g>
 
-<!-- Back to lead -->
-<path d="M460 428 L662 428 L662 58 L466 58" class="arr" marker-end="url(#arrow)"/>
-<text class="ts" x="561" y="414" text-anchor="middle" dominant-baseline="central">disproved · once</text>
+<!-- Disproval: the report step becomes one correction -->
+<path d="M460 428 L600 428 L600 538 L466 538" class="arr" marker-end="url(#arrow)"/>
+<text class="ts" x="530" y="414" text-anchor="middle" dominant-baseline="central">disproved</text>
+<text class="ts" x="606" y="484" dominant-baseline="central">correct once</text>
 
 <!-- Report -->
 <line x1="340" y1="456" x2="340" y2="504" class="arr" marker-end="url(#arrow)"/>
 <text class="ts" x="348" y="480" dominant-baseline="central">holds</text>
-<g class="c-purple"><rect x="220" y="510" width="240" height="56" rx="8" stroke-width="0.5"/><text class="th" x="340" y="528" text-anchor="middle" dominant-baseline="central">Lead: rank and report</text><text class="ts" x="340" y="546" text-anchor="middle" dominant-baseline="central">ranked diagnosis + evidence</text></g>
+<g class="c-purple"><rect x="220" y="510" width="240" height="56" rx="8" stroke-width="0.5"/><text class="th" x="340" y="528" text-anchor="middle" dominant-baseline="central">Lead: rank and report</text><text class="ts" x="340" y="546" text-anchor="middle" dominant-baseline="central">ranked diagnosis · tester leftovers</text></g>
 
 <!-- Legend -->
 <g class="c-purple"><rect x="40" y="600" width="10" height="10" rx="2" stroke-width="0.5"/></g><text class="ts" x="56" y="605" dominant-baseline="central">Lead and skeptic</text>
 <g class="c-teal"><rect x="176" y="600" width="10" height="10" rx="2" stroke-width="0.5"/></g><text class="ts" x="192" y="605" dominant-baseline="central">Testers</text>
 <g class="c-coral"><rect x="260" y="600" width="10" height="10" rx="2" stroke-width="0.5"/></g><text class="ts" x="276" y="605" dominant-baseline="central">Run state</text>
-<text class="ts" x="360" y="605" dominant-baseline="central">One shared budget, equal to the single agent's</text>
+<text class="ts" x="360" y="605" dominant-baseline="central">One shared budget, equal to the single agent's; skeptic and report shares set aside first</text>
 </svg>

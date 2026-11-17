@@ -76,7 +76,7 @@ Diagrams (kept in this folder, see §8):
 | 04 | [Model Layer](04-model-layer.md) | 01 | Offline checks complete |
 | 05 | [Agent](05-agent.md) | 03, 04 | Merged (#11–#16, #20, #21) |
 | 06 | [Evaluation Harness](06-evaluation-harness.md) | 02, 05 | In progress (Wave 4 merged: #24) |
-| 07 | [Multi-Agent Investigation](07-multi-agent.md) | 05, 06 | In progress (07a: shared-run contracts) |
+| 07 | [Multi-Agent Investigation](07-multi-agent.md) | 05, 06 | In progress (07a, 07b built; 07c and the comparison remain) |
 | 08 | [Upload App](08-upload-app.md) | 05, 07 | In progress (Wave 4 merged: #23) |
 | 09 | [Incident Memory](09-incident-memory.md) | 05, 06, 07, 08 | In progress (Wave 4 merged: #22) |
 | 10 | [Verification & Report](10-verification-and-report.md) | 01–09 | Not started |

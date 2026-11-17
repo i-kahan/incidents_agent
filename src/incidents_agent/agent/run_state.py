@@ -8,6 +8,7 @@ import dataclasses
 import json
 import os
 import tempfile
+from collections.abc import Mapping
 from datetime import UTC
 from datetime import datetime
 from pathlib import Path
@@ -15,6 +16,7 @@ from pathlib import Path
 from incidents_agent.agent import context
 from incidents_agent.agent import finalise
 from incidents_agent.agent import investigate
+from incidents_agent.agent import render
 from incidents_agent.agent import report
 from incidents_agent.agent import state
 
@@ -44,6 +46,8 @@ class RunState:
         pending_correction: Refutation that sends the run back, if any.
         verdicts: Verification outcomes by component, ledger off.
         final: The finished report.
+        extra: Mode-specific checkpoint fields (multi mode: budget, briefs,
+            verdicts), written over the common ones.
     """
 
     session: investigate.Session
@@ -62,6 +66,7 @@ class RunState:
         default_factory=dict
     )
     final: report.Report | None = None
+    extra: dict[str, object] = dataclasses.field(default_factory=dict)
 
     @property
     def budget(self) -> state.Budget:
@@ -106,8 +111,41 @@ class RunState:
                 for key, value in self.verdicts.items()
             },
             'report': None if self.final is None else self.final.to_dict(),
+            **self.extra,
         }
         write_json(self.run_dir / 'checkpoint.json', data)
+
+
+def finish(
+    run: RunState, *, counters: Mapping[str, object] | None = None
+) -> None:
+    """Finalise the run and write `report.json` and `report.md`.
+
+    Args:
+        run: The run; `final` is set on return.
+        counters: Run totals for the report; None uses the session budget.
+    """
+    session = run.session
+    run.final = finalise.finalise(
+        session,
+        submission=run.submission,
+        stop_reason=run.stop_reason,
+        verdicts=run.verdicts,
+        continuation=run.continuation,
+        counters=counters,
+    )
+    session.record.record('final_report', report=run.final.to_dict())
+    if run.run_dir is None:
+        return
+    markdown = render.render(
+        run.final, render.call_tools(session.record.events)
+    )
+    suffixes = [''] + ([f'-c{run.continuation}'] if run.continuation else [])
+    for suffix in suffixes:
+        write_json(run.run_dir / f'report{suffix}.json', run.final.to_dict())
+        (run.run_dir / f'report{suffix}.md').write_text(
+            markdown, encoding='utf-8'
+        )
 
 
 def write_json(path: Path, data: object) -> None:

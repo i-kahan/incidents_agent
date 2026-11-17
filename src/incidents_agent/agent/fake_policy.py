@@ -4,8 +4,12 @@ A fixed script cannot quote values from a folder it has not seen, so this
 client reads the tool results in the conversation and follows a short,
 deterministic recipe: find the onset, compare windows there, record the
 top-shifting column as a cited hypothesis, submit it, and answer the
-verify step with an `inconclusive` check. It exercises the whole graph,
-the citation check and the run record; it is not meant to be right.
+verify step with an `inconclusive` check. In multi mode (Phase 07) it
+recognises each role by its system prompt: the lead dispatches its one
+hypothesis, a tester repeats the comparison and supports the hypothesis
+when the top column names its component, and the skeptic answers with an
+`inconclusive` check. It exercises the whole graph, the citation check and
+the run record; it is not meant to be right.
 """
 
 import json
@@ -18,10 +22,14 @@ from decimal import Decimal
 from incidents_agent.agent import graph
 from incidents_agent.agent import investigate
 from incidents_agent.agent import ledger
+from incidents_agent.agent import prompts
+from incidents_agent.agent import roles
 from incidents_agent.llm import contracts
 
 _VERIFY_MARKER = 'try to disprove it'
 _TARGET = re.compile(r'Top hypothesis: (\S+) \(')
+_TESTER = re.compile(r'Hypothesis (\S+) \((.+?)\):')
+_CLAIM = re.compile(r'Claim (\S+):')
 _METRIC_SUFFIXES = frozenset(
     {
         'cpu',
@@ -108,11 +116,15 @@ class RuleClient:
     def _next(self, request: contracts.ChatRequest) -> contracts.Message:
         tools = {tool.name for tool in request.tools}
         done = _tool_results(request.history)
-        prompts = [m.text or '' for m in request.history if m.role == 'user']
-        verifying = any(_VERIFY_MARKER in text for text in prompts)
+        if request.system_prompt == prompts.TESTER_SYSTEM:
+            return self._tester(request, done)
+        if request.system_prompt == prompts.SKEPTIC_SYSTEM:
+            return self._skeptic(request, done)
+        user_texts = [m.text or '' for m in request.history if m.role == 'user']
+        verifying = any(_VERIFY_MARKER in text for text in user_texts)
         step = len(request.history)
         if verifying:
-            return self._verify(prompts, done, step)
+            return self._verify(user_texts, done, step)
         onset = done.get('find_onset')
         if onset is None:
             return _call(step, 'find_onset', {})
@@ -128,7 +140,12 @@ class RuleClient:
                     'split_time': onset[1].get('estimated_onset_time_s'),
                 },
             )
+        dispatching = roles.DISPATCH_NAME in tools
         if compare is None or not compare[1].get('ok'):
+            if dispatching:
+                return _call(
+                    step, roles.DISPATCH_NAME, {'outcome': 'no_fault_found'}
+                )
             return _call(
                 step,
                 investigate.SUBMIT_NAME,
@@ -160,6 +177,21 @@ class RuleClient:
                     ]
                 },
             )
+        if dispatching:
+            return _call(
+                step,
+                roles.DISPATCH_NAME,
+                {
+                    'outcome': 'dispatch',
+                    'briefs': [
+                        {
+                            'hypothesis_id': 'H1',
+                            'confirm_if': f'{column} shifts at the onset',
+                            'refute_if': f'{column} is flat at the onset',
+                        }
+                    ],
+                },
+            )
         return _call(
             step,
             investigate.SUBMIT_NAME,
@@ -181,13 +213,103 @@ class RuleClient:
             },
         )
 
+    def _first_user(self, request: contracts.ChatRequest) -> str:
+        users = [m.text or '' for m in request.history if m.role == 'user']
+        return users[0] if users else ''
+
+    def _tester(
+        self,
+        request: contracts.ChatRequest,
+        done: Mapping[str, tuple[str, dict[str, object]]],
+    ) -> contracts.Message:
+        step = len(request.history)
+        match = _TESTER.search(self._first_user(request))
+        hid, component = match.groups() if match else ('', '')
+        onset = done.get('find_onset')
+        if onset is None:
+            return _call(step, 'find_onset', {})
+        signals = onset[1].get('signals')
+        top = (
+            signals[0]
+            if isinstance(signals, list)
+            and signals
+            and isinstance(signals[0], dict)
+            else {}
+        )
+        compare = done.get('compare_windows')
+        if compare is None and top:
+            return _call(
+                step,
+                'compare_windows',
+                {
+                    'table': top.get('table'),
+                    'split_time': onset[1].get('estimated_onset_time_s'),
+                },
+            )
+        ranked = None if compare is None else compare[1].get('ranked')
+        first = ranked[0] if isinstance(ranked, list) and ranked else {}
+        column = str(first.get('column', '')) if isinstance(first, dict) else ''
+        if (
+            compare is not None
+            and column
+            and (component_from_column(column, self._candidates) == component)
+        ):
+            return _call(
+                step,
+                roles.VERDICT_NAME,
+                {
+                    'hypothesis_id': hid,
+                    'verdict': 'supported',
+                    'confidence': 'low',
+                    'evidence': [
+                        {
+                            'call_id': compare[0],
+                            'locator': str(compare[1].get('table')),
+                            'quote': column,
+                        }
+                    ],
+                },
+            )
+        return _call(
+            step,
+            roles.VERDICT_NAME,
+            {
+                'hypothesis_id': hid,
+                'verdict': 'undecided',
+                'reason': 'rule-based fake model found no shift to cite',
+            },
+        )
+
+    def _skeptic(
+        self,
+        request: contracts.ChatRequest,
+        done: Mapping[str, tuple[str, dict[str, object]]],
+    ) -> contracts.Message:
+        step = len(request.history)
+        match = _CLAIM.search(self._first_user(request))
+        if 'dependency_graph' not in done:
+            return _call(step, 'dependency_graph', {})
+        return _call(
+            step,
+            roles.CHALLENGE_NAME,
+            {
+                'hypothesis_id': match.group(1) if match else '',
+                'check': 'direction against the dependency graph '
+                '(rule-based fake model; not judged)',
+                'outcome': 'holds',
+                'evidence': [],
+            },
+        )
+
     def _verify(
         self,
-        prompts: list[str],
+        user_texts: list[str],
         done: Mapping[str, tuple[str, dict[str, object]]],
         step: int,
     ) -> contracts.Message:
-        verify_prompt = [text for text in prompts if _VERIFY_MARKER in text][-1]
+        verify_prompt = [text for text in user_texts if _VERIFY_MARKER in text][
+            -1
+        ]
         match = _TARGET.search(verify_prompt)
         target = match.group(1) if match else ''
         if 'dependency_graph' not in done:
