@@ -95,7 +95,7 @@ class Evaluation:
 def source_fingerprint(root: Path) -> str:
     """Hash output-affecting code and locked dependencies, not report prose."""
     inputs = {}
-    for part in ('agent', 'tools', 'ingest', 'llm'):
+    for part in ('agent', 'tools', 'ingest', 'llm', 'memory'):
         for path in sorted(
             (root / 'src' / 'incidents_agent' / part).glob('*.py')
         ):
@@ -175,6 +175,11 @@ def prepare(args: Options) -> Prepared:
     settings = agent_config.load_agent_config(args.config)
     if args.model:
         settings = dataclasses.replace(settings, model_alias=args.model)
+    if settings.memory:
+        raise ValueError(
+            'Evaluation runs with incident memory off until a frozen '
+            'snapshot is wired in; set memory: false'
+        )
     suite = 'field' if args.cases == 'field' else 'rcaeval'
     base = args.field_root if suite == 'field' else tasks_root
     cases = [
@@ -267,7 +272,10 @@ def prepare(args: Options) -> Prepared:
             env,
             spend,
             litellm_transport.LiteLLMTransport(),
-            policy=client.RetryPolicy(attempts=1),
+            policy=client.RetryPolicy(
+                attempts=retry.REQUEST_ATTEMPTS,
+                retry_window=retry.WINDOW_S,
+            ),
         )
         resolved = dataclasses.asdict(info.spec)
         resolved['budget'] = dataclasses.asdict(spend.settings())
@@ -287,7 +295,7 @@ def prepare(args: Options) -> Prepared:
         'agent': settings.to_dict(),
         'model': resolved,
         'source_hash': source_fingerprint(ROOT),
-        'memory': False,
+        'memory': settings.memory,
         'mode': args.agent,
         'retry_policy': retry.POLICY,
         'summary_policy': single_call.POLICY

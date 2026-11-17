@@ -24,8 +24,10 @@ from incidents_agent.tools import metrics
 from incidents_agent.tools import safety
 from incidents_agent.tools import tables
 
+_FENCE = re.compile(r'\A```(?:json)?[ \t]*\n(.*?)\n?```\Z', re.DOTALL)
 POLICY = {
-    'version': 1,
+    'version': 2,
+    'parse': 'json or one json code fence',
     'metric_count': 15,
     'log_count': 20,
     'sample_chars': 320,
@@ -159,7 +161,12 @@ def parse_ranks(message: contracts.Message, task: state.Task) -> list[str]:
     """Require an exact JSON ranking over the blind candidate lists."""
     if message.tool_calls or message.text is None:
         raise ValueError('Expected JSON text without tool calls')
-    body = json.loads(message.text)
+    text = message.text.strip()
+    # Models often wrap an otherwise exact answer in one code fence. Accepting
+    # only that wrapper keeps the content rules strict without scoring a
+    # formatting habit as a missed diagnosis.
+    fenced = _FENCE.match(text)
+    body = json.loads(fenced.group(1) if fenced else text)
     if not isinstance(body, dict) or set(body) != {'ranks'}:
         raise ValueError('Expected only a ranks field')
     ranks = body['ranks']

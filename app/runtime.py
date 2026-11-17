@@ -4,16 +4,16 @@ import contextlib
 import dataclasses
 import datetime
 import decimal
+import functools
 import json
 import os
 import pathlib
 import shutil
 import subprocess
 import tempfile
-import threading
 import time
+import typing
 from collections.abc import Callable
-from collections.abc import Iterator
 from collections.abc import Mapping
 from collections.abc import Sequence
 from concurrent import futures
@@ -78,8 +78,12 @@ DEFAULT_ENV_PATH = SHARED_ROOT / '.env'
 DEFAULT_RUNS_DIR = SHARED_ROOT / 'runs'
 DEFAULT_DRY_RUNS_DIR = DEFAULT_RUNS_DIR / 'dry'
 DEFAULT_SPEND_PATH = DEFAULT_RUNS_DIR / 'spend.sqlite3'
+# Evaluation output (`runs/phase-NN/...`, including `cache/<key>/attempts/`)
+# shares `runs/` with app runs. It is never listed, continued or deleted here.
+_EVAL_ROOT_PREFIX = 'phase-'
+_EVAL_CACHE_PARTS = frozenset({'cache', 'attempts'})
 
-_INGEST_OVERRIDE_LOCK = threading.Lock()
+_OVERRIDES_FILE = 'classification_overrides.json'
 _IGNORED_CASE_FILES = frozenset({'task.json'})
 
 
@@ -810,44 +814,66 @@ def _build_client(
     )
 
 
-@contextlib.contextmanager
-def _scoped_ingest_overrides(
-    overrides: Mapping[
-        str, tuple[ingest_schema.FileKind, ingest_schema.ChunkStrategy]
-    ]
-    | None,
-) -> Iterator[None]:
+ClassificationOverrides = Mapping[
+    str, tuple[ingest_schema.FileKind, ingest_schema.ChunkStrategy]
+]
+
+
+def _ingest_config(
+    overrides: ClassificationOverrides | None,
+) -> ingest_schema.IngestConfig | None:
+    """Build an ingest config carrying user classification overrides."""
     if not overrides:
-        yield
-        return
-    with _INGEST_OVERRIDE_LOCK:
-        orig_pkg = ingest.ingest_folder
-        orig_mod = loaders.ingest_folder
+        return None
+    return ingest_schema.IngestConfig(classification_overrides=overrides)
 
-        def _wrapped(
-            folder: pathlib.Path,
-            workdir: pathlib.Path | None = None,
-            config: ingest_schema.IngestConfig | None = None,
-        ) -> ingest_schema.IngestResult:
-            if config is None:
-                effective = ingest_schema.IngestConfig(
-                    classification_overrides=overrides
-                )
-            elif config.classification_overrides is None:
-                effective = dataclasses.replace(
-                    config, classification_overrides=overrides
-                )
-            else:
-                effective = config
-            return orig_mod(folder, workdir=workdir, config=effective)
 
-        ingest.ingest_folder = _wrapped
-        loaders.ingest_folder = _wrapped
-        try:
-            yield
-        finally:
-            ingest.ingest_folder = orig_pkg
-            loaders.ingest_folder = orig_mod
+def _save_classification_overrides(
+    run_dir: pathlib.Path, overrides: ClassificationOverrides | None
+) -> None:
+    """Persist overrides so a later continuation classifies files alike."""
+    if overrides:
+        graph.write_json(
+            run_dir / _OVERRIDES_FILE,
+            {name: list(choice) for name, choice in overrides.items()},
+        )
+
+
+def load_classification_overrides(
+    run_dir: pathlib.Path,
+) -> dict[str, tuple[ingest_schema.FileKind, ingest_schema.ChunkStrategy]]:
+    """Load the overrides a run was started with, if any.
+
+    Args:
+        run_dir: Run folder.
+
+    Returns:
+        Overrides by file name; empty when none were saved or the file is
+        unreadable or holds an invalid choice.
+    """
+    path = run_dir / _OVERRIDES_FILE
+    if not path.is_file():
+        return {}
+    kinds = typing.get_args(ingest_schema.FileKind)
+    strategies = typing.get_args(ingest_schema.ChunkStrategy)
+    try:
+        raw = json.loads(path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return {}
+    loaded: dict[
+        str, tuple[ingest_schema.FileKind, ingest_schema.ChunkStrategy]
+    ] = {}
+    if not isinstance(raw, dict):
+        return {}
+    for name, choice in raw.items():
+        if (
+            isinstance(choice, list)
+            and len(choice) == 2
+            and choice[0] in kinds
+            and choice[1] in strategies
+        ):
+            loaded[str(name)] = (choice[0], choice[1])
+    return loaded
 
 
 def _tail_trajectory(
@@ -982,22 +1008,26 @@ def run_app_investigation(
         )
 
         def _execute() -> graph.RunResult:
-            with _scoped_ingest_overrides(classification_overrides):
-                return graph.run_investigation(
-                    task,
-                    model_client,
-                    cfg,
-                    runs_dir=target_runs_dir,
-                    run_id=run_id,
-                )
+            return graph.run_investigation(
+                task,
+                model_client,
+                cfg,
+                runs_dir=target_runs_dir,
+                run_id=run_id,
+                ingest_config=_ingest_config(classification_overrides),
+            )
 
         with futures.ThreadPoolExecutor(max_workers=1) as pool:
             future = pool.submit(_execute)
             _tail_trajectory(traj_path, future, on_event)
             result = future.result()
 
-        if cleanup_session_folder is not None and result.run_dir is not None:
-            _preserve_initial_inputs(result.run_dir, task.folder)
+        if result.run_dir is not None:
+            _save_classification_overrides(
+                result.run_dir, classification_overrides
+            )
+            if cleanup_session_folder is not None:
+                _preserve_initial_inputs(result.run_dir, task.folder)
         return result
     finally:
         cleanup_session_dir(cleanup_session_folder)
@@ -1031,7 +1061,11 @@ def preview_continuation(
     try:
         combined = tmp_root / 'inputs'
         names = continuation._combine(earlier.folder, added_files, combined)
-        ingested = ingest.ingest_folder(combined, workdir=tmp_root / 'db')
+        ingested = ingest.ingest_folder(
+            combined,
+            workdir=tmp_root / 'db',
+            config=_ingest_config(load_classification_overrides(run_dir)),
+        )
         try:
             summary = graph.catalog_summary(ingested.catalog)
         finally:
@@ -1077,7 +1111,12 @@ def continue_app_run(
 
     Returns:
         Updated `RunResult` for the continuation pass.
+
+    Raises:
+        ValueError: When `run_dir` is evaluation output.
     """
+    if is_eval_output(run_dir, DEFAULT_RUNS_DIR):
+        raise ValueError(f'{run_dir} is evaluation output, not an app run')
     saved = json.loads((run_dir / 'checkpoint.json').read_text('utf-8'))
     earlier = state.Task.from_dict(saved['task'])
     settings = agent_config.AgentConfig.from_dict(saved['config'])
@@ -1108,6 +1147,9 @@ def continue_app_run(
                 added_files,
                 model_client,
                 settings,
+                ingest_config=_ingest_config(
+                    load_classification_overrides(run_dir)
+                ),
             )
             _tail_trajectory(
                 traj_path, future, on_event, start_seq=existing_count
@@ -1153,6 +1195,27 @@ def load_feedback(run_dir: pathlib.Path) -> FeedbackRecord | None:
     return FeedbackRecord.from_dict(data)
 
 
+def is_eval_output(path: pathlib.Path, runs_root: pathlib.Path) -> bool:
+    """Tell whether `path` is inside evaluation output under `runs_root`.
+
+    Args:
+        path: File or folder to test.
+        runs_root: Root runs folder shared with the evaluation runner.
+
+    Returns:
+        True for `runs/phase-NN/...` and any `cache` or `attempts` folder.
+    """
+    try:
+        parts = path.resolve().relative_to(runs_root.resolve()).parts
+    except ValueError:
+        return False
+    if not parts:
+        return False
+    return parts[0].startswith(_EVAL_ROOT_PREFIX) or bool(
+        _EVAL_CACHE_PARTS.intersection(parts)
+    )
+
+
 def delete_run(
     run_dir: pathlib.Path,
     *,
@@ -1167,7 +1230,8 @@ def delete_run(
         memory_deleter: Optional Phase 09 callback receiving `run_id`.
 
     Raises:
-        ValueError: When `run_dir` is outside `runs_root` or equals it.
+        ValueError: When `run_dir` is outside `runs_root`, equals it, or is
+            evaluation output.
         FileNotFoundError: When `run_dir` does not exist.
     """
     resolved_root = runs_root.resolve()
@@ -1176,6 +1240,8 @@ def delete_run(
         resolved_root
     ):
         raise ValueError(f'{run_dir} is not inside {runs_root}')
+    if is_eval_output(resolved_run, resolved_root):
+        raise ValueError(f'{run_dir} is evaluation output, not an app run')
     if not resolved_run.is_dir():
         raise FileNotFoundError(f'Run directory not found: {run_dir}')
 
@@ -1192,13 +1258,68 @@ def delete_run(
     shutil.rmtree(resolved_run)
 
 
+@functools.lru_cache(maxsize=512)
+def _summarize_trajectory(
+    path: str, mtime_ns: int, size: int
+) -> PastRunSummary | None:
+    """Summarize one trajectory; cached per (path, mtime, size).
+
+    Streamlit reruns the script on every interaction, so parsing every saved
+    trajectory each time would grow with the history. The key changes when the
+    file does, so stale summaries are never served.
+
+    Args:
+        path: Trajectory file path.
+        mtime_ns: Modification time of the file, in nanoseconds.
+        size: File size in bytes.
+
+    Returns:
+        The summary, or None when the file is not a replayable agent run.
+    """
+    del size  # Only part of the cache key.
+    traj_path = pathlib.Path(path)
+    try:
+        events = trajectory.read_trajectory(traj_path)
+    except (OSError, ValueError):
+        return None
+    finals = [
+        event
+        for event in events
+        if event.get('v') == trajectory.TRAJECTORY_VERSION
+        and event.get('type') == 'final_report'
+        and isinstance(event.get('report'), dict)
+    ]
+    if not finals:
+        return None
+    latest_body = finals[-1]['report']
+    assert isinstance(latest_body, dict)
+    try:
+        latest_report = report.Report.from_dict(latest_body)
+    except (KeyError, ValueError):
+        return None
+    continuations = tuple(
+        sorted({int(str(event.get('continuation', 0))) for event in finals})
+    )
+    top_cause = latest_report.ranks[0] if latest_report.ranks else None
+    return PastRunSummary(
+        run_id=latest_report.run_id,
+        run_dir=traj_path.parent,
+        trajectory_path=traj_path,
+        outcome=latest_report.outcome,
+        top_cause=top_cause,
+        continuations=continuations,
+        updated_at=mtime_ns / 1e9,
+    )
+
+
 def list_past_runs(
     runs_dir: pathlib.Path = DEFAULT_RUNS_DIR,
 ) -> list[PastRunSummary]:
     """List saved agent trajectories under `runs_dir`, newest first.
 
     Non-agent trajectories (such as `check-models-*` spend logs without v1
-    `final_report` events) are skipped.
+    `final_report` events) and evaluation output (`runs/phase-NN/`, cached
+    attempts) are skipped, so held-out results never appear in the viewer.
 
     Args:
         runs_dir: Root runs folder to scan.
@@ -1210,40 +1331,17 @@ def list_past_runs(
         return []
     summaries: list[PastRunSummary] = []
     for traj_path in sorted(runs_dir.rglob('trajectory.jsonl')):
+        if is_eval_output(traj_path, runs_dir):
+            continue
         try:
-            events = trajectory.read_trajectory(traj_path)
-        except (OSError, ValueError):
+            stat = traj_path.stat()
+        except OSError:
             continue
-        finals = [
-            event
-            for event in events
-            if event.get('v') == trajectory.TRAJECTORY_VERSION
-            and event.get('type') == 'final_report'
-            and isinstance(event.get('report'), dict)
-        ]
-        if not finals:
-            continue
-        latest_body = finals[-1]['report']
-        assert isinstance(latest_body, dict)
-        try:
-            latest_report = report.Report.from_dict(latest_body)
-        except (KeyError, ValueError):
-            continue
-        continuations = tuple(
-            sorted({int(str(event.get('continuation', 0))) for event in finals})
+        summary = _summarize_trajectory(
+            str(traj_path), stat.st_mtime_ns, stat.st_size
         )
-        top_cause = latest_report.ranks[0] if latest_report.ranks else None
-        summaries.append(
-            PastRunSummary(
-                run_id=latest_report.run_id,
-                run_dir=traj_path.parent,
-                trajectory_path=traj_path,
-                outcome=latest_report.outcome,
-                top_cause=top_cause,
-                continuations=continuations,
-                updated_at=traj_path.stat().st_mtime,
-            )
-        )
+        if summary is not None:
+            summaries.append(summary)
     summaries.sort(key=lambda item: item.updated_at, reverse=True)
     return summaries
 

@@ -4,11 +4,16 @@ import dataclasses
 import shutil
 import subprocess
 from decimal import Decimal
+from typing import cast
 
 import pytest
 
+from incidents_agent.agent import state
+from incidents_agent.eval import retry
 from incidents_agent.eval import runner
 from incidents_agent.eval import service
+from incidents_agent.eval import single_call
+from incidents_agent.llm import client
 from incidents_agent.llm import config
 from incidents_agent.llm import contracts
 
@@ -147,3 +152,30 @@ def test_outputs_cannot_enter_task_view(evaluation_options):
                 output_root=evaluation_options.tasks_root / 'outputs',
             )
         )
+
+
+def test_memory_is_refused_until_a_frozen_snapshot_exists(
+    paid_options, tmp_path
+):
+    """The cache key says memory is off, so a memory config must not run."""
+    path = tmp_path / 'config/agent.yaml'
+    path.write_text(
+        path.read_text().replace('memory: false', 'memory: true', 1)
+    )
+
+    with pytest.raises(ValueError, match='memory off'):
+        service.prepare(paid_options)
+
+
+def test_paid_client_retries_one_request_in_place(paid_options, tmp_path):
+    """A transient error late in a run must not repay the earlier turns."""
+    prepared = service.prepare(paid_options)
+
+    executor = cast(single_call.Executor, prepared.executor)
+    guarded = cast(
+        client.GuardedClient,
+        executor.client_factory(state.Task(folder=tmp_path)),
+    )
+
+    assert guarded._policy.attempts == retry.REQUEST_ATTEMPTS
+    assert guarded._policy.retry_window == retry.WINDOW_S

@@ -16,6 +16,7 @@ from incidents_agent.agent import report
 from incidents_agent.agent import results
 from incidents_agent.agent import state
 from incidents_agent.llm import config as llm_config
+from incidents_agent.llm import contracts
 from incidents_agent.llm import fake
 from incidents_agent.memory import store as incident_memory
 from tests.agent import scripted
@@ -915,3 +916,119 @@ def test_memory_counterevidence_can_attach_against_never_for() -> None:
             'against',
         )
     ]
+
+
+def test_carrying_feedback_keeps_outcome_only_for_the_same_diagnosis() -> None:
+    """A continuation keeps human feedback unless the diagnosis changed."""
+    reviewed = _record(
+        'run-1',
+        'Lock wait timeout',
+        diagnosed_root_cause='inventory-db',
+        outcome='confirmed',
+        what_fixed_it='Killed blocking transaction',
+    )
+    same = _record(
+        'run-1', 'Lock wait timeout again', diagnosed_root_cause='inventory-db'
+    )
+    changed = _record(
+        'run-1', 'Pool exhausted', diagnosed_root_cause='order-service'
+    )
+
+    kept = same.carrying_feedback_from(reviewed)
+    reset = changed.carrying_feedback_from(reviewed)
+
+    assert kept.symptom_summary == 'Lock wait timeout again'
+    assert kept.outcome == 'confirmed'
+    assert kept.what_fixed_it == 'Killed blocking transaction'
+    assert kept.created_at == reviewed.created_at
+    assert reset.outcome == 'unverified'
+    assert reset.what_fixed_it == 'Killed blocking transaction'
+    assert reset.diagnosed_root_cause == 'order-service'
+
+
+@pytest.mark.integration
+def test_continue_run_keeps_recorded_feedback(tmp_path: pathlib.Path) -> None:
+    """Adding files to a reviewed run must not wipe its recorded outcome."""
+    mem_path = tmp_path / 'memory.sqlite3'
+    runs_dir = tmp_path / 'runs'
+    folder = tmp_path / 'case'
+    shutil.copytree(scripted.FIELD_CASE, folder)
+    extra = tmp_path / 'extra.log'
+    extra.write_text('1700001260 ERROR inventory-db deadlock\n', 'utf-8')
+    graph.run_investigation(
+        state.Task(folder),
+        fake.ScriptedClient(
+            [
+                scripted.call('search_text', **scripted.LOCK_SEARCH),
+                scripted.add_hypothesis(evidence=[scripted.LOCK_EVIDENCE]),
+                scripted.submit('inventory-db'),
+                scripted.call(
+                    graph.VERIFY_NAME,
+                    hypothesis_id='H1',
+                    check='no trace yet',
+                    outcome='inconclusive',
+                    evidence=[],
+                ),
+            ]
+        ),
+        config.AgentConfig(memory=True),
+        runs_dir=runs_dir,
+        run_id='run-fb',
+        memory_path=mem_path,
+    )
+    incident_memory.MemoryStore(mem_path).update_outcome(
+        'run-fb', 'confirmed', what_fixed_it='Killed blocking transaction'
+    )
+
+    continuation.continue_run(
+        runs_dir / 'run-fb',
+        [extra],
+        fake.ScriptedClient(
+            [
+                scripted.call('search_text', table='extra', pattern='deadlock'),
+                scripted.submit('inventory-db', fault_type='deadlock'),
+                scripted.call('dependency_graph'),
+                scripted.call(
+                    graph.VERIFY_NAME,
+                    hypothesis_id='H1',
+                    check='confirmed upstream after continuation',
+                    outcome='supported',
+                    evidence=[
+                        {
+                            'call_id': 'call_0003',
+                            'locator': 'inventory-db',
+                            'quote': 'order-service',
+                        }
+                    ],
+                ),
+            ]
+        ),
+        memory_path=mem_path,
+    )
+
+    record = incident_memory.MemoryStore(mem_path, frozen=True).get('run-fb')
+    assert record is not None
+    assert record.fault_type == 'deadlock'
+    assert record.outcome == 'confirmed'
+    assert record.what_fixed_it == 'Killed blocking transaction'
+
+
+@pytest.mark.integration
+def test_run_with_no_diagnosis_is_not_saved_to_memory(
+    tmp_path: pathlib.Path,
+) -> None:
+    """A run that failed before ranking anything leaves no memory record."""
+    mem_path = tmp_path / 'memory.sqlite3'
+
+    result = graph.run_investigation(
+        state.Task(scripted.FIELD_CASE),
+        fake.ScriptedClient([contracts.RetryDeferred(0)]),
+        config.AgentConfig(memory=True),
+        runs_dir=tmp_path / 'runs',
+        run_id='run-failed',
+        memory_path=mem_path,
+    )
+
+    assert not result.report.causes
+    store = incident_memory.MemoryStore(mem_path, frozen=True)
+    assert store.get('run-failed') is None

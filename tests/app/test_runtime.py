@@ -8,9 +8,12 @@ import pytest
 
 from app import runtime
 from app import view
+from incidents_agent import ingest
 from incidents_agent.agent import config as agent_config
+from incidents_agent.agent import continuation
 from incidents_agent.agent import graph
 from incidents_agent.agent import state
+from incidents_agent.ingest import schema as ingest_schema
 from incidents_agent.llm import fake
 from tests.agent import scripted
 
@@ -395,3 +398,132 @@ def test_delete_run_refuses_path_outside_runs_root(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match='not inside'):
         runtime.delete_run(outside, runs_root=runs_root)
+
+
+def _scripted_run(runs_dir: Path) -> graph.RunResult:
+    return graph.run_investigation(
+        state.Task(scripted.FIELD_CASE, case_id='victim_vs_cause'),
+        fake.ScriptedClient(
+            [
+                scripted.call('search_text', **scripted.LOCK_SEARCH),
+                scripted.add_hypothesis(evidence=[scripted.LOCK_EVIDENCE]),
+                scripted.submit('inventory-db'),
+            ]
+        ),
+        agent_config.AgentConfig(verify=False),
+        runs_dir=runs_dir,
+    )
+
+
+@pytest.mark.integration
+def test_past_runs_hides_eval_cache_and_refuses_to_delete_it(
+    tmp_path: Path,
+) -> None:
+    """Evaluation output shares `runs/` but is never listed or deletable."""
+    runs_dir = tmp_path / 'runs'
+    app_run = _scripted_run(runs_dir)
+    attempts = runs_dir / 'phase-06' / 'real' / 'cache' / 'key' / 'attempts'
+    eval_run = _scripted_run(attempts)
+
+    summaries = runtime.list_past_runs(runs_dir)
+
+    assert [item.run_id for item in summaries] == [app_run.run_id]
+    assert runtime.is_eval_output(attempts / eval_run.run_id, runs_dir)
+    assert not runtime.is_eval_output(runs_dir / app_run.run_id, runs_dir)
+    with pytest.raises(ValueError, match='evaluation output'):
+        runtime.delete_run(attempts / eval_run.run_id, runs_root=runs_dir)
+    assert (attempts / eval_run.run_id).is_dir()
+
+
+@pytest.mark.integration
+def test_past_runs_summary_cache_follows_file_changes(tmp_path: Path) -> None:
+    """A rewritten trajectory is re-parsed, an unchanged one is reused."""
+    runs_dir = tmp_path / 'runs'
+    result = _scripted_run(runs_dir)
+    traj = runs_dir / result.run_id / 'trajectory.jsonl'
+
+    first = runtime.list_past_runs(runs_dir)
+    again = runtime.list_past_runs(runs_dir)
+    traj.write_text('{"id": "1"}\n', encoding='utf-8')
+    after = runtime.list_past_runs(runs_dir)
+
+    assert first[0] is again[0]
+    assert after == []
+
+
+class _IngestProbe:
+    """Scripted client that records whether ingest was monkeypatched."""
+
+    def __init__(self, inner: fake.ScriptedClient) -> None:
+        self.inner = inner
+        self.patched: list[bool] = []
+
+    def complete(self, request, *, run, case_id=None):
+        self.patched.append(ingest.ingest_folder is not _ORIGINAL_INGEST)
+        return self.inner.complete(request, run=run, case_id=case_id)
+
+
+_ORIGINAL_INGEST = ingest.ingest_folder
+
+
+@pytest.mark.integration
+def test_classification_overrides_are_saved_and_not_patched_in(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Overrides reach ingest as config, and survive for continuations."""
+    sess = runtime.create_session_dir(tmp_path / 'sessions')
+    staged, task = runtime.stage_case_folder(
+        sess, scripted.FIELD_CASE, suite='field'
+    )
+    probe = _IngestProbe(
+        fake.ScriptedClient(
+            [
+                scripted.call('search_text', **scripted.LOCK_SEARCH),
+                scripted.add_hypothesis(evidence=[scripted.LOCK_EVIDENCE]),
+                scripted.submit('inventory-db'),
+                scripted.call(
+                    graph.VERIFY_NAME,
+                    hypothesis_id='H1',
+                    check='no trace yet',
+                    outcome='inconclusive',
+                    evidence=[],
+                ),
+            ]
+        )
+    )
+    overrides: dict[
+        str, tuple[ingest_schema.FileKind, ingest_schema.ChunkStrategy]
+    ] = {'notes.txt': ('log', 'none')}
+
+    result = runtime.run_app_investigation(
+        state.Task(folder=staged, case_id=task.case_id),
+        runs_dir=tmp_path / 'runs',
+        client_override=probe,
+        classification_overrides=overrides,
+        cleanup_session_folder=sess,
+    )
+
+    assert probe.patched and not any(probe.patched)
+    assert ingest.ingest_folder is _ORIGINAL_INGEST
+    assert result.run_dir is not None
+    assert runtime.load_classification_overrides(result.run_dir) == overrides
+    (result.run_dir / 'classification_overrides.json').write_text(
+        '{"a.txt": ["nonsense", "none"], "b.txt": ["log", "none"]}',
+        encoding='utf-8',
+    )
+    assert runtime.load_classification_overrides(result.run_dir) == {
+        'b.txt': ('log', 'none')
+    }
+
+    captured: dict[str, object] = {}
+
+    def stub(*args: object, **kwargs: object) -> None:
+        captured.update(kwargs)
+
+    monkeypatch.setattr(continuation, 'continue_run', stub)
+    runtime.continue_app_run(
+        result.run_dir, [], use_fake=True, spend_path=tmp_path / 'spend.db'
+    )
+    config = captured['ingest_config']
+    assert isinstance(config, ingest_schema.IngestConfig)
+    assert config.classification_overrides == {'b.txt': ('log', 'none')}

@@ -282,13 +282,13 @@ def _cached_case(
                         'failure': failure.to_dict(),
                         'stop_reason': failure.category,
                         'retry_exhausted': failure.retryable
-                        and len(attempts) >= 2,
+                        and len(attempts) >= retry.CASE_ATTEMPTS,
                     }
                     break
                 delay = max(
                     0, float(str(last.get('retry_at', 0))) - time.time()
                 )
-                time.sleep(min(delay, 90))
+                time.sleep(min(delay, retry.WINDOW_S))
             run_id = f'{key[:24]}-attempt-{len(attempts) + 1}'
             entry: dict[str, object] = {
                 'run_id': run_id,

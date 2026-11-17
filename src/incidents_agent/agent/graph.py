@@ -30,6 +30,7 @@ from incidents_agent.agent import executor
 from incidents_agent.agent import finalise
 from incidents_agent.agent import investigate
 from incidents_agent.agent import ledger
+from incidents_agent.agent import memory_record
 from incidents_agent.agent import prompts
 from incidents_agent.agent import render
 from incidents_agent.agent import report
@@ -626,6 +627,7 @@ def run_investigation(
     clock: Callable[[], float] = time.monotonic,
     memory_store: incident_memory.MemoryStore | None = None,
     memory_path: Path | None = None,
+    ingest_config: ingest_schema.IngestConfig | None = None,
 ) -> RunResult:
     """Run the agent on one task, end to end.
 
@@ -644,6 +646,8 @@ def run_investigation(
         clock: Monotonic clock, injectable for tests.
         memory_store: Optional pre-opened incident memory store.
         memory_path: Optional path to the incident memory SQLite file.
+        ingest_config: Optional ingest settings, such as per-file
+            classification overrides chosen by a user.
 
     Returns:
         The run id, its folder, its report and its events.
@@ -663,7 +667,9 @@ def run_investigation(
         if run_dir is not None
         else Path(tempfile.mkdtemp(prefix='incidents-run-'))
     )
-    ingested = ingest.ingest_folder(task.folder, workdir=workdir)
+    ingested = ingest.ingest_folder(
+        task.folder, workdir=workdir, config=ingest_config
+    )
     try:
         record = trajectory.Trajectory(
             None if run_dir is None else run_dir / 'trajectory.jsonl',
@@ -706,9 +712,13 @@ def run_investigation(
         ingested.close()
     if run.final is None:
         raise RuntimeError('The graph ended without reaching report')
-    if active_memory is not None and not active_memory.frozen:
+    if (
+        active_memory is not None
+        and not active_memory.frozen
+        and run.final.causes
+    ):
         active_memory.save(
-            incident_memory.build_record_from_run(
+            memory_record.build_record_from_run(
                 task, run.catalog, run.final, store
             )
         )

@@ -8,7 +8,21 @@ from typing import Protocol
 
 from incidents_agent.llm import contracts
 
-POLICY = {'version': 1, 'attempts': 2, 'window_s': 90, 'fallback': None}
+# A transient provider error is retried once *in place*, by the guarded
+# client, so one failure late in a multi-turn run does not make the runner
+# repay every earlier turn. The runner reruns a whole case at most once, and
+# only for a deferred retry or a malformed baseline response. Both arms use
+# the same request policy.
+REQUEST_ATTEMPTS = 2
+CASE_ATTEMPTS = 2
+WINDOW_S = 90
+POLICY = {
+    'version': 2,
+    'request_attempts': REQUEST_ATTEMPTS,
+    'attempts': CASE_ATTEMPTS,
+    'window_s': WINDOW_S,
+    'fallback': None,
+}
 
 
 @dataclasses.dataclass(frozen=True)
@@ -57,7 +71,7 @@ class PrimaryOnly:
         history: Sequence[Mapping[str, object]],
     ) -> str | None:
         """Return the primary only when the retry budget permits it."""
-        if failure.retryable and len(history) < 2:
+        if failure.retryable and len(history) < CASE_ATTEMPTS:
             return primary
         return None
 
@@ -77,7 +91,7 @@ def classify(
         return Failure(
             'provider_deferred',
             name,
-            finite and delay <= 90,
+            finite and delay <= WINDOW_S,
             delay,
             'unbilled',
         )

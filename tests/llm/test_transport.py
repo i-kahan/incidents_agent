@@ -6,6 +6,8 @@ from typing import Literal
 
 import httpx
 import httpx2
+import litellm
+import openai
 import pytest
 
 from incidents_agent.llm import client
@@ -253,3 +255,37 @@ def test_provider_status_preserves_retry_after_and_billing(
     assert record['request_id'] == 'r2'
     assert record['reason'] == f'Provider HTTP {status}'
     assert (spend.snapshot().held > Decimal(0)) == (outcome == 'ambiguous')
+
+
+@pytest.mark.integration
+def test_unsent_connection_error_is_unbilled_and_retryable(
+    request_data: contracts.ChatRequest,
+    spend: ledger.SpendLedger,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A failure before any dispatch cannot have billed, so it may retry."""
+
+    def refuse(**kwargs: object) -> None:
+        del kwargs
+        raise openai.APIConnectionError(
+            request=httpx2.Request('POST', 'https://api.invalid')
+        )
+
+    monkeypatch.setattr(litellm, 'completion', refuse)
+    transport = litellm_transport.LiteLLMTransport()
+    spec = config.ModelSpec('demo', f'openai/{OPENAI_MODEL}', 'openai')
+    llm = client.GuardedClient(
+        config.Models({'demo': spec}, 'demo'),
+        {'OPENAI_API_KEY': 'mock'},
+        spend,
+        transport,
+        policy=client.RetryPolicy(attempts=1),
+    )
+    run = contracts.Run('refused')
+
+    with pytest.raises(contracts.RetryDeferred):
+        llm.complete(request_data, run=run)
+
+    (record,) = spend.attempt_records(run)
+    assert record['status'] == 'unbilled'
+    assert spend.snapshot().held == Decimal(0)

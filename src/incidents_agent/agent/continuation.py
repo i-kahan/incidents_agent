@@ -23,10 +23,12 @@ from incidents_agent.agent import config
 from incidents_agent.agent import context
 from incidents_agent.agent import graph
 from incidents_agent.agent import ledger
+from incidents_agent.agent import memory_record
 from incidents_agent.agent import prompts
 from incidents_agent.agent import results
 from incidents_agent.agent import state
 from incidents_agent.agent import trajectory
+from incidents_agent.ingest import schema as ingest_schema
 from incidents_agent.llm import contracts
 from incidents_agent.memory import store as incident_memory
 
@@ -115,6 +117,7 @@ def continue_run(
     clock: Callable[[], float] = time.monotonic,
     memory_store: incident_memory.MemoryStore | None = None,
     memory_path: Path | None = None,
+    ingest_config: ingest_schema.IngestConfig | None = None,
 ) -> graph.RunResult:
     """Continue a finished run with added files.
 
@@ -126,6 +129,8 @@ def continue_run(
         clock: Monotonic clock, injectable for tests.
         memory_store: Optional pre-opened incident memory store.
         memory_path: Optional path to the incident memory SQLite file.
+        ingest_config: Optional ingest settings, such as the user's
+            per-file classification overrides from the first pass.
 
     Returns:
         The continued run, with the next continuation index.
@@ -152,7 +157,9 @@ def continue_run(
         memory_path=memory_path,
         runs_dir=run_dir.parent,
     )
-    ingested = ingest.ingest_folder(folder, workdir=run_dir / f'db-c{index}')
+    ingested = ingest.ingest_folder(
+        folder, workdir=run_dir / f'db-c{index}', config=ingest_config
+    )
     try:
         store = results.ResultStore.from_list(saved.get('results'))
         book = (
@@ -208,14 +215,16 @@ def continue_run(
         ingested.close()
     if run.final is None:
         raise RuntimeError('The graph ended without reaching report')
-    if active_memory is not None and not active_memory.frozen:
-        updated = incident_memory.build_record_from_run(
+    if (
+        active_memory is not None
+        and not active_memory.frozen
+        and run.final.causes
+    ):
+        updated = memory_record.build_record_from_run(
             task, summary, run.final, store
         )
         existing = active_memory.get(run_id)
         if existing is not None:
-            updated = dataclasses.replace(
-                updated, created_at=existing.created_at
-            )
+            updated = updated.carrying_feedback_from(existing)
         active_memory.save(updated)
     return graph.RunResult(run_id, run_dir, run.final, tuple(record.events))
