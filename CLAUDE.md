@@ -2,7 +2,10 @@
 
 - Design: [DESIGN.md](DESIGN.md)
 - Plan: [planning/00-high-level-architecture-planning.md](planning/00-high-level-architecture-planning.md)
-  is the hub; each phase has its own file in `planning/`.
+  is the hub for the core pipeline (Phases 01–10); each phase has its own file in
+  `planning/`. Additional features (Phases 11–17) are in
+  [planning/additional-features/](planning/additional-features/README.md) and start
+  only after the core pipeline works end to end.
 
 ## Working rules
 

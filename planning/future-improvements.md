@@ -8,6 +8,13 @@ and use during a real incident.
 Each item says what it adds, what it builds on, and what makes it hard. Items are
 grouped by theme and then ordered in §9.
 
+Work that widens the tool to anyone debugging a set of files is planned separately, as
+Phases 11–17 in [`additional-features/`](additional-features/README.md). This file
+covers what comes after those.
+
+A shell hook that explains the last failed command, on top of `why` (Phase 11), is
+left for later: it needs separate work for each shell.
+
 ## 1. Where the current plan stops
 
 The finished plan delivers an agent that investigates files someone has collected and

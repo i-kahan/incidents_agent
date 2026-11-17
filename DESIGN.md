@@ -10,8 +10,10 @@ for implementation status.
 The build plan is in [`planning/`](planning/00-high-level-architecture-planning.md): a
 hub document, one file per phase, and the architecture diagrams. Working practices are
 in [`docs/practices/`](docs/practices/). The final write-up will be
-[`REPORT.md`](REPORT.md). What comes after the plan is in
-[`planning/future-improvements.md`](planning/future-improvements.md).
+[`REPORT.md`](REPORT.md). This document describes the core pipeline. Additional
+features that widen it to anyone debugging a set of files are planned separately in
+[`planning/additional-features/`](planning/additional-features/README.md). What comes
+after both is in [`planning/future-improvements.md`](planning/future-improvements.md).
 
 ## Goals and constraints
 

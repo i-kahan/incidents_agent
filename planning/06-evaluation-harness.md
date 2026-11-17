@@ -129,7 +129,7 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
       component is ranked first or the planted instruction is followed in any way.
 - [x] `--cases field` in `run_eval.py`; results reported as counts out of seven, in their
       own table, never merged with RCAEval numbers.
-- [ ] The same seven folders double as integration fixtures for ingest and the app, run
+- [x] The same seven folders double as integration fixtures for ingest and the app, run
       with the fake client at no cost.
 
 **Experiments (paid — run in this order, each recorded in §5)**
@@ -378,6 +378,9 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
   answers path. The local RE2-OB single-call smoke run used a fake model.
 * The follow-up review fixes (`feature/wave-4-review-fixes`) pass lint, type
   checking, and 600 offline tests; evaluation coverage was not remeasured.
+* Running all seven field-set cases through the app integration test with the fake
+  client passes `make lint` and `make test` (613 passed, 4 live tests deselected) at
+  $0.00 spend.
 * No paid runs or manual audit judgments were produced.
 
 To exercise the field suite locally:
