@@ -48,6 +48,7 @@ def finalise(
     stop_reason: str,
     verdicts: Mapping[str, Verdict] | None = None,
     continuation: int = 0,
+    counters: Mapping[str, object] | None = None,
 ) -> report.Report:
     """Render the final report for a run.
 
@@ -58,6 +59,8 @@ def finalise(
         stop_reason: Why the run ended.
         verdicts: Verification outcomes by component, ledger off only.
         continuation: Continuation index.
+        counters: Run totals for the report; None uses the session's
+            budget (multi mode passes the shared budget's totals).
 
     Returns:
         The validated report.
@@ -75,6 +78,7 @@ def finalise(
             (),
             dropped,
             continuation,
+            counters,
         )
     if session.ledger is not None:
         causes, forced = _ledger_causes(
@@ -114,6 +118,7 @@ def finalise(
         requests,
         dropped,
         continuation,
+        counters,
     )
 
 
@@ -430,6 +435,7 @@ def _report(
     requests: tuple[report.DataRequest, ...],
     dropped: list[str],
     continuation: int,
+    counters: Mapping[str, object] | None,
 ) -> report.Report:
     fault = None if submission is None else submission.get('fault_type')
     if fault is None and causes and session.ledger is not None:
@@ -447,7 +453,7 @@ def _report(
         data_requests=requests,
         dropped=tuple(dropped),
         counters={
-            **session.budget.to_dict(),
+            **(session.budget.to_dict() if counters is None else counters),
             'stored_calls': len(session.executor.store),
         },
         prompt_hash=prompts.prompt_hash(),

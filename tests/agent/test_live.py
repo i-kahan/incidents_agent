@@ -74,3 +74,41 @@ def test_live_agent_completes_one_tuning_case(tmp_path: Path) -> None:
     assert any(event['type'] == 'model_call' for event in result.events)
     assert result.run_dir is not None
     assert (result.run_dir / 'report.md').is_file()
+
+
+@pytest.mark.live
+def test_live_multi_agent_completes_one_tuning_case(tmp_path: Path) -> None:
+    """One tuning case in multi mode on the cheapest model (about $0.05)."""
+    tuning = json.loads(_SPLIT.read_text(encoding='utf-8'))['tuning']
+    case = _CASES / str(tuning[0])
+    if not (case / 'task.json').is_file():
+        pytest.skip('RE2-OB export not present; run make export')
+    env = config.environment(Path('.env'))
+    models = config.load_models(check_models.MODELS_FILE)
+    guarded = client.GuardedClient(
+        models,
+        env,
+        budget.open_ledger(None, env),
+        litellm_transport.LiteLLMTransport(),
+    )
+    alias = _cheapest_alias(guarded)
+    if alias is None:
+        pytest.skip('No usable model configured')
+    settings = agent_config.load_agent_config(_REPO / 'config' / 'agent.yaml')
+
+    result = graph.run_investigation(
+        state.Task.from_task_json(case / 'task.json'),
+        guarded,
+        agent_config.AgentConfig.from_dict(
+            {**settings.to_dict(), 'model_alias': alias, 'mode': 'multi'}
+        ),
+        runs_dir=tmp_path,
+        run_id=f'live-multi-{uuid4().hex[:8]}',
+    )
+
+    roles_seen = {event['role'] for event in result.events}
+    assert {'lead', 'tester'} <= roles_seen
+    total = int(str(result.report.counters['tool_calls']))
+    assert total <= settings.limits.tool_calls
+    assert result.run_dir is not None
+    assert (result.run_dir / 'report.md').is_file()

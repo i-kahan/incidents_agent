@@ -23,6 +23,8 @@ type EventType = Literal[
     'agent_tool',
     'ledger',
     'verification',
+    'dispatch',
+    'verdict',
     'submit_rejected',
     'final_report',
     'continuation',

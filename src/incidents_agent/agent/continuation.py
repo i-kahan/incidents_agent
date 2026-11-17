@@ -211,7 +211,7 @@ def continue_run(
             continuation=index,
             opening=opening,
         )
-        graph.build_graph(run)()
+        graph.run_graph(run, clock=clock)
     finally:
         ingested.close()
     if run.final is None:

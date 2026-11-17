@@ -169,6 +169,8 @@ class Hypothesis:
         evidence_for: Validated supporting evidence.
         evidence_against: Validated contrary evidence.
         reject_reason: Why it was rejected.
+        tester_verdict: A multi-mode tester's verdict, when one ran.
+        undecided_reason: Why the tester left it undecided.
     """
 
     id: str
@@ -187,6 +189,8 @@ class Hypothesis:
         default_factory=list
     )
     reject_reason: str | None = None
+    tester_verdict: str | None = None
+    undecided_reason: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         """Return a JSON-ready dictionary."""
@@ -216,6 +220,8 @@ class Hypothesis:
             evidence_for=_evidence(data.get('evidence_for')),
             evidence_against=_evidence(data.get('evidence_against')),
             reject_reason=_optional(data.get('reject_reason')),
+            tester_verdict=_optional(data.get('tester_verdict')),
+            undecided_reason=_optional(data.get('undecided_reason')),
         )
 
     def summary(self) -> dict[str, object]:
@@ -230,6 +236,11 @@ class Hypothesis:
             'origin': self.origin,
             'evidence_for': len(self.evidence_for),
             'evidence_against': len(self.evidence_against),
+            **(
+                {}
+                if self.tester_verdict is None
+                else {'tester_verdict': self.tester_verdict}
+            ),
         }
 
 
@@ -505,6 +516,50 @@ class HypothesisLedger:
             entry.reject_reason = f'refuted by verification: {check}'
         elif outcome == 'supported' and self.has_data_support(entry):
             entry.status = 'supported'
+        return []
+
+    def apply_verdict(
+        self,
+        hypothesis_id: str,
+        verdict: Literal['supported', 'rejected', 'undecided'],
+        *,
+        confidence: report.Confidence,
+        evidence: list[report.EvidenceRef],
+        reason: str | None,
+    ) -> list[str]:
+        """Merge one multi-mode tester verdict into its hypothesis.
+
+        The evidence was validated when the tester recorded it. A
+        supported verdict promotes the hypothesis only when it then has
+        support from current data; a rejected one rejects it; an undecided
+        one leaves the status as it was, with the reason. A hypothesis the
+        skeptic already refuted is not changed.
+
+        Args:
+            hypothesis_id: The hypothesis the tester worked on.
+            verdict: `supported`, `rejected` or `undecided`.
+            confidence: The tester's confidence.
+            evidence: Validated citations, with their stance set.
+            reason: Why, mainly for undecided and rejected.
+
+        Returns:
+            Errors; empty when the verdict was merged.
+        """
+        entry = self.entries.get(hypothesis_id)
+        if entry is None:
+            return [f'unknown hypothesis id {hypothesis_id!r}']
+        if entry.verification == 'refuted':
+            return [f'{hypothesis_id} was refuted and stays rejected']
+        entry.tester_verdict = verdict
+        self._attach(entry, evidence)
+        if verdict == 'supported' and self.has_data_support(entry):
+            entry.status = 'supported'
+            entry.confidence = confidence
+        elif verdict == 'rejected':
+            entry.status = 'rejected'
+            entry.reject_reason = f'rejected by tester: {reason or "no reason"}'
+        elif verdict == 'undecided':
+            entry.undecided_reason = reason or 'no reason given'
         return []
 
     def find(self, component: str) -> Hypothesis | None:

@@ -29,8 +29,8 @@ from incidents_agent.agent import finalise
 from incidents_agent.agent import investigate
 from incidents_agent.agent import ledger
 from incidents_agent.agent import memory_record
+from incidents_agent.agent import multi_graph
 from incidents_agent.agent import prompts
-from incidents_agent.agent import render
 from incidents_agent.agent import report
 from incidents_agent.agent import results
 from incidents_agent.agent import run_state
@@ -306,28 +306,7 @@ def _route_after_verify(run: run_state.RunState) -> str:
 
 
 def _report(run: run_state.RunState) -> None:
-    session = run.session
-    run.final = finalise.finalise(
-        session,
-        submission=run.submission,
-        stop_reason=run.stop_reason,
-        verdicts=run.verdicts,
-        continuation=run.continuation,
-    )
-    session.record.record('final_report', report=run.final.to_dict())
-    if run.run_dir is None:
-        return
-    markdown = render.render(
-        run.final, render.call_tools(session.record.events)
-    )
-    suffixes = [''] + ([f'-c{run.continuation}'] if run.continuation else [])
-    for suffix in suffixes:
-        run_state.write_json(
-            run.run_dir / f'report{suffix}.json', run.final.to_dict()
-        )
-        (run.run_dir / f'report{suffix}.md').write_text(
-            markdown, encoding='utf-8'
-        )
+    run_state.finish(run)
 
 
 def build_graph(
@@ -371,6 +350,23 @@ def build_graph(
         graph.invoke({'node': 'start'})
 
     return invoke
+
+
+def run_graph(
+    run: run_state.RunState,
+    *,
+    clock: Callable[[], float] = time.monotonic,
+) -> None:
+    """Run the graph for the run's configured mode, to its report.
+
+    Args:
+        run: The run.
+        clock: Monotonic clock for the multi-mode shared budget.
+    """
+    if run.session.config.mode == 'multi':
+        multi_graph.build_graph(run, clock=clock)()
+    else:
+        build_graph(run)()
 
 
 def new_run_id(task: state.Task) -> str:
@@ -502,6 +498,8 @@ def manifest(
         'trajectory_version': trajectory.TRAJECTORY_VERSION,
         'created_at': datetime.now(UTC).isoformat(),
     }
+    if mode == 'multi':
+        data['role_prompt_hashes'] = prompts.role_prompt_hashes()
     if memory_snapshot_hash is not None:
         data['memory_snapshot_hash'] = memory_snapshot_hash
     return data
@@ -542,14 +540,7 @@ def run_investigation(
 
     Returns:
         The run id, its folder, its report and its events.
-
-    Raises:
-        ValueError: The configuration asks for a mode not built yet.
     """
-    if agent_config.mode != 'single':
-        # TODO: planning/07-multi-agent.md Workstream B - the multi graph
-        # replaces this refusal.
-        raise ValueError(f'Agent mode {agent_config.mode!r} is not built yet')
     identifier = run_id or new_run_id(task)
     run_dir = None if runs_dir is None else runs_dir / identifier
     if run_dir is not None:
@@ -607,7 +598,7 @@ def run_investigation(
             run_dir,
             catalog_summary(ingested.catalog),
         )
-        build_graph(run)()
+        run_graph(run, clock=clock)
     finally:
         ingested.close()
     if run.final is None:
