@@ -1,6 +1,6 @@
 # Phase 10: Verification & Report
 
-**Status:** Not started
+**Status:** Release tooling implemented. Final evaluation and release gates remain open.
 
 ## 1. Objective
 Produce the final numbers once, on held-out cases, prove the whole system works from a
@@ -43,10 +43,10 @@ planning docs. Nothing is written in the report before it is true.
 - [ ] Fresh-clone rehearsal: follow only the written instructions on a clean checkout —
       install, configure one provider, export data, dry-run eval, start the app.
 - [ ] Update every phase file's status to its true final state.
-- [ ] Confirm every phase file has its AI-use notes.
+- [x] Confirm every phase file has its AI-use notes.
 
 **Write-up**
-- [ ] Final pass on the four SVGs so they match the built system; embed them in
+- [ ] Final pass on the five SVGs so they match the built system; embed them in
       `README.md` and `REPORT.md`.
 - [ ] Write `REPORT.md` by aggregation (see `00` §6): how to run, what was built and
       what's left, results, trade-offs, AI tools used.
@@ -96,7 +96,107 @@ planning docs. Nothing is written in the report before it is true.
   final run is paid for and the guard shows what remains.
 
 ## 5. Verification evidence
-*Final tables, spend, and the rehearsal outcome go here.*
+The free tuning-onset run detected all 30 cases, with median absolute error
+0 seconds, p90 71.3 seconds, and 26/30 within 60 seconds. See
+[`onset-tuning.json`](../results/phase-06/onset-tuning.json).
+
+The existing full tuning run at `3154d2d` used single mode and served
+`gpt-4o-mini-2024-07-18`. Its 24/30 service top-1 accuracy and $0.22566 cost
+are tuning evidence from before the prompt and citation changes in #40. The
+local comparison folder contains machine-local run paths; release artifacts
+are generated separately. A new full tuning run from `41f16dd` and its single-call baseline each
+covered all 30 cases. Both served `gpt-4o-mini-2024-07-18`. The primary reached
+24/30 service top-1 at $0.2700693 and the baseline reached 8/30 at $0.0213642.
+Scaling the measured costs from 30 to 60 cases and doubling for retries
+puts the two final arms at an estimated $1.165734, within the $1.25 reserve.
+The selected configuration passed one of seven synthetic field fixtures
+($0.0613005). Those fixtures measure development coverage of non-benchmark
+input shapes. The joint ledger/verify ablation scored 27/30. The paired
+difference for the selected agent versus the ablation was −0.100
+[−0.200, 0.000] with a historical top-1 flip rate of 0.133.
+The three configured models completed on tuning. Service AC@1 was 24/30 for
+`gpt-small`, 16/30 for `gemini-small`, and 0/30 for `haiku`. The tuning
+prerequisites incurred $2.707663125. The guard recorded $6.122381850 total,
+zero held, and the full $1.25 final reserve.
+[Portable tuning evidence](../results/phase-06/phase-10-tuning.json).
+
+The fresh 15-case audit is prepared. Human judgments remain outstanding.
+The browser rehearsal covered the designated three cases, file continuation
+and feedback controls. See [Phase 08](08-upload-app.md). The rehearsal exposed
+a module lookup error in `make app`. Launching Streamlit via
+`python -m streamlit` fixed it.
+
+Local verification reported 801 passing tests, five live tests deselected,
+and 93% line coverage. The publication integration used synthetic cases and
+the official evaluator. A separate CLI and Streamlit replay check used a
+relocated bundle after removing the original cache and provider credentials.
+The active GitHub ruleset requires the `lint-and-test` check on `main`.
+
+A fresh clone installed the locked dependencies, exported from an existing
+extracted RE2-OB dataset, verified the split, regenerated the BARO baselines,
+scored a three-case dry run at $0 and served the app health endpoint. The
+provider readiness check found `gpt-small` usable without making a call.
+The CLI replay validated one citation on a copied demo trajectory with no
+credentials or original cache.
+The rehearsal exposed a missing `make split` step in the quickstart, now
+documented. The final published bundle will need its own clean-clone replay
+after final evaluation.
+
+### Release commands
+
+Use the checked-in instructions in the README for installation and dataset
+export. Run tuning checks and capture their saved manifests before freezing.
+
+```sh
+uv run --locked --group benchmark python -m scripts.budget
+uv run --locked --group benchmark python -m scripts.audit_reports \
+  --output runs/phase-10/audit-template.json prepare TUNING_RUN/reports.json
+uv run --locked --group benchmark python -m scripts.audit_reports \
+  --output runs/phase-10/audit-summary.json summarize \
+  runs/phase-10/audit-template.json HUMAN_JUDGMENTS.json
+```
+
+Keep an evidence receipt as JSON with the keys `tuning` (the selected
+run manifest), `audit` (completed audit summary), `browser` (manual browser
+check results), `prerequisites` (experiment disposition and cost evidence),
+and `final_estimate_usd` (combined primary and single-call estimate including
+retry margin). Evidence paths are relative to the receipt. Check that the
+tuning manifest matches the selected behavior, that the browser notes cover
+the required three cases, and that the spend guard has no pending charges.
+
+Once the tooling is merged and CI-green, refresh `origin/main`, check out the
+same commit on local `main`, then run these commands in order:
+
+```sh
+uv run --locked --group benchmark python -m scripts.final_eval freeze \
+  --evidence runs/phase-10/evidence.json
+uv run --locked --group benchmark python -m scripts.final_eval run primary
+uv run --locked --group benchmark python -m scripts.final_eval run single-call
+uv run --locked --group benchmark python -m scripts.final_eval run field
+```
+
+After the required arms, run `memory`, `multi`, then `rcaeval-reference` when
+funded. Prepare the
+memory seed before freezing if it is planned. Use `omit ARM --reason REASON`
+to record budget or tooling omissions. The reference arm uses the upstream
+loop with the project spend guard. Use the
+same `run ARM` command after interruption to resume the registered cache run.
+Once optional arms are complete or omitted, publish from saved evidence
+without provider credentials:
+
+```sh
+uv run --locked --group benchmark python -m scripts.final_eval publish
+```
+
+Pass `--out` with a new directory to rebuild derived artifacts for comparison.
+
+Before staging the bundle, review the full canonical trajectories and
+published metadata for credentials and machine-specific values. Verify the
+bundle on a fresh clone with API keys and the original cache absent. Record
+the execution commit from `release.json` and verify CI on the publication
+commit.
 
 ## 6. AI-use notes (feeds `REPORT.md`)
-*Filled in as the work happens.*
+Codex implemented the release tooling and replay source, reconciled the
+available tuning evidence, and ran the free tuning-onset check. Human audit
+judgments and final result interpretation are separate release work.

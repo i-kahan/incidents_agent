@@ -211,6 +211,11 @@ and skeptic calls, memory-only support rejection, current-run support,
 correction-pass memory access, continuation restriction retention, shared limits,
 and single-record / frozen persistence. No paid experiment is claimed.
 
+The Phase 10 rehearsal prepared a local frozen memory seed from the 30 tuning
+cases. Its manifest records snapshot hash
+`0c733c56fc1289dff50e781440a12370b410cd3fe0673f6ce28ada16a5d1dfeb`.
+The held-out memory experiment remains pending.
+
 ## 6. AI-use notes (feeds `REPORT.md`)
 - Wave 4 (`feature/phase-09a-memory`): implemented `incidents_agent.memory.store` (`MemoryStore` over SQLite with `BEGIN IMMEDIATE` writes, `FrozenMemoryError`, `MemoryRecord`, `snapshot_hash()`, Okapi BM25 + component-boost search, and `search_past_incidents`; `build_record_from_run` later moved to `agent/memory_record.py`), wired `search_past_incidents` into `ToolRegistry` behind `AgentConfig.memory`, enforced memory-evidence isolation in `HypothesisLedger` and verification checks, wired end-of-run `unverified` persistence in `run_investigation` and `continue_run`, added `--memory` / `--memory-path` to `scripts/investigate.py`, and added unit and integration tests in `tests/memory/test_store.py`.
 - Note: `memory/store.py` avoids importing `incidents_agent.tools` because `tools/__init__.py` imports `registry` eagerly; `registry.py` registers `search_past_incidents` directly against `memory/store.py`.

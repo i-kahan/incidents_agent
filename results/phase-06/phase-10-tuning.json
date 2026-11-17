@@ -1,0 +1,442 @@
+{
+  "suite_note": "Benchmark rows use the same 30 tuning cases; field counts use seven self-authored development fixtures.",
+  "arms": {
+    "agent": {
+      "run_id": "be4f365116524659812e3b5d4cb9453b",
+      "commit": "41f16dd74626f1fcd7e930271b11a2067f0078fe",
+      "configuration_fingerprint": "2c5bbfaa3c19a6652737da6be1b2b880b176b1605c0a4e50318ee499c69b17ae",
+      "source_fingerprint": "466d387267d372afe85502b13ab19da41951479244ed5beac57b237df7f24632",
+      "results_sha256": "de3f875b974dc0dc2a57b83cd0033ec8e124359a312d45f92b80648328576a7f",
+      "n_cases": 30,
+      "invocation_cost_usd": 0.2700693,
+      "requested_models": [
+        "openai/gpt-4o-mini"
+      ],
+      "served_models": [
+        "gpt-4o-mini-2024-07-18"
+      ],
+      "summary": {
+        "service": {
+          "n": 30,
+          "AC@1": 0.8,
+          "AC@3": 0.8333333333333334,
+          "AC@5": 0.8666666666666667,
+          "Avg@5": 0.8333333333333334,
+          "Chance@5": 0.24871794871794872,
+          "Lift@5": 0.5846153846153846
+        },
+        "indicator": {
+          "n": 30,
+          "AC@1": 0.0,
+          "AC@3": 0.0,
+          "AC@5": 0.0,
+          "Avg@5": 0.0,
+          "Chance@5": 0.047343692573796184,
+          "Lift@5": -0.047343692573796184
+        },
+        "intervals": {
+          "service_AC@1": {
+            "value": 0.8,
+            "low": 0.6,
+            "high": 0.9666666666666667,
+            "n_cases": 30,
+            "n_groups": 10,
+            "reason": null
+          },
+          "service_AC@3": {
+            "value": 0.8333333333333334,
+            "low": 0.7,
+            "high": 0.9666666666666667,
+            "n_cases": 30,
+            "n_groups": 10,
+            "reason": null
+          },
+          "service_AC@5": {
+            "value": 0.8666666666666667,
+            "low": 0.7666666666666667,
+            "high": 0.9666666666666667,
+            "n_cases": 30,
+            "n_groups": 10,
+            "reason": null
+          },
+          "indicator_AC@1": {
+            "value": 0.0,
+            "low": 0.0,
+            "high": 0.0,
+            "n_cases": 30,
+            "n_groups": 10,
+            "reason": null
+          },
+          "indicator_AC@3": {
+            "value": 0.0,
+            "low": 0.0,
+            "high": 0.0,
+            "n_cases": 30,
+            "n_groups": 10,
+            "reason": null
+          },
+          "indicator_AC@5": {
+            "value": 0.0,
+            "low": 0.0,
+            "high": 0.0,
+            "n_cases": 30,
+            "n_groups": 10,
+            "reason": null
+          }
+        }
+      }
+    },
+    "single_call": {
+      "run_id": "5c20a9d112cc47fbb716af3d9ec78d8b",
+      "commit": "41f16dd74626f1fcd7e930271b11a2067f0078fe",
+      "configuration_fingerprint": "ef36a1e15eb13f3dbffc86d0f0baeaca7a6df3c4a7e6eafb6fea439442494ecc",
+      "source_fingerprint": "466d387267d372afe85502b13ab19da41951479244ed5beac57b237df7f24632",
+      "results_sha256": "661fb60510e9bbb13082f447f3770041e8182929312b84fe5525a820e00a99ac",
+      "n_cases": 30,
+      "invocation_cost_usd": 0.0213642,
+      "requested_models": [
+        "openai/gpt-4o-mini"
+      ],
+      "served_models": [
+        "gpt-4o-mini-2024-07-18"
+      ],
+      "summary": {
+        "service": {
+          "n": 30,
+          "AC@1": 0.26666666666666666,
+          "AC@3": 0.9,
+          "AC@5": 0.9666666666666667,
+          "Avg@5": 0.7466666666666667,
+          "Chance@5": 0.24871794871794872,
+          "Lift@5": 0.497948717948718
+        },
+        "indicator": {
+          "n": 30,
+          "AC@1": 0.0,
+          "AC@3": 0.0,
+          "AC@5": 0.0,
+          "Avg@5": 0.0,
+          "Chance@5": 0.047343692573796184,
+          "Lift@5": -0.047343692573796184
+        },
+        "intervals": {
+          "service_AC@1": {
+            "value": 0.26666666666666666,
+            "low": 0.06666666666666667,
+            "high": 0.5333333333333333,
+            "n_cases": 30,
+            "n_groups": 10,
+            "reason": null
+          },
+          "service_AC@3": {
+            "value": 0.9,
+            "low": 0.7666666666666667,
+            "high": 1.0,
+            "n_cases": 30,
+            "n_groups": 10,
+            "reason": null
+          },
+          "service_AC@5": {
+            "value": 0.9666666666666667,
+            "low": 0.9,
+            "high": 1.0,
+            "n_cases": 30,
+            "n_groups": 10,
+            "reason": null
+          },
+          "indicator_AC@1": {
+            "value": 0.0,
+            "low": 0.0,
+            "high": 0.0,
+            "n_cases": 30,
+            "n_groups": 10,
+            "reason": null
+          },
+          "indicator_AC@3": {
+            "value": 0.0,
+            "low": 0.0,
+            "high": 0.0,
+            "n_cases": 30,
+            "n_groups": 10,
+            "reason": null
+          },
+          "indicator_AC@5": {
+            "value": 0.0,
+            "low": 0.0,
+            "high": 0.0,
+            "n_cases": 30,
+            "n_groups": 10,
+            "reason": null
+          }
+        }
+      }
+    },
+    "field": {
+      "run_id": "c9d119705cfe4df1bdf48617357e6188",
+      "commit": "41f16dd74626f1fcd7e930271b11a2067f0078fe",
+      "configuration_fingerprint": "2c5bbfaa3c19a6652737da6be1b2b880b176b1605c0a4e50318ee499c69b17ae",
+      "source_fingerprint": "466d387267d372afe85502b13ab19da41951479244ed5beac57b237df7f24632",
+      "results_sha256": "58d5c8e8546b23ffcab345fb0cb3ae3ff2c6dd715dc0e0c552fae20f0d416c09",
+      "n_cases": 7,
+      "invocation_cost_usd": 0.0613005,
+      "requested_models": [
+        "openai/gpt-4o-mini"
+      ],
+      "served_models": [
+        "gpt-4o-mini-2024-07-18"
+      ],
+      "summary": {
+        "root_at_1": 1,
+        "root_at_3": 1,
+        "root_at_5": 1,
+        "category_match": 1,
+        "all_evidence_retrieved": 1,
+        "all_evidence_cited": 1,
+        "passed": 1
+      }
+    },
+    "ledger_and_verify_off": {
+      "run_id": "b4e1035e1bfd4b68951f1ac477ebb5df",
+      "commit": "41f16dd74626f1fcd7e930271b11a2067f0078fe",
+      "configuration_fingerprint": "6dad998e90f5cbc8a5e9729d0acbb16ad9fb587306ae377fbb79180048e854f3",
+      "source_fingerprint": "466d387267d372afe85502b13ab19da41951479244ed5beac57b237df7f24632",
+      "results_sha256": "d2ca05d5213985900d89101889d46945554e6b88fa9433561c934e0bc4aca283",
+      "n_cases": 30,
+      "invocation_cost_usd": 0.08230665,
+      "requested_models": [
+        "openai/gpt-4o-mini"
+      ],
+      "served_models": [
+        "gpt-4o-mini-2024-07-18"
+      ],
+      "summary": {
+        "service": {
+          "n": 30,
+          "AC@1": 0.9,
+          "AC@3": 0.9,
+          "AC@5": 1.0,
+          "Avg@5": 0.9400000000000001,
+          "Chance@5": 0.24871794871794872,
+          "Lift@5": 0.6912820512820513
+        },
+        "indicator": {
+          "n": 30,
+          "AC@1": 0.0,
+          "AC@3": 0.0,
+          "AC@5": 0.0,
+          "Avg@5": 0.0,
+          "Chance@5": 0.047343692573796184,
+          "Lift@5": -0.047343692573796184
+        },
+        "intervals": {
+          "service_AC@1": {
+            "value": 0.9,
+            "low": 0.7,
+            "high": 1.0,
+            "n_cases": 30,
+            "n_groups": 10,
+            "reason": null
+          },
+          "service_AC@3": {
+            "value": 0.9,
+            "low": 0.7,
+            "high": 1.0,
+            "n_cases": 30,
+            "n_groups": 10,
+            "reason": null
+          },
+          "service_AC@5": {
+            "value": 1.0,
+            "low": 1.0,
+            "high": 1.0,
+            "n_cases": 30,
+            "n_groups": 10,
+            "reason": null
+          },
+          "indicator_AC@1": {
+            "value": 0.0,
+            "low": 0.0,
+            "high": 0.0,
+            "n_cases": 30,
+            "n_groups": 10,
+            "reason": null
+          },
+          "indicator_AC@3": {
+            "value": 0.0,
+            "low": 0.0,
+            "high": 0.0,
+            "n_cases": 30,
+            "n_groups": 10,
+            "reason": null
+          },
+          "indicator_AC@5": {
+            "value": 0.0,
+            "low": 0.0,
+            "high": 0.0,
+            "n_cases": 30,
+            "n_groups": 10,
+            "reason": null
+          }
+        }
+      }
+    }
+  },
+  "agent_minus_comparator_service_top1": {
+    "single_call": {
+      "value": 0.5333333333333333,
+      "low": 0.23333333333333334,
+      "high": 0.8,
+      "n_cases": 30,
+      "n_groups": 10,
+      "reason": null
+    },
+    "ledger_and_verify_off": {
+      "value": -0.1,
+      "low": -0.2,
+      "high": 0.0,
+      "n_cases": 30,
+      "n_groups": 10,
+      "reason": null
+    }
+  },
+  "noise_mean_top1_flip_rate": 0.13333333333333333,
+  "noise_tuning_commit": "8bb180b",
+  "noise_scope": "Historical single-mode tuning repeats; predates source changes in #40.",
+  "model_comparison": {
+    "gpt-small": {
+      "run_id": "09b0526e122344d395afcacc21062cd8",
+      "commit": "41f16dd74626f1fcd7e930271b11a2067f0078fe",
+      "configuration_fingerprint": "2c5bbfaa3c19a6652737da6be1b2b880b176b1605c0a4e50318ee499c69b17ae",
+      "results_sha256": "de3f875b974dc0dc2a57b83cd0033ec8e124359a312d45f92b80648328576a7f",
+      "invocation_cost_usd": 0.0,
+      "historical_execution_cost_usd": 0.2700693,
+      "served_models": [
+        "gpt-4o-mini-2024-07-18"
+      ],
+      "outcomes": {
+        "provisional": 9,
+        "inconclusive": 13,
+        "verified": 5,
+        "no_fault_found": 3
+      },
+      "service": {
+        "n": 30,
+        "AC@1": 0.8,
+        "AC@3": 0.8333333333333334,
+        "AC@5": 0.8666666666666667,
+        "Avg@5": 0.8333333333333334,
+        "Chance@5": 0.24871794871794872,
+        "Lift@5": 0.5846153846153846
+      },
+      "indicator": {
+        "n": 30,
+        "AC@1": 0.0,
+        "AC@3": 0.0,
+        "AC@5": 0.0,
+        "Avg@5": 0.0,
+        "Chance@5": 0.047343692573796184,
+        "Lift@5": -0.047343692573796184
+      },
+      "service_top1_vs_gpt_small": {
+        "value": 0.0,
+        "low": 0.0,
+        "high": 0.0,
+        "n_cases": 30,
+        "n_groups": 10,
+        "reason": null
+      }
+    },
+    "haiku": {
+      "run_id": "c2b8e2f566a84e8f8f362d6e951fd22e",
+      "commit": "41f16dd74626f1fcd7e930271b11a2067f0078fe",
+      "configuration_fingerprint": "5064ffc79f99ad1d27f318ee09a88a8a153d00a0246bca9789069922a86fee23",
+      "results_sha256": "e17304db5b6a30cb10a1ad2fd089bf5138ad4d6a9d7f956a9fe390ab7a29c639",
+      "invocation_cost_usd": 1.378451,
+      "historical_execution_cost_usd": 1.3784510000000005,
+      "served_models": [
+        "claude-haiku-4-5-20251001"
+      ],
+      "outcomes": {
+        "inconclusive": 30
+      },
+      "service": {
+        "n": 30,
+        "AC@1": 0.0,
+        "AC@3": 0.0,
+        "AC@5": 0.0,
+        "Avg@5": 0.0,
+        "Chance@5": 0.24871794871794872,
+        "Lift@5": -0.24871794871794872
+      },
+      "indicator": {
+        "n": 30,
+        "AC@1": 0.0,
+        "AC@3": 0.0,
+        "AC@5": 0.0,
+        "Avg@5": 0.0,
+        "Chance@5": 0.047343692573796184,
+        "Lift@5": -0.047343692573796184
+      },
+      "service_top1_vs_gpt_small": {
+        "value": -0.8,
+        "low": -0.9666666666666667,
+        "high": -0.6,
+        "n_cases": 30,
+        "n_groups": 10,
+        "reason": null
+      }
+    },
+    "gemini-small": {
+      "run_id": "1d97e620909b44958e4ca52f479b1302",
+      "commit": "41f16dd74626f1fcd7e930271b11a2067f0078fe",
+      "configuration_fingerprint": "046de5405d28971c57747e29bdb3bd9cadca8c162bbf9d0c13d5f653fedeb402",
+      "results_sha256": "f13f2206af7046758e1faba02487bae38754fb650ffe8939ca27f18b19291569",
+      "invocation_cost_usd": 0.894171475,
+      "historical_execution_cost_usd": 0.8941714749999999,
+      "served_models": [
+        "gemini-3.1-flash-lite"
+      ],
+      "outcomes": {
+        "provisional": 15,
+        "inconclusive": 10,
+        "verified": 5
+      },
+      "service": {
+        "n": 30,
+        "AC@1": 0.5333333333333333,
+        "AC@3": 0.5333333333333333,
+        "AC@5": 0.5333333333333333,
+        "Avg@5": 0.5333333333333333,
+        "Chance@5": 0.24871794871794872,
+        "Lift@5": 0.2846153846153846
+      },
+      "indicator": {
+        "n": 30,
+        "AC@1": 0.0,
+        "AC@3": 0.0,
+        "AC@5": 0.0,
+        "Avg@5": 0.0,
+        "Chance@5": 0.047343692573796184,
+        "Lift@5": -0.047343692573796184
+      },
+      "service_top1_vs_gpt_small": {
+        "value": -0.26666666666666666,
+        "low": -0.4,
+        "high": -0.13333333333333333,
+        "n_cases": 30,
+        "n_groups": 10,
+        "reason": null
+      }
+    }
+  },
+  "prerequisite_invocation_spend_usd": "2.707663125",
+  "ledger_after_prerequisites": {
+    "limit": "14",
+    "spent": "6.122381850",
+    "held": "0",
+    "reserves_left": {
+      "final": "1.25"
+    },
+    "halted": false
+  }
+}

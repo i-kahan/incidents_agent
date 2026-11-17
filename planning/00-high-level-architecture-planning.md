@@ -79,7 +79,7 @@ Diagrams (kept in this folder, see §8):
 | 07 | [Multi-Agent Investigation](07-multi-agent.md) | 05, 06 | Complete (#27, #30–#32; single selected) |
 | 08 | [Upload App](08-upload-app.md) | 05, 07 | Built (#23, #28); owner click-through remains |
 | 09 | [Incident Memory](09-incident-memory.md) | 05, 06, 07, 08 | Built (#22, #29); memory experiment remains |
-| 10 | [Verification & Report](10-verification-and-report.md) | 01–09 | Not started |
+| 10 | [Verification & Report](10-verification-and-report.md) | 01–09 | Release tooling implemented; final gates open |
 
 Phases 01–10 are the **core pipeline**. Its **end-to-end milestone** is reached when a
 folder of files goes in through the CLI and through the upload page in single mode and

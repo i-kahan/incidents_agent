@@ -1613,6 +1613,42 @@ def list_past_runs(
     return summaries
 
 
+def list_published_runs(
+    bundle: pathlib.Path = REPO_ROOT / 'results/final',
+) -> list[PastRunSummary]:
+    """List only replayable trajectories explicitly named in the bundle."""
+    index = bundle / 'replay.json'
+    if not index.is_file():
+        return []
+    data = json.loads(index.read_text(encoding='utf-8'))
+    if not isinstance(data, dict) or data.get('version') != 1:
+        raise ValueError('Unsupported published replay index')
+    paths = data.get('trajectories')
+    if not isinstance(paths, list):
+        raise ValueError('Invalid published replay index')
+    root = (bundle / 'trajectories').resolve()
+    if not root.is_relative_to(bundle.resolve()):
+        raise ValueError('Published trajectories must stay inside the bundle')
+    summaries = []
+    seen = set()
+    for entry in paths:
+        if not isinstance(entry, str) or pathlib.Path(entry).is_absolute():
+            raise ValueError('Published trajectory must use a relative path')
+        path = (bundle / entry).resolve()
+        if not path.is_relative_to(root) or path.name != 'trajectory.jsonl':
+            raise ValueError('Published trajectory path escapes its directory')
+        if path in seen:
+            raise ValueError('Duplicate published trajectory')
+        seen.add(path)
+        stat = path.stat()
+        summary = _summarize_trajectory(
+            str(path), stat.st_mtime_ns, stat.st_size
+        )
+        if summary is not None:
+            summaries.append(summary)
+    return summaries
+
+
 def load_past_run(
     trajectory_path: pathlib.Path,
     continuation_index: int | None = None,

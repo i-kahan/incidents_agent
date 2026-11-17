@@ -1237,10 +1237,24 @@ def _render_past_runs_tab(
     memory_enabled: bool,
 ) -> None:
     st.subheader('Past-Runs Viewer (offline replay)')
-    summaries = runtime.list_past_runs(runtime.DEFAULT_RUNS_DIR)
-    if not summaries:
-        st.info('No saved agent trajectories found under `runs/`.')
+    source = st.radio(
+        'Replay source', ('Local runs', 'Published results'), horizontal=True
+    )
+    published = source == 'Published results'
+    try:
+        summaries = (
+            runtime.list_published_runs()
+            if published
+            else runtime.list_past_runs(runtime.DEFAULT_RUNS_DIR)
+        )
+    except (OSError, ValueError) as exc:
+        st.error(f'Could not read published results: {exc}')
         return
+    if not summaries:
+        st.info(f'No saved trajectories in {source.lower()}.')
+        return
+    if published:
+        st.caption('Original telemetry is unavailable in the published replay.')
 
     labels = [
         f'{item.run_id} — {item.outcome}'
@@ -1276,15 +1290,15 @@ def _render_past_runs_tab(
     vm = view.build_report_view(
         loaded.report,
         loaded.events,
-        db_path=loaded.db_path,
+        db_path=None if published else loaded.db_path,
         task_fault_start_s=loaded.task_fault_start_s,
     )
     _render_report_section(
-        loaded.run_dir,
+        None if published else loaded.run_dir,
         vm,
         loaded.events,
         raw_report=loaded.report,
-        db_path=loaded.db_path,
+        db_path=None if published else loaded.db_path,
         use_fake=use_fake,
         model_alias=selected_alias,
         agent_mode=agent_mode,

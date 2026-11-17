@@ -1,5 +1,7 @@
 """Render the Streamlit app headlessly over a saved run."""
 
+import json
+import shutil
 from pathlib import Path
 
 import pytest
@@ -12,6 +14,7 @@ from incidents_agent.agent import state
 from incidents_agent.agent import trajectory
 from incidents_agent.llm import fake
 from incidents_agent.memory import store as incident_memory
+from scripts import replay
 from tests.agent import scripted
 
 MAIN = Path(__file__).resolve().parents[2] / 'app' / 'main.py'
@@ -156,3 +159,54 @@ def test_past_runs_tab_renders_multi_role_lanes_and_saves_feedback_to_memory(
     assert mem_rec is not None
     assert mem_rec.outcome == 'confirmed'
     assert mem_rec.what_fixed_it == 'Increased connection pool'
+
+
+@pytest.mark.integration
+def test_published_trajectory_replays_after_relocation(tmp_path, monkeypatch):
+    """App and CLI can replay a copied bundle without credentials or cache."""
+    source = tmp_path / 'cache'
+    result = graph.run_investigation(
+        state.Task(scripted.FIELD_CASE, case_id='victim_vs_cause'),
+        fake.ScriptedClient(
+            [
+                scripted.call('search_text', **scripted.LOCK_SEARCH),
+                scripted.add_hypothesis(evidence=[scripted.LOCK_EVIDENCE]),
+                scripted.submit('inventory-db'),
+            ]
+        ),
+        agent_config.AgentConfig(verify=False),
+        runs_dir=source,
+    )
+    relative = Path('trajectories/primary/case/trajectory.jsonl')
+    bundle = tmp_path / 'bundle'
+    (bundle / relative).parent.mkdir(parents=True)
+    shutil.copyfile(
+        source / result.run_id / 'trajectory.jsonl', bundle / relative
+    )
+    (bundle / 'replay.json').write_text(
+        json.dumps({'version': 1, 'trajectories': [str(relative)]})
+    )
+    relocated = bundle.rename(tmp_path / 'copied')
+    shutil.rmtree(source)
+    for key in ('OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'GEMINI_API_KEY'):
+        monkeypatch.delenv(key, raising=False)
+    monkeypatch.setattr(runtime, 'SHARED_ROOT', tmp_path)
+    monkeypatch.setattr(runtime, 'DEFAULT_RUNS_DIR', source)
+    list_runs = runtime.list_published_runs
+    monkeypatch.setattr(
+        runtime, 'list_published_runs', lambda: list_runs(relocated)
+    )
+
+    app = streamlit_testing.AppTest.from_file(str(MAIN), default_timeout=30)
+    app.run()
+    source_selector = next(r for r in app.radio if r.label == 'Replay source')
+    source_selector.set_value('Published results').run()
+    markdown, valid, total = replay.replay(relocated / relative)
+
+    assert not app.exception
+    assert 'inventory-db' in markdown
+    assert valid == total == 1
+    assert {'Add files and continue', 'Delete this run'}.isdisjoint(
+        item.label for item in app.expander
+    )
+    assert any('Saved trajectory' == box.label for box in app.selectbox)

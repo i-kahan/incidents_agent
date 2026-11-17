@@ -1,6 +1,6 @@
 # Phase 8: Upload App
 
-**Status:** Wave 5 (multi-agent role lanes, Phase 09 incident memory feedback/delete wiring, and continuation feedback carryover) built and verified offline ($0.00 spend). Interactive browser click-through remains for the owner.
+**Status:** Wave 5 (multi-agent role lanes, Phase 09 incident memory feedback/delete wiring, and continuation feedback carryover) built and verified offline ($0.00 spend). Phase 10 also verified the three demo cases and file continuation in a browser.
 
 ## 1. Objective
 A local web page where someone drops incident files, watches the agent investigate, and
@@ -60,11 +60,11 @@ folder of files the agent has never seen.
       folder with the fake client.
 - [x] Integration test with the fake client: a run that ends with data requests is
       continued after a file is added, and the second report reflects the new table.
-- [ ] Manual check in a browser: one benchmark case and two field-set cases, one of
-      them the config-diff case. *(Headless `AppTest` rendering, localhost HTTP 200
-      startup, and `$0.00` `RuleClient` end-to-end checks passed on `re2-ob-0008`,
-      `config_diff`, and `victim_vs_cause`; interactive browser check remains for the
-      owner.)*
+- [x] Browser check in free demo mode on `re2-ob-0008`, `config_diff`, and
+      `victim_vs_cause`. Each rendered a report. Adding `deploy_diff.patch`
+      to the benchmark run produced pass `c1` and a pass comparison. The
+      continued report showed the feedback form. Feedback persistence was
+      verified by Streamlit AppTest against an isolated memory store.
 - [x] Update `flowchart-system-overview.svg` if the entry points changed. *(Verified
       `flowchart-system-overview.svg` already reflects `Upload page (Streamlit · local)`
       -> `Ingest` -> `Agent` -> `Incident report`; no entry-point wiring changed.)*
@@ -110,9 +110,10 @@ folder of files the agent has never seen.
   argument of `run_investigation` and `continue_run` instead of a process-wide
   monkeypatch, so concurrent sessions cannot inherit each other's choices. They are saved
   as `classification_overrides.json` in the run folder and reused by continuations.
-* **Decision (review):** The past-runs viewer lists only app runs. Evaluation output
-  under `runs/phase-NN/` (including cached attempts and, after Phase 10, held-out
-  runs) is never listed, continued or deleted from the page.
+* **Decision (review):** Local past runs list app investigations and exclude
+  the evaluation cache. Phase 10 adds an explicit Published results source
+  for indexed trajectories in the release bundle. The published source
+  opens in read-only mode.
 * **Decision (review):** Every paid action in a report (continue with added files,
   re-run with a corrected onset) applies the same model, budget and privacy checks as
   a first run. Added files are staged once per selection and removed when the selection
