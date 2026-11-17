@@ -3,8 +3,9 @@
 **Status:** In progress. 07a (shared-run contracts: thread safety, role
 allowances, `mode` and the role allocation in the agent configuration) and 07b (roles,
 role prompts and the multi graph, runnable through `run_investigation` and continuation)
-are built and tested offline with fakes ($0.00 spend). 07c (evaluation modes) and the
-paid comparison remain.
+and 07c (evaluation modes: `--mode`, mode arms with the selection rule in
+`compare_models.py`, per-role failure report) are built and tested offline with fakes
+($0.00 spend). The paid comparison and the live test remain.
 
 ## 1. Objective
 Add a second agent architecture — a lead investigator, parallel hypothesis testers and
@@ -87,10 +88,22 @@ by a fallback. `RuleClient` drives every role, so dry runs work in multi mode.
       testers, the hypothesis id.
 - [x] The grounding check accepts evidence from any role's tool calls in the same run,
       and nothing from outside it.
-- [ ] `--mode` option on `run_eval.py`; `compare_models.py` gains a mode column so
+- [x] `--mode` option on `run_eval.py`; `compare_models.py` gains a mode column so
       single and multi appear side by side.
-- [ ] Per-role breakdown in `failure_report.py`: tokens and tool calls by role, how
+- [x] Per-role breakdown in `failure_report.py`: tokens and tool calls by role, how
       often the skeptic overturned the lead, and whether it was right to.
+
+*07c notes:* `--mode single|multi` sets `AgentConfig.mode` and sits beside `--agent`
+(`single | single_call`), which still picks the agent versus the single-call baseline;
+the mode enters the cache key through the agent configuration.
+`compare_models.py --modes single multi` runs each model in both modes, adds a `mode`
+column, writes results under `results/phase-07/`, and records a `selection` block per
+model: the multi-minus-single service AC@1 gain with its paired 95% interval and the
+mode Decision 4 selects. The agent adapter records usage by role and the skeptic's
+outcome; `failure_report.py` adds `<role>_<metric>` columns and a skeptic summary
+(challenged, disproved, and whether each disproval overturned a wrong answer, judged
+against the tuning answer). Single-mode reports keep their Phase 06 columns.
+DESIGN.md now states the bootstrap rule.
 
 **Experiment (paid)**
 - [ ] Single versus multi on the 30 tuning cases: same model for every role, same
@@ -221,3 +234,7 @@ by a fallback. `RuleClient` drives every role, so dry runs work in multi mode.
   parallel testers cannot cite fixed call ids in a script, so test turns can be
   functions of the request. No prompt was tuned on the tuning set; the role prompts
   are first drafts, to be judged by the Phase 07 comparison.
+- 07c: Claude Code wrote `--mode`, the mode arms and the selection rule in the
+  comparison, the per-role usage in the adapter and the failure report columns, and
+  their tests, including the rule at a clear gain, no gain, a mixed result whose
+  interval spans zero, and too few groups for an interval.

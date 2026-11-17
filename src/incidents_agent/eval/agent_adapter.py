@@ -54,6 +54,68 @@ def _evidence_items(value: object) -> Iterator[dict[str, object]]:
             yield from _evidence_items(child)
 
 
+def role_usage(
+    events: Sequence[Mapping[str, object]],
+) -> dict[str, dict[str, float]]:
+    """Return model turns, tool calls, tokens and cost by role.
+
+    Args:
+        events: One run's trajectory.
+
+    Returns:
+        Role (`agent` in single mode; `lead`, `tester`, `skeptic` in multi
+        mode) to its totals.
+    """
+    totals: dict[str, dict[str, float]] = {}
+    for event in events:
+        kind = event.get('type')
+        if kind not in ('model_call', 'tool_call'):
+            continue
+        role = totals.setdefault(
+            str(event.get('role', 'agent')),
+            {
+                'model_turns': 0.0,
+                'tool_calls': 0.0,
+                'input_tokens': 0.0,
+                'output_tokens': 0.0,
+                'cost_usd': 0.0,
+            },
+        )
+        if kind == 'tool_call':
+            role['tool_calls'] += 1
+            continue
+        role['model_turns'] += 1
+        usage = event.get('usage')
+        if isinstance(usage, dict):
+            role['input_tokens'] += float(usage.get('input_tokens', 0))
+            role['output_tokens'] += float(usage.get('output_tokens', 0))
+        role['cost_usd'] += float(str(event.get('cost_usd', 0)))
+    return totals
+
+
+def skeptic_challenge(
+    events: Sequence[Mapping[str, object]],
+) -> dict[str, object] | None:
+    """Return the multi-mode skeptic's outcome and target, if it ran.
+
+    Args:
+        events: One run's trajectory.
+
+    Returns:
+        `outcome` (`holds`, `disproved` or None) and `component`, or None
+        when no skeptic challenge was recorded.
+    """
+    for event in reversed(events):
+        if event.get('type') == 'verification' and event.get('role') == (
+            'skeptic'
+        ):
+            return {
+                'outcome': event.get('outcome'),
+                'component': event.get('component'),
+            }
+    return None
+
+
 def trajectory_metrics(
     events: Sequence[Mapping[str, object]],
     final: report.Report,
@@ -112,6 +174,8 @@ def trajectory_metrics(
         'model_turns': sum(e.get('type') == 'model_call' for e in events),
         'cost_usd': float(str(final.counters.get('cost_usd', 0))),
         'wall_time_s': float(str(final.counters.get('elapsed_s', 0))),
+        'by_role': role_usage(events),
+        'skeptic': skeptic_challenge(events),
     }
 
 
