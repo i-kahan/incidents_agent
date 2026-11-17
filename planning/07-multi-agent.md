@@ -197,6 +197,24 @@ DESIGN.md now states the bootstrap rule.
 * **Trade-off:** A tester that needs one more call cannot borrow it from an idle
   sibling, so some capacity waits until the report.
 
+#### Decision 8: The lead's hypotheses arrive with `dispatch`, at no tool-call cost
+
+* **Decision:** A `dispatch` brief may add a hypothesis (component, statement,
+  evidence) to the ledger, not only name one already there. Like `submit` in single
+  mode (Phase 05 Decision 9), the terminal call does not count against the tool-call
+  limit; its evidence passes the same citation check.
+* **Context/Constraint:** In the first live run (gpt-4o-mini, one tuning case,
+  $0.0008), the lead batched its three tool calls on data in one turn. Its
+  `update_hypotheses` call was then refused at the limit, the ledger stayed empty, no
+  tester ran, and the report was inconclusive. Recording a hypothesis is bookkeeping;
+  with three calls the lead cannot afford to pay for it.
+* **Trade-off:** The lead can record hypotheses without spending a call, which single
+  mode cannot do mid-investigation. Totals still match single mode, whose `submit` is
+  also free.
+* **Rejected alternatives:** raising the lead to four calls, taken from the testers.
+  It shrinks the testers' share and fails the same way for a model that batches four
+  calls.
+
 #### Decision 7: Tool calls are serialised; model calls run in parallel
 
 * **Decision:** Testers run on real threads (LangGraph fan-out). Data-tool calls go
@@ -234,6 +252,9 @@ DESIGN.md now states the bootstrap rule.
   parallel testers cannot cite fixed call ids in a script, so test turns can be
   functions of the request. No prompt was tuned on the tuning set; the role prompts
   are first drafts, to be judged by the Phase 07 comparison.
+- 07d: the first live multi run failed (see Decision 8); Claude Code diagnosed it
+  from the trajectory, proposed letting `dispatch` add hypotheses, and the owner chose
+  that over a larger lead allowance. `PROMPT_VERSION` 07.2.
 - 07c: Claude Code wrote `--mode`, the mode arms and the selection rule in the
   comparison, the per-role usage in the adapter and the failure report columns, and
   their tests, including the rule at a clear gain, no gain, a mixed result whose
