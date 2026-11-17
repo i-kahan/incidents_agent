@@ -133,14 +133,21 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
       with the fake client at no cost.
 
 **Experiments (paid — run in this order, each recorded in §5)**
-- [ ] Pilot: five tuning cases with the default cheap model. Record actual cost per
+- [x] Pilot: five tuning cases with the default cheap model. Record actual cost per
       case and compare with what the final-run allocation implies ($0.05 at the default
       limit). If it is higher,
       lower the result cap or the tool-call limit, or pick a cheaper model, before any
-      larger run; record what was changed.
-- [ ] Set the `final` reserve in the spend guard to the pilot's cost per case times 60,
+      larger run; record what was changed. *(Recorded after the fact: the default was
+      claude-haiku-4-5, and 15 runs of five tuning cases (the noise attempt of
+      2026-11-17) cost $0.046 per case on average, all at the $0.05 cap, with AC@1 0.
+      gpt-4o-mini cost $0.006–0.008 per case in the Phase 07 runs. Changed: the default
+      alias in `config/models.yaml` is now `gpt-small`. Note: Phase 07's comparison ran
+      before this step, out of the planned order.)*
+- [x] Set the `final` reserve in the spend guard to the pilot's cost per case times 60,
       plus the single-call baseline on the same 60 cases, with a margin, before running
-      anything else.
+      anything else. *(`config/budget.yaml` `reserves.final` lowered from $3.25 to
+      $1.25: 60 × ($0.0076 agent + ≤ $0.002 single-call, estimated) ≈ $0.58, doubled for
+      retries. Revisit once the single-call baseline's cost is measured.)*
 - [x] Noise check: five tuning cases, three repeats each, same configuration. Record
       the flip rate. A later difference between two configurations that is smaller
       than this is reported as within noise. *(gpt-4o-mini, single mode, `main` at
@@ -155,7 +162,8 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
 - [ ] Single-call baseline on the tuning set. If the agent does not beat it, that is
       the finding to understand before any further tuning.
 - [ ] Iterate on prompts and tool descriptions using the failure report; tuning set only.
-- [ ] Ablation: ledger and verify both off versus both on, tuning set. This is a joint
+- [ ] Ablation: ledger and verify both off versus both on, tuning set (`--config
+      config/agent-plain.yaml`). This is a joint
       ablation and is reported as one; it does not show which of the two helps. Separate
       arms are run only from savings.
 - [ ] Model comparison across the configured cheap models, tuning set.
