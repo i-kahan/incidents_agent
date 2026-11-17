@@ -1,4 +1,4 @@
-"""Streamlit web UI for the Incidents Agent (Wave 4 single mode & replay)."""
+"""Streamlit web UI for the Incidents Agent."""
 
 import dataclasses
 import json
@@ -212,7 +212,15 @@ def _parse_fault_start(raw_text: str) -> tuple[float | None, str | None]:
 
 def _render_sidebar(
     status: runtime.RuntimeStatus,
-) -> tuple[bool, str, float | None, str | None, str]:
+) -> tuple[
+    bool,
+    str,
+    Literal['single', 'multi'],
+    bool,
+    float | None,
+    str | None,
+    str,
+]:
     st.sidebar.header('Configuration')
     st.sidebar.metric(
         'Spend guard remaining',
@@ -258,13 +266,30 @@ def _render_sidebar(
                 state_txt = 'usable' if item.usable else '; '.join(item.issues)
                 st.write(f'- `{item.alias}` ({item.model_id}): {state_txt}')
 
-    st.sidebar.radio(
+    raw_mode = st.sidebar.radio(
         'Agent mode',
-        options=['single', 'multi (Wave 5 — requires Phase 07)'],
+        options=['single', 'multi'],
         index=0,
-        disabled=True,
-        help='Multi-agent role lanes are enabled in Wave 5.',
+        help=(
+            'single: one investigator; multi: lead, parallel hypothesis '
+            'testers, and independent skeptic.'
+        ),
     )
+    agent_mode: Literal['single', 'multi'] = (
+        'multi' if raw_mode == 'multi' else 'single'
+    )
+    memory_enabled = st.sidebar.checkbox(
+        'Enable incident memory',
+        value=status.memory_enabled_default,
+        help=(
+            'Consult past confirmed leads and rejected diagnoses via '
+            '`search_past_incidents`, and record new findings.'
+        ),
+    )
+    mem_note = f'Memory store: {status.memory_records_count} record(s)' + (
+        ' (frozen)' if status.memory_frozen else ''
+    )
+    st.sidebar.caption(mem_note)
 
     st.sidebar.divider()
     st.sidebar.subheader('Optional incident context')
@@ -284,7 +309,15 @@ def _render_sidebar(
     st.sidebar.caption(
         f'Per-case cost cap: ${status.per_case_cost_cap_usd:.2f}'
     )
-    return use_fake, selected_alias, fault_start_s, time_err, question
+    return (
+        use_fake,
+        selected_alias,
+        agent_mode,
+        memory_enabled,
+        fault_start_s,
+        time_err,
+        question,
+    )
 
 
 def _render_privacy_gate(use_fake: bool, key: str = 'privacy_checkbox') -> bool:
@@ -532,6 +565,67 @@ def _render_ingest_section(
     return preview
 
 
+def _render_single_lane(
+    lane: view.RoleLane, *, include_pass: bool = False
+) -> None:
+    title = lane.label or lane.role
+    tag = lane.lane_id or lane.role
+    header = (
+        f'**{title}** (`{tag}` · {lane.model_turns} turns · '
+        f'{len(lane.tool_calls)} tool calls)'
+    )
+    if lane.verification_outcome:
+        header += f' · verification: `{lane.verification_outcome}`'
+    st.markdown(header)
+    for err in lane.errors:
+        st.warning(err)
+    if lane.tool_calls:
+        rows: list[dict[str, object]] = []
+        for call in lane.tool_calls:
+            row: dict[str, object] = {'Seq': call.seq}
+            if include_pass:
+                row['Pass'] = f'c{call.continuation}'
+            row.update(
+                {
+                    'Call ID': call.call_id,
+                    'Node': call.node,
+                    'Tool': call.tool,
+                    'OK': call.ok,
+                    'Args': json.dumps(call.args, ensure_ascii=False)[:100],
+                }
+            )
+            rows.append(row)
+        st.dataframe(rows, width='stretch', hide_index=True)
+
+
+def _render_role_lanes(
+    vm: view.LiveViewModel, *, include_pass: bool = False
+) -> None:
+    lanes = list(vm.lanes.values())
+    if not lanes:
+        return
+    if len(lanes) == 1:
+        _render_single_lane(lanes[0], include_pass=include_pass)
+        return
+    lead_lanes = [lane for lane in lanes if lane.role == 'lead']
+    tester_lanes = [lane for lane in lanes if lane.role == 'tester']
+    skeptic_lanes = [lane for lane in lanes if lane.role == 'skeptic']
+    other_lanes = [
+        lane for lane in lanes if lane.role not in ('lead', 'tester', 'skeptic')
+    ]
+    for lane in lead_lanes:
+        _render_single_lane(lane, include_pass=include_pass)
+    if tester_lanes:
+        cols = st.columns(len(tester_lanes))
+        for col, lane in zip(cols, tester_lanes, strict=True):
+            with col:
+                _render_single_lane(lane, include_pass=include_pass)
+    for lane in skeptic_lanes:
+        _render_single_lane(lane, include_pass=include_pass)
+    for lane in other_lanes:
+        _render_single_lane(lane, include_pass=include_pass)
+
+
 def _render_live_snapshot(
     live_box: delta_generator.DeltaGenerator,
     events: list[dict[str, object]],
@@ -544,21 +638,7 @@ def _render_live_snapshot(
         m3.metric('Model turns', vm.model_turns)
         m4.metric('Cost (USD)', f'${vm.cost_usd}')
 
-        for role, lane in vm.lanes.items():
-            st.markdown(f'**Role lane: `{role}`** ({lane.model_turns} turns)')
-            if lane.tool_calls:
-                rows = [
-                    {
-                        'Seq': c.seq,
-                        'Call ID': c.call_id,
-                        'Node': c.node,
-                        'Tool': c.tool,
-                        'OK': c.ok,
-                        'Args': json.dumps(c.args, ensure_ascii=False)[:100],
-                    }
-                    for c in lane.tool_calls
-                ]
-                st.dataframe(rows, width='stretch', hide_index=True)
+        _render_role_lanes(vm)
 
         if vm.hypotheses:
             st.markdown('**Hypothesis ledger**')
@@ -582,6 +662,8 @@ def _execute_investigation(
     *,
     use_fake: bool,
     model_alias: str,
+    agent_mode: Literal['single', 'multi'],
+    memory_enabled: bool,
     classification_overrides: Mapping[
         str, tuple[ingest_schema.FileKind, ingest_schema.ChunkStrategy]
     ],
@@ -600,6 +682,8 @@ def _execute_investigation(
             task,
             use_fake=use_fake,
             model_alias=model_alias if not use_fake else None,
+            agent_mode=agent_mode,
+            memory=memory_enabled,
             classification_overrides=classification_overrides or None,
             on_event=_on_event,
             cleanup_session_folder=cleanup_session,
@@ -656,6 +740,8 @@ def _render_report_section(
     db_path: pathlib.Path | None,
     use_fake: bool,
     model_alias: str,
+    agent_mode: Literal['single', 'multi'],
+    memory_enabled: bool,
     key_prefix: str,
     runs_root: pathlib.Path,
     paid_blocker: str | None,
@@ -719,6 +805,8 @@ def _render_report_section(
                             rerun_task,
                             use_fake=use_fake,
                             model_alias=model_alias,
+                            agent_mode=agent_mode,
+                            memory_enabled=memory_enabled,
                             classification_overrides={},
                             cleanup_session=sess,
                         )
@@ -827,6 +915,8 @@ def _render_report_section(
                     st.write(f'  {line}')
                 for change in diff.verification_changes:
                     st.write(f'- Verification: {change}')
+                for hyp_change in diff.hypothesis_changes:
+                    st.write(f'- Hypothesis: {hyp_change}')
                 if diff.new_evidence_calls:
                     st.write(
                         '- New evidence calls: '
@@ -878,6 +968,8 @@ def _render_report_section(
                             list(stage.paths),
                             use_fake=use_fake,
                             model_alias=model_alias if not use_fake else None,
+                            agent_mode=agent_mode,
+                            memory=memory_enabled,
                             on_event=_on_cont_event,
                             cleanup_added_dir=stage.folder,
                         )
@@ -888,7 +980,7 @@ def _render_report_section(
                         st.session_state['active_run_events'] = cont_res.events
                         st.rerun()
 
-    with st.expander('Feedback (saved locally for Phase 09 memory)'):
+    with st.expander('Feedback (updates incident memory)'):
         existing_fb = runtime.load_feedback(run_dir)
         default_idx = (
             _FEEDBACK_OPTIONS.index(existing_fb.outcome)
@@ -928,11 +1020,18 @@ def _render_report_section(
                     notes=fb_notes,
                 ),
             )
-            st.success('Feedback saved locally.')
+            if loaded_report.causes:
+                st.success('Feedback saved and synced to incident memory.')
+            else:
+                st.success(
+                    'Feedback saved locally (undiagnosed runs are not '
+                    'stored in incident memory).'
+                )
 
     with st.expander('Delete this run'):
         confirm_del = st.checkbox(
-            'Confirm permanent removal of trajectory and local records',
+            'Confirm permanent removal of trajectory and any incident '
+            'memory record',
             key=f'{key_prefix}_del_confirm',
         )
         if st.button(
@@ -954,6 +1053,8 @@ def _render_investigate_tab(
     status: runtime.RuntimeStatus,
     use_fake: bool,
     selected_alias: str,
+    agent_mode: Literal['single', 'multi'],
+    memory_enabled: bool,
     fault_start_s: float | None,
     time_err: str | None,
     question: str,
@@ -1061,6 +1162,8 @@ def _render_investigate_tab(
                 effective_task,
                 use_fake=use_fake,
                 model_alias=selected_alias,
+                agent_mode=agent_mode,
+                memory_enabled=memory_enabled,
                 classification_overrides=(
                     cls_ov if isinstance(cls_ov, Mapping) else {}
                 ),
@@ -1118,6 +1221,8 @@ def _render_investigate_tab(
             db_path=db_path,
             use_fake=bool(st.session_state.get('active_use_fake', use_fake)),
             model_alias=selected_alias,
+            agent_mode=agent_mode,
+            memory_enabled=memory_enabled,
             key_prefix='active',
             runs_root=runtime.DEFAULT_RUNS_DIR,
             paid_blocker=_paid_action_blocker(status, use_fake),
@@ -1125,7 +1230,11 @@ def _render_investigate_tab(
 
 
 def _render_past_runs_tab(
-    status: runtime.RuntimeStatus, use_fake: bool, selected_alias: str
+    status: runtime.RuntimeStatus,
+    use_fake: bool,
+    selected_alias: str,
+    agent_mode: Literal['single', 'multi'],
+    memory_enabled: bool,
 ) -> None:
     st.subheader('Past-Runs Viewer (offline replay)')
     summaries = runtime.list_past_runs(runtime.DEFAULT_RUNS_DIR)
@@ -1156,27 +1265,7 @@ def _render_past_runs_tab(
     loaded = runtime.load_past_run(chosen.trajectory_path, selected_cont)
     live_vm = view.build_live_view(loaded.events)
     with st.expander('Replayed trajectory steps & ledger', expanded=False):
-        for role, lane in live_vm.lanes.items():
-            st.markdown(f'**Role: `{role}`** ({lane.model_turns} turns)')
-            if lane.tool_calls:
-                st.dataframe(
-                    [
-                        {
-                            'Seq': c.seq,
-                            'Pass': f'c{c.continuation}',
-                            'Call ID': c.call_id,
-                            'Node': c.node,
-                            'Tool': c.tool,
-                            'OK': c.ok,
-                            'Args': json.dumps(c.args, ensure_ascii=False)[
-                                :100
-                            ],
-                        }
-                        for c in lane.tool_calls
-                    ],
-                    width='stretch',
-                    hide_index=True,
-                )
+        _render_role_lanes(live_vm, include_pass=True)
         if live_vm.hypotheses:
             st.dataframe(
                 [dataclasses.asdict(h) for h in live_vm.hypotheses],
@@ -1198,6 +1287,8 @@ def _render_past_runs_tab(
         db_path=loaded.db_path,
         use_fake=use_fake,
         model_alias=selected_alias,
+        agent_mode=agent_mode,
+        memory_enabled=memory_enabled,
         key_prefix=f'replay_{loaded.run_id}_c{loaded.continuation}',
         runs_root=runtime.DEFAULT_RUNS_DIR,
         paid_blocker=_paid_action_blocker(status, use_fake),
@@ -1216,9 +1307,15 @@ def main() -> None:
         st.error(f'Configuration error: {exc}')
         return
 
-    use_fake, selected_alias, fault_start_s, time_err, question = (
-        _render_sidebar(status)
-    )
+    (
+        use_fake,
+        selected_alias,
+        agent_mode,
+        memory_enabled,
+        fault_start_s,
+        time_err,
+        question,
+    ) = _render_sidebar(status)
     tab_investigate, tab_replay = st.tabs(
         ['Investigate Incident', 'Past-Runs Viewer']
     )
@@ -1227,12 +1324,16 @@ def main() -> None:
             status,
             use_fake,
             selected_alias,
+            agent_mode,
+            memory_enabled,
             fault_start_s,
             time_err,
             question,
         )
     with tab_replay:
-        _render_past_runs_tab(status, use_fake, selected_alias)
+        _render_past_runs_tab(
+            status, use_fake, selected_alias, agent_mode, memory_enabled
+        )
 
 
 if __name__ == '__main__':

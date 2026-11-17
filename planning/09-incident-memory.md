@@ -26,7 +26,9 @@ app, and (budget permitting) an on-versus-off result.
       can suggest one or count against one; it is never an evidence item.
 - [x] One configuration flag turns memory on; with it off, the tool is not offered.
 - [x] A read-only (frozen) mode: lookups allowed, writes refused.
-- [ ] App feedback form updates the record's outcome and fix. *(Store API `update_outcome` is ready; Streamlit UI wiring waits for Wave 5.)*
+- [x] App feedback form updates the record's outcome and fix. *(Wired in Wave 5 via
+      `app/runtime.py:save_feedback`, `load_feedback`, and `delete_run` against
+      `MemoryStore`.)*
 - [x] Ledger integration from Phase 05 confirmed: memory-origin hypotheses need current
       evidence before they can be supported.
 
@@ -137,3 +139,4 @@ app, and (budget permitting) an on-versus-off result.
 ## 6. AI-use notes (feeds `REPORT.md`)
 - Wave 4 (`feature/phase-09a-memory`): implemented `incidents_agent.memory.store` (`MemoryStore` over SQLite with `BEGIN IMMEDIATE` writes, `FrozenMemoryError`, `MemoryRecord`, `snapshot_hash()`, Okapi BM25 + component-boost search, and `search_past_incidents`; `build_record_from_run` later moved to `agent/memory_record.py`), wired `search_past_incidents` into `ToolRegistry` behind `AgentConfig.memory`, enforced memory-evidence isolation in `HypothesisLedger` and verification checks, wired end-of-run `unverified` persistence in `run_investigation` and `continue_run`, added `--memory` / `--memory-path` to `scripts/investigate.py`, and added unit and integration tests in `tests/memory/test_store.py`.
 - Note: `memory/store.py` avoids importing `incidents_agent.tools` because `tools/__init__.py` imports `registry` eagerly; `registry.py` registers `search_past_incidents` directly against `memory/store.py`.
+- Wave 5 (`feature/phase-08b-lanes-and-feedback`): wired the Streamlit upload app (`app/main.py` and `app/runtime.py`) to `MemoryStore` for feedback outcome/fix updates, record deletion, memory status display, and continuation feedback carryover without modifying `src/incidents_agent/`.

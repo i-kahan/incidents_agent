@@ -15,6 +15,7 @@ from incidents_agent.agent import graph
 from incidents_agent.agent import state
 from incidents_agent.ingest import schema as ingest_schema
 from incidents_agent.llm import fake
+from incidents_agent.memory import store as incident_memory
 from tests.agent import scripted
 
 FIELD_ROOT = Path(__file__).resolve().parents[2] / 'evalsets' / 'field'
@@ -540,3 +541,243 @@ def test_classification_overrides_are_saved_and_not_patched_in(
     config = captured['ingest_config']
     assert isinstance(config, ingest_schema.IngestConfig)
     assert config.classification_overrides == {'b.txt': ('log', 'none')}
+
+
+@pytest.mark.integration
+def test_save_feedback_updates_memory_store_and_delete_run_removes_record(
+    tmp_path: Path,
+) -> None:
+    """Saving feedback syncs to MemoryStore and delete_run removes it."""
+    sess = runtime.create_session_dir(tmp_path / 'sessions')
+    staged, task = runtime.stage_case_folder(
+        sess, FIELD_ROOT / 'cases' / 'victim_vs_cause', suite='field'
+    )
+    runs_dir = tmp_path / 'runs'
+
+    result = runtime.run_app_investigation(
+        task,
+        use_fake=True,
+        memory=True,
+        runs_dir=runs_dir,
+        cleanup_session_folder=sess,
+    )
+
+    assert result.run_dir is not None
+    mem_path = runs_dir / 'memory.sqlite3'
+    initial_rec = incident_memory.MemoryStore(mem_path, frozen=True).get(
+        result.run_id
+    )
+    assert initial_rec is not None
+    assert initial_rec.outcome == 'unverified'
+
+    runtime.save_feedback(
+        result.run_dir,
+        runtime.FeedbackRecord(
+            run_id=result.run_id,
+            continuation=result.report.continuation,
+            outcome='confirmed',
+            actual_root_cause='inventory-db',
+            what_fixed_it='Increased DB pool',
+        ),
+    )
+
+    updated_rec = incident_memory.MemoryStore(mem_path, frozen=True).get(
+        result.run_id
+    )
+    assert updated_rec is not None
+    assert updated_rec.outcome == 'confirmed'
+    assert updated_rec.what_fixed_it == 'Increased DB pool'
+
+    loaded_fb = runtime.load_feedback(result.run_dir)
+    assert loaded_fb is not None
+    assert loaded_fb.outcome == 'confirmed'
+
+    runtime.delete_run(result.run_dir, runs_root=runs_dir)
+
+    assert not result.run_dir.exists()
+    assert (
+        incident_memory.MemoryStore(mem_path, frozen=True).get(result.run_id)
+        is None
+    )
+
+
+@pytest.mark.integration
+def test_save_feedback_populates_memory_store_from_checkpoint_when_diagnosed(
+    tmp_path: Path,
+) -> None:
+    """Feedback creates a memory record from checkpoint when memory was off."""
+    sess = runtime.create_session_dir(tmp_path / 'sessions')
+    staged, task = runtime.stage_case_folder(
+        sess, FIELD_ROOT / 'cases' / 'victim_vs_cause', suite='field'
+    )
+    runs_dir = tmp_path / 'runs'
+
+    result = runtime.run_app_investigation(
+        task,
+        use_fake=True,
+        memory=False,
+        runs_dir=runs_dir,
+        cleanup_session_folder=sess,
+    )
+
+    assert result.run_dir is not None
+    mem_path = runs_dir / 'memory.sqlite3'
+    assert not mem_path.exists()
+
+    runtime.save_feedback(
+        result.run_dir,
+        runtime.FeedbackRecord(
+            run_id=result.run_id,
+            continuation=result.report.continuation,
+            outcome='confirmed',
+            actual_root_cause='inventory-db',
+            what_fixed_it='Pool size tuned',
+        ),
+    )
+
+    stored = incident_memory.MemoryStore(mem_path, frozen=True).get(
+        result.run_id
+    )
+    assert stored is not None
+    assert stored.outcome == 'confirmed'
+    assert stored.what_fixed_it == 'Pool size tuned'
+
+
+@pytest.mark.integration
+def test_continue_app_run_carries_or_resets_feedback_across_passes(
+    tmp_path: Path,
+) -> None:
+    """Continuation keeps feedback for the same cause and resets on change."""
+    sess = runtime.create_session_dir(tmp_path / 'sessions')
+    staged, task = runtime.stage_case_folder(
+        sess, scripted.FIELD_CASE, suite='field'
+    )
+    runs_dir = tmp_path / 'runs'
+    verdict_req = {'hypothesis_id': 'H1', 'check': 'Check upstream direction'}
+    first_client = fake.ScriptedClient(
+        [
+            scripted.call('search_text', **scripted.LOCK_SEARCH),
+            scripted.add_hypothesis(evidence=[scripted.LOCK_EVIDENCE]),
+            scripted.submit('inventory-db'),
+            scripted.call(
+                graph.VERIFY_NAME, outcome='inconclusive', **verdict_req
+            ),
+        ]
+    )
+
+    first = runtime.run_app_investigation(
+        state.Task(folder=staged, case_id=task.case_id),
+        memory=True,
+        runs_dir=runs_dir,
+        client_override=first_client,
+        cleanup_session_folder=sess,
+    )
+    assert first.run_dir is not None
+    runtime.save_feedback(
+        first.run_dir,
+        runtime.FeedbackRecord(
+            run_id=first.run_id,
+            continuation=0,
+            outcome='confirmed',
+            actual_root_cause='inventory-db',
+            what_fixed_it='Increased DB pool',
+        ),
+    )
+
+    extra1 = tmp_path / 'extra1.log'
+    extra1.write_text('1700001260 ERROR inventory-db deadlock\n', 'utf-8')
+    second_client = fake.ScriptedClient(
+        [
+            scripted.call('search_text', table='extra1', pattern='deadlock'),
+            scripted.submit('inventory-db'),
+            scripted.call('dependency_graph'),
+            scripted.call(
+                graph.VERIFY_NAME,
+                outcome='supported',
+                evidence=[
+                    {
+                        'call_id': 'call_0003',
+                        'locator': 'inventory-db',
+                        'quote': 'order-service',
+                    }
+                ],
+                **verdict_req,
+            ),
+        ]
+    )
+    second = runtime.continue_app_run(
+        first.run_dir,
+        [extra1],
+        memory=True,
+        client_override=second_client,
+    )
+
+    assert second.report.ranks == ('inventory-db',)
+    mem_path = runs_dir / 'memory.sqlite3'
+    mem_after_p1 = incident_memory.MemoryStore(mem_path, frozen=True).get(
+        first.run_id
+    )
+    fb_after_p1 = runtime.load_feedback(first.run_dir)
+    assert mem_after_p1 is not None
+    assert mem_after_p1.outcome == 'confirmed'
+    assert fb_after_p1 is not None
+    assert fb_after_p1.outcome == 'confirmed'
+
+    extra2 = tmp_path / 'extra2.log'
+    extra2.write_text('1700001270 ERROR order-service crash\n', 'utf-8')
+    third_client = fake.ScriptedClient(
+        [
+            scripted.call('search_text', table='extra2', pattern='crash'),
+            scripted.call(
+                'update_hypotheses',
+                operations=[
+                    {'op': 'reject', 'id': 'H1', 'reason': 'superseded'},
+                    {
+                        'op': 'add',
+                        'component': 'order-service',
+                        'statement': 'order-service crash',
+                        'evidence': [
+                            {
+                                'call_id': 'call_0004',
+                                'locator': 'extra2',
+                                'quote': 'order-service crash',
+                            }
+                        ],
+                    },
+                ],
+            ),
+            scripted.submit('order-service'),
+            scripted.call('dependency_graph'),
+            scripted.call(
+                graph.VERIFY_NAME,
+                hypothesis_id='H2',
+                check='Check downstream dependency',
+                outcome='supported',
+                evidence=[
+                    {
+                        'call_id': 'call_0005',
+                        'locator': 'order-service',
+                        'quote': 'order-service',
+                    }
+                ],
+            ),
+        ]
+    )
+    third = runtime.continue_app_run(
+        first.run_dir,
+        [extra2],
+        memory=True,
+        client_override=third_client,
+    )
+
+    assert third.report.ranks == ('order-service',)
+    mem_after_p2 = incident_memory.MemoryStore(mem_path, frozen=True).get(
+        first.run_id
+    )
+    fb_after_p2 = runtime.load_feedback(first.run_dir)
+    assert mem_after_p2 is not None
+    assert mem_after_p2.outcome == 'unverified'
+    assert mem_after_p2.what_fixed_it == 'Increased DB pool'
+    assert fb_after_p2 is not None
+    assert fb_after_p2.outcome == 'unverified'
+    assert fb_after_p2.what_fixed_it == 'Increased DB pool'

@@ -661,3 +661,173 @@ def test_build_report_view_extracts_time_series_chart() -> None:
     assert len(vm.charts) == 1
     assert vm.charts[0].column == 'latency'
     assert [pt.value for pt in vm.charts[0].points] == [12.0, 120.5]
+
+
+def test_build_live_view_orders_multi_agent_role_lanes_and_splits_testers() -> (
+    None
+):
+    """Multi-agent role lanes sort lead -> testers (H1..Hn) -> skeptic."""
+    events: list[dict[str, object]] = [
+        {'type': 'node', 'node': 'skeptic', 'role': 'skeptic'},
+        {
+            'type': 'model_call',
+            'role': 'tester',
+            'hypothesis_id': 'H2',
+            'budget': {
+                'tool_calls': 1,
+                'model_turns': 2,
+                'cost_usd': '0.0020',
+                'elapsed_s': 1.2,
+            },
+        },
+        {
+            'type': 'tool_call',
+            'seq': 2,
+            'call_id': 'call_0002',
+            'continuation': 0,
+            'role': 'tester',
+            'hypothesis_id': 'H2',
+            'node': 'testers',
+            'tool': 'run_sql',
+            'args': {'query': 'SELECT 1'},
+            'ok': True,
+        },
+        {'type': 'model_call', 'role': 'lead', 'budget': {'tool_calls': 1}},
+        {
+            'type': 'tool_call',
+            'seq': 1,
+            'call_id': 'call_0001',
+            'continuation': 0,
+            'role': 'lead',
+            'node': 'lead',
+            'tool': 'list_tables',
+            'args': {},
+            'ok': True,
+        },
+        {'type': 'ledger', 'role': 'lead', 'ledger': {'entries': []}},
+        {
+            'type': 'tool_call',
+            'seq': 3,
+            'call_id': 'call_0003',
+            'continuation': 0,
+            'role': 'tester',
+            'hypothesis_id': 'H1',
+            'node': 'testers',
+            'tool': 'search_text',
+            'args': {'pattern': 'timeout'},
+            'ok': True,
+        },
+        {
+            'type': 'model_call',
+            'role': 'tester',
+            'budget': {
+                'role': 'tester',
+                'hypothesis_id': 'H3',
+                'run': {
+                    'tool_calls': 4,
+                    'model_turns': 5,
+                    'cost_usd': '0.0040',
+                    'elapsed_s': 2.5,
+                },
+            },
+        },
+        {
+            'type': 'verification',
+            'role': 'skeptic',
+            'outcome': 'supported',
+            'hypothesis_id': 'H1',
+        },
+    ]
+
+    live = view.build_live_view(events)
+
+    assert list(live.lanes.keys()) == [
+        'lead',
+        'tester:H1',
+        'tester:H2',
+        'tester:H3',
+        'skeptic',
+    ]
+    assert live.lanes['lead'].label == 'Lead investigator'
+    assert live.lanes['lead'].ledger_updates == 1
+    assert live.lanes['tester:H1'].hypothesis_id == 'H1'
+    assert live.lanes['tester:H1'].label == 'Tester (H1)'
+    assert live.lanes['tester:H1'].tool_calls[0].hypothesis_id == 'H1'
+    assert live.lanes['tester:H3'].role == 'tester'
+    assert live.lanes['tester:H3'].hypothesis_id == 'H3'
+    assert live.lanes['skeptic'].label == 'Independent skeptic'
+    assert live.lanes['skeptic'].verification_outcome == 'supported'
+    assert live.tool_calls >= 4
+    assert live.cost_usd == '0.0040'
+    assert live.elapsed_s == 2.5
+
+
+def test_build_continuation_diff_records_hypothesis_changes() -> None:
+    """Continuation diff tracks confidence, rank, and membership shifts."""
+    prev = dataclasses.replace(
+        _report(
+            'provisional',
+            continuation=0,
+            causes=(
+                report.RankedCause(
+                    1,
+                    'api-gateway',
+                    'Gateway timed out',
+                    'H1',
+                    'inconclusive',
+                    'low',
+                    ('1 citation',),
+                    (report.EvidenceRef('call_0001', 'metrics', '18'),),
+                ),
+                report.RankedCause(
+                    2,
+                    'cache',
+                    'Cache miss spike',
+                    'H2',
+                    'unverified',
+                    'low',
+                    ('1 citation',),
+                    (report.EvidenceRef('call_0001', 'metrics', '9'),),
+                ),
+            ),
+        ),
+        ranks=('api-gateway', 'cache'),
+    )
+    curr = dataclasses.replace(
+        _report(
+            'verified',
+            continuation=1,
+            causes=(
+                report.RankedCause(
+                    1,
+                    'inventory-db',
+                    'DB lock contention',
+                    'H3',
+                    'supported',
+                    'high',
+                    ('verified',),
+                    (report.EvidenceRef('call_0002', 'db', '14'),),
+                ),
+                report.RankedCause(
+                    2,
+                    'api-gateway',
+                    'Gateway timed out',
+                    'H1',
+                    'inconclusive',
+                    'medium',
+                    ('2 citations',),
+                    (report.EvidenceRef('call_0001', 'metrics', '18'),),
+                ),
+            ),
+        ),
+        ranks=('inventory-db', 'api-gateway'),
+    )
+
+    diff = view.build_continuation_diff(prev, curr, [])
+
+    assert 'inventory-db: newly ranked #1 (high)' in diff.hypothesis_changes
+    assert (
+        'api-gateway: rank #1 -> #2, confidence low -> medium'
+        in diff.hypothesis_changes
+    )
+    assert 'cache: dropped from ranking (was #2)' in diff.hypothesis_changes
