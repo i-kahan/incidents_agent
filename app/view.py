@@ -5,6 +5,7 @@ import dataclasses
 import datetime
 import math
 import pathlib
+import re
 from collections.abc import Mapping
 from collections.abc import Sequence
 from typing import Literal
@@ -296,6 +297,7 @@ class LiveToolCall:
         ok: Whether the tool succeeded.
         locator: Returned locator mapping, if any.
         target_components: Target components returned by the tool.
+        hypothesis_id: Target hypothesis identifier for tester calls, if any.
     """
 
     seq: int
@@ -308,6 +310,7 @@ class LiveToolCall:
     ok: bool
     locator: Mapping[str, object] | None
     target_components: tuple[str, ...]
+    hypothesis_id: str | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -339,17 +342,29 @@ class LiveHypothesis:
 
 @dataclasses.dataclass(frozen=True)
 class RoleLane:
-    """Timeline items grouped by role tag (`agent` in single mode).
+    """Timeline items grouped by role or tester lane.
 
     Attributes:
-        role: Role identifier.
-        tool_calls: Tool calls emitted by this role.
-        model_turns: Count of model calls made by this role.
+        role: Base role identifier (`agent`, `lead`, `tester`, `skeptic`).
+        tool_calls: Tool calls emitted by this lane.
+        model_turns: Count of model calls made by this lane.
+        lane_id: Key in `LiveViewModel.lanes` (e.g. `tester:H1`).
+        hypothesis_id: Target hypothesis identifier for tester lanes.
+        label: Human-readable lane heading.
+        ledger_updates: Count of ledger update events emitted in this lane.
+        verification_outcome: Latest verification outcome emitted in this lane.
+        errors: Model error summaries recorded in this lane.
     """
 
     role: str
     tool_calls: tuple[LiveToolCall, ...]
     model_turns: int
+    lane_id: str = ''
+    hypothesis_id: str | None = None
+    label: str = ''
+    ledger_updates: int = 0
+    verification_outcome: str | None = None
+    errors: tuple[str, ...] = ()
 
 
 @dataclasses.dataclass(frozen=True)
@@ -393,6 +408,8 @@ class ContinuationDiffView:
         verification_changes: Human-readable verification transitions.
         new_evidence_calls: Call ids cited in the new report that were not in
             the previous report.
+        hypothesis_changes: Confidence, rank, and membership transitions
+            across passes.
     """
 
     previous_continuation: int
@@ -405,6 +422,7 @@ class ContinuationDiffView:
     current_ranks: tuple[str, ...]
     verification_changes: tuple[str, ...]
     new_evidence_calls: tuple[str, ...]
+    hypothesis_changes: tuple[str, ...] = ()
 
 
 def determine_state_banner(
@@ -1185,6 +1203,78 @@ def _as_float(value: object) -> float:
         return 0.0
 
 
+_LANE_LABELS: dict[str, str] = {
+    'agent': 'Agent',
+    'lead': 'Lead investigator',
+    'skeptic': 'Independent skeptic',
+}
+_LANE_ORDER: dict[str, int] = {
+    'agent': 0,
+    'lead': 1,
+    'tester': 2,
+    'skeptic': 3,
+}
+_TESTER_PREFIX_RE = re.compile(r'^tester(?:[:_/-](.+))?$', re.IGNORECASE)
+_DIGITS_RE = re.compile(r'\d+')
+
+
+def _resolve_lane_identity(
+    event: Mapping[str, object],
+) -> tuple[str, str, str | None]:
+    raw_role = str(event.get('role') or 'agent').strip() or 'agent'
+    raw_hid = event.get('hypothesis_id')
+    hid = (
+        raw_hid.strip()
+        if isinstance(raw_hid, str) and raw_hid.strip()
+        else None
+    )
+    tester_match = _TESTER_PREFIX_RE.match(raw_role)
+    if tester_match is not None:
+        base_role = 'tester'
+        if hid is None and tester_match.group(1):
+            hid = tester_match.group(1).strip()
+        if hid is None:
+            raw_node = str(event.get('node') or '').strip()
+            node_match = _TESTER_PREFIX_RE.match(raw_node)
+            if node_match is not None and node_match.group(1):
+                hid = node_match.group(1).strip()
+        if hid is None:
+            raw_budget = event.get('budget')
+            if isinstance(raw_budget, Mapping):
+                budget_hid = raw_budget.get('hypothesis_id')
+                if isinstance(budget_hid, str) and budget_hid.strip():
+                    hid = budget_hid.strip()
+    elif raw_role.lower() in ('agent', 'lead', 'skeptic'):
+        base_role = raw_role.lower()
+    else:
+        base_role = raw_role
+    lane_id = f'tester:{hid}' if base_role == 'tester' and hid else base_role
+    return lane_id, base_role, hid
+
+
+def _lane_label(base_role: str, hid: str | None) -> str:
+    if base_role == 'tester':
+        return f'Tester ({hid})' if hid else 'Tester'
+    return _LANE_LABELS.get(base_role, base_role)
+
+
+def _hypothesis_number(hid: str | None) -> int:
+    if hid:
+        match = _DIGITS_RE.search(hid)
+        if match is not None:
+            return int(match.group(0))
+    return 10_000
+
+
+def _lane_sort_key(
+    lane_id: str, base_role: str, hid: str | None
+) -> tuple[int, int, str]:
+    order = _LANE_ORDER.get(base_role, 4)
+    if base_role == 'tester':
+        return order, _hypothesis_number(hid), hid or ''
+    return order, 0, lane_id
+
+
 def build_live_view(events: Sequence[Mapping[str, object]]) -> LiveViewModel:
     """Build a live view snapshot from partial or complete trajectory events.
 
@@ -1199,30 +1289,41 @@ def build_live_view(events: Sequence[Mapping[str, object]]) -> LiveViewModel:
     model_turns_count = 0
     cost_usd = '0'
     elapsed_s = 0.0
-    by_role_calls: dict[str, list[LiveToolCall]] = {}
-    by_role_turns: dict[str, int] = {}
+    lane_meta: dict[str, tuple[str, str | None]] = {}
+    by_lane_calls: dict[str, list[LiveToolCall]] = {}
+    by_lane_turns: dict[str, int] = {}
+    by_lane_ledger: dict[str, int] = {}
+    by_lane_verify: dict[str, str] = {}
+    by_lane_errors: dict[str, list[str]] = {}
     errors: list[str] = []
 
     for event in events:
         etype = event.get('type')
-        role = str(event.get('role', 'agent'))
+        lane_id, base_role, hid = _resolve_lane_identity(event)
         if etype == 'node':
             active_node = str(event.get('node', ''))
         elif etype == 'model_call':
+            lane_meta.setdefault(lane_id, (base_role, hid))
             model_turns_count += 1
-            by_role_turns[role] = by_role_turns.get(role, 0) + 1
+            by_lane_turns[lane_id] = by_lane_turns.get(lane_id, 0) + 1
             budget = event.get('budget')
             if isinstance(budget, Mapping):
-                tool_calls_count = _as_int(
-                    budget.get('tool_calls', tool_calls_count)
+                nested_run = budget.get('run')
+                run_totals = (
+                    nested_run if isinstance(nested_run, Mapping) else budget
+                )
+                tool_calls_count = max(
+                    tool_calls_count,
+                    _as_int(run_totals.get('tool_calls', tool_calls_count)),
                 )
                 model_turns_count = max(
                     model_turns_count,
-                    _as_int(budget.get('model_turns', model_turns_count)),
+                    _as_int(run_totals.get('model_turns', model_turns_count)),
                 )
-                cost_usd = str(budget.get('cost_usd', cost_usd))
-                elapsed_s = _as_float(budget.get('elapsed_s', elapsed_s))
+                cost_usd = str(run_totals.get('cost_usd', cost_usd))
+                elapsed_s = _as_float(run_totals.get('elapsed_s', elapsed_s))
         elif etype == 'tool_call':
+            lane_meta.setdefault(lane_id, (base_role, hid))
             tool_calls_count += 1
             args = event.get('args')
             locator = event.get('locator')
@@ -1231,7 +1332,7 @@ def build_live_view(events: Sequence[Mapping[str, object]]) -> LiveViewModel:
                 seq=_as_int(event.get('seq', 0)),
                 call_id=str(event.get('call_id', '')),
                 continuation=_as_int(event.get('continuation', 0)),
-                role=role,
+                role=base_role,
                 node=str(event.get('node', '')),
                 tool=str(event.get('tool', '')),
                 args=dict(args) if isinstance(args, Mapping) else {},
@@ -1241,12 +1342,24 @@ def build_live_view(events: Sequence[Mapping[str, object]]) -> LiveViewModel:
                     str(item)
                     for item in (targets if isinstance(targets, list) else [])
                 ),
+                hypothesis_id=hid,
             )
-            by_role_calls.setdefault(role, []).append(call_item)
+            by_lane_calls.setdefault(lane_id, []).append(call_item)
+        elif etype == 'ledger':
+            lane_meta.setdefault(lane_id, (base_role, hid))
+            by_lane_ledger[lane_id] = by_lane_ledger.get(lane_id, 0) + 1
+        elif etype == 'verification':
+            lane_meta.setdefault(lane_id, (base_role, hid))
+            raw_outcome = event.get('outcome')
+            if raw_outcome is not None and str(raw_outcome).strip():
+                by_lane_verify[lane_id] = str(raw_outcome).strip()
         elif etype == 'model_error':
-            errors.append(
+            lane_meta.setdefault(lane_id, (base_role, hid))
+            err_msg = (
                 f'{event.get("error", "Error")}: {event.get("message", "")}'
             )
+            errors.append(err_msg)
+            by_lane_errors.setdefault(lane_id, []).append(err_msg)
 
     latest_entries = _latest_ledger_entries(events)
     hypotheses = tuple(
@@ -1272,14 +1385,25 @@ def build_live_view(events: Sequence[Mapping[str, object]]) -> LiveViewModel:
         for entry in latest_entries.values()
     )
 
-    all_roles = sorted(set(by_role_calls) | set(by_role_turns))
+    sorted_lanes = sorted(
+        lane_meta,
+        key=lambda lid: _lane_sort_key(
+            lid, lane_meta[lid][0], lane_meta[lid][1]
+        ),
+    )
     lanes = {
-        role: RoleLane(
-            role=role,
-            tool_calls=tuple(by_role_calls.get(role, ())),
-            model_turns=by_role_turns.get(role, 0),
+        lid: RoleLane(
+            role=lane_meta[lid][0],
+            tool_calls=tuple(by_lane_calls.get(lid, ())),
+            model_turns=by_lane_turns.get(lid, 0),
+            lane_id=lid,
+            hypothesis_id=lane_meta[lid][1],
+            label=_lane_label(lane_meta[lid][0], lane_meta[lid][1]),
+            ledger_updates=by_lane_ledger.get(lid, 0),
+            verification_outcome=by_lane_verify.get(lid),
+            errors=tuple(by_lane_errors.get(lid, ())),
         )
-        for role in all_roles
+        for lid in sorted_lanes
     }
 
     return LiveViewModel(
@@ -1345,6 +1469,34 @@ def build_continuation_diff(
         elif old != now:
             verify_changes.append(f'{cause.component}: {old} -> {now}')
 
+    prev_causes = {c.component.casefold(): c for c in previous.causes}
+    curr_causes = {c.component.casefold(): c for c in current.causes}
+    hypothesis_changes: list[str] = []
+    for cause in current.causes:
+        key = cause.component.casefold()
+        old_cause = prev_causes.get(key)
+        if old_cause is None:
+            hypothesis_changes.append(
+                f'{cause.component}: newly ranked #{cause.rank} '
+                f'({cause.confidence})'
+            )
+            continue
+        diffs: list[str] = []
+        if old_cause.rank != cause.rank:
+            diffs.append(f'rank #{old_cause.rank} -> #{cause.rank}')
+        if old_cause.confidence != cause.confidence:
+            diffs.append(
+                f'confidence {old_cause.confidence} -> {cause.confidence}'
+            )
+        if diffs:
+            hypothesis_changes.append(f'{cause.component}: {", ".join(diffs)}')
+    for old_cause in previous.causes:
+        if old_cause.component.casefold() not in curr_causes:
+            hypothesis_changes.append(
+                f'{old_cause.component}: dropped from ranking '
+                f'(was #{old_cause.rank})'
+            )
+
     prev_calls = {
         ref.call_id for cause in previous.causes for ref in cause.evidence
     }
@@ -1366,4 +1518,5 @@ def build_continuation_diff(
         current_ranks=current.ranks,
         verification_changes=tuple(verify_changes),
         new_evidence_calls=new_calls,
+        hypothesis_changes=tuple(hypothesis_changes),
     )

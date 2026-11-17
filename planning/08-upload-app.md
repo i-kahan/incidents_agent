@@ -1,6 +1,6 @@
 # Phase 8: Upload App
 
-**Status:** Wave 4 (single mode, add-files-and-continue, and past-runs viewer) built and verified offline ($0.00 spend). Wave 5 (multi-agent role lanes from Phase 07, Phase 09 memory wiring) and interactive browser click-through remain pending.
+**Status:** Wave 5 (multi-agent role lanes, Phase 09 incident memory feedback/delete wiring, and continuation feedback carryover) built and verified offline ($0.00 spend). Interactive browser click-through remains for the owner.
 
 ## 1. Objective
 A local web page where someone drops incident files, watches the agent investigate, and
@@ -12,14 +12,15 @@ folder of files the agent has never seen.
 - [x] Inputs: file upload (multiple), or a benchmark case picker; optional incident time
       and free-text description; model choice limited to usable configured models;
       agent mode (single or multi). *(Benchmark picker lists tuning cases via
-      `eval.selection.resolve` and field cases; `multi` mode stays disabled until
-      Phase 07 lands in Wave 5.)*
+      `eval.selection.resolve` and field cases; Wave 5 enables `single`/`multi` mode
+      selection and an incident-memory toggle in the sidebar.)*
 - [x] Privacy notice before the first run: uploaded content is sent to the chosen
       model provider; secrets are masked by pattern only; and excerpts of the files
       remain in the saved trajectory and, if memory is on, in the incident memory after
       the upload itself is deleted.
 - [x] A delete control per run that removes its trajectory and any memory record made
-      from it. *(Exposes `memory_deleter` callback for Phase 09 wiring in Wave 5.)*
+      from it. *(Wired in Wave 5 to `MemoryStore.delete(run_id)` as well as the
+      optional `memory_deleter` callback.)*
 - [x] Uploads written to a per-session temporary folder and removed afterwards.
 - [x] Ingest summary: tables found, rows, time ranges; documents found, with type and
       outline; how each file was classified, with a control to override a wrong
@@ -28,9 +29,9 @@ folder of files the agent has never seen.
       low-confidence or missing mapping are highlighted, and the user confirms or
       corrects them before time-based analysis runs.
 - [x] Live view: tool calls and ledger changes streamed as the agent runs; running cost.
-      In multi mode, one lane per role so parallel testers are readable. *(Wave 4 renders
-      single `agent` role lane via `view.build_live_view`; Wave 5 adds parallel multi
-      lanes once Phase 07 lands.)*
+      In multi mode, one lane per role so parallel testers are readable. *(Wave 5 splits
+      tester lanes by `hypothesis_id`, orders lanes `lead` → `tester:H1..Hn` → `skeptic`,
+      and renders parallel tester lanes side-by-side in columns.)*
 - [x] Report view: root cause, fault type, confidence, evidence items each linked to the
       tool call behind them (document evidence shows the cited chunk with its heading), recommended actions, total cost and time.
 - [x] Recommended actions shown with their risk level and how to verify each, read-only
@@ -49,7 +50,9 @@ folder of files the agent has never seen.
       found, run error.
 - [x] Feedback form on the report (was the diagnosis correct; what fixed it) — wired to
       memory in Phase 09; stored locally until then. *(Persisted atomically to
-      `run_dir / 'feedback.json'` in Wave 4; Wave 5 wires to `memory/store.py`.)*
+      `run_dir / 'feedback.json'` and synced to `MemoryStore` in Wave 5, creating the
+      record from `checkpoint.json` for diagnosed runs and carrying/resetting feedback
+      across continuations per Phase 09 Decision 6.)*
 - [x] Report rendering lives in a plain function outside Streamlit, with unit tests.
 - [x] Integration test: the app's run function end to end on the synthetic fixture
       folder with the fake client.
@@ -136,3 +139,16 @@ folder of files the agent has never seen.
   `tests/app/` passing (85% coverage on `app/runtime.py`, 85% on `app/view.py`);
   headless `AppTest` + localhost HTTP 200 startup verified; end-to-end `RuleClient`
   smoke checks verified on `re2-ob-0008`, `config_diff`, and `victim_vs_cause`.
+- Wave 5 (`feature/phase-08b-lanes-and-feedback` worktree): updated `app/view.py` to
+  parse per-hypothesis tester lanes, track per-lane ledger/verification/error
+  metadata, order lanes (`lead` → `tester:H1..Hn` → `skeptic`), and track
+  `hypothesis_changes` in `build_continuation_diff`; wired `app/runtime.py` to
+  `MemoryStore` (`save_feedback`, `load_feedback`, `delete_run`,
+  `inspect_runtime_status`, `run_app_investigation`, and `continue_app_run` carryover)
+  and prepared `agent_mode` forwarding without touching `src/incidents_agent/`;
+  updated `app/main.py` with `single`/`multi` and memory sidebar controls plus
+  side-by-side tester role columns; added 6 tests across
+  `tests/app/{test_view.py,test_runtime.py,test_main_smoke.py}`.
+- Wave 5 verified at $0.00 LLM spend: `make lint` clean (`ruff check`, `ruff format
+  --check` over 184 files, strict `mypy` over 145 source files); `tests/app/` 44/44
+  passing (86% coverage on `app/runtime.py`, 86% on `app/view.py`).

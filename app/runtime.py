@@ -9,6 +9,7 @@ import json
 import os
 import pathlib
 import shutil
+import sqlite3
 import subprocess
 import tempfile
 import time
@@ -27,6 +28,7 @@ from incidents_agent.agent import continuation
 from incidents_agent.agent import fake_policy
 from incidents_agent.agent import graph
 from incidents_agent.agent import ledger as agent_ledger
+from incidents_agent.agent import memory_record
 from incidents_agent.agent import report
 from incidents_agent.agent import results
 from incidents_agent.agent import state
@@ -43,6 +45,7 @@ from incidents_agent.llm import contracts
 from incidents_agent.llm import ledger as spend_ledger
 from incidents_agent.llm import litellm_transport
 from incidents_agent.llm import pricing
+from incidents_agent.memory import store as incident_memory
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[1]
 
@@ -78,6 +81,7 @@ DEFAULT_ENV_PATH = SHARED_ROOT / '.env'
 DEFAULT_RUNS_DIR = SHARED_ROOT / 'runs'
 DEFAULT_DRY_RUNS_DIR = DEFAULT_RUNS_DIR / 'dry'
 DEFAULT_SPEND_PATH = DEFAULT_RUNS_DIR / 'spend.sqlite3'
+DEFAULT_MEMORY_PATH = DEFAULT_RUNS_DIR / 'memory.sqlite3'
 # Evaluation output (`runs/phase-NN/...`, including `cache/<key>/attempts/`)
 # shares `runs/` with app runs. It is never listed, continued or deleted here.
 _EVAL_ROOT_PREFIX = 'phase-'
@@ -196,6 +200,9 @@ class RuntimeStatus:
         remaining_usd: Uncommitted global balance.
         halted: True when an overrun halted admissions.
         per_case_cost_cap_usd: Per-case cost cap from `config/agent.yaml`.
+        memory_enabled_default: Default memory flag from `config/agent.yaml`.
+        memory_frozen: Whether incident memory is configured read-only.
+        memory_records_count: Number of records in the incident memory store.
     """
 
     models: tuple[ModelOption, ...]
@@ -207,6 +214,9 @@ class RuntimeStatus:
     remaining_usd: decimal.Decimal
     halted: bool
     per_case_cost_cap_usd: decimal.Decimal
+    memory_enabled_default: bool = False
+    memory_frozen: bool = False
+    memory_records_count: int = 0
 
 
 @dataclasses.dataclass(frozen=True)
@@ -226,7 +236,7 @@ class ContinuationPreview:
 
 @dataclasses.dataclass(frozen=True)
 class FeedbackRecord:
-    """Operator feedback on a finished run, stored locally until Phase 09.
+    """Operator feedback on a finished run, synced with incident memory.
 
     Attributes:
         run_id: Run identifier.
@@ -733,8 +743,9 @@ def inspect_runtime_status(
     agent_path: pathlib.Path = DEFAULT_AGENT_PATH,
     env_path: pathlib.Path = DEFAULT_ENV_PATH,
     spend_path: pathlib.Path = DEFAULT_SPEND_PATH,
+    memory_path: pathlib.Path = DEFAULT_MEMORY_PATH,
 ) -> RuntimeStatus:
-    """Inspect configured models, API keys, and global spend ledger state.
+    """Inspect configured models, API keys, spend guard, and incident memory.
 
     Args:
         models_path: Path to `config/models.yaml`.
@@ -742,9 +753,10 @@ def inspect_runtime_status(
         agent_path: Path to `config/agent.yaml`.
         env_path: Path to `.env`.
         spend_path: Path to SQLite spend ledger.
+        memory_path: Path to SQLite incident memory database.
 
     Returns:
-        Usable model options and spend guard amounts.
+        Usable model options, spend guard amounts, and memory inventory.
     """
     env = llm_config.environment(env_path)
     models = llm_config.load_models(models_path)
@@ -770,6 +782,12 @@ def inspect_runtime_status(
         env_override=env.get(llm_config.BUDGET_ENV),
     )
     snap = spend.snapshot()
+    memory_records_count = 0
+    if memory_path.is_file():
+        with contextlib.suppress(sqlite3.Error, OSError, ValueError):
+            memory_records_count = len(
+                incident_memory.MemoryStore(memory_path, frozen=True).list_all()
+            )
     return RuntimeStatus(
         models=tuple(options),
         usable_aliases=tuple(opt.alias for opt in options if opt.usable),
@@ -780,6 +798,9 @@ def inspect_runtime_status(
         remaining_usd=snap.remaining,
         halted=snap.halted,
         per_case_cost_cap_usd=agent_cfg.limits.cost_usd,
+        memory_enabled_default=agent_cfg.memory,
+        memory_frozen=agent_cfg.memory_frozen,
+        memory_records_count=memory_records_count,
     )
 
 
@@ -943,11 +964,89 @@ def _preserve_initial_inputs(
             graph.write_json(manifest_path, manifest)
 
 
+def _apply_config_overrides(
+    cfg: agent_config.AgentConfig,
+    *,
+    model_alias: str | None = None,
+    agent_mode: Literal['single', 'multi'] | None = None,
+    memory: bool | None = None,
+) -> agent_config.AgentConfig:
+    if model_alias:
+        cfg = dataclasses.replace(cfg, model_alias=model_alias)
+    if memory is not None:
+        cfg = dataclasses.replace(cfg, memory=memory)
+    if agent_mode is not None and any(
+        field_info.name == 'mode' for field_info in dataclasses.fields(cfg)
+    ):
+        cfg = agent_config.AgentConfig.from_dict(
+            {**cfg.to_dict(), 'mode': agent_mode}
+        )
+    return cfg
+
+
+def _update_manifest_mode(run_dir: pathlib.Path, mode: str) -> None:
+    manifest_path = run_dir / 'manifest.json'
+    if not manifest_path.is_file():
+        return
+    with contextlib.suppress(OSError, ValueError):
+        manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+        if isinstance(manifest, dict):
+            manifest['mode'] = mode
+            graph.write_json(manifest_path, manifest)
+
+
+def _resolve_run_id(run_dir: pathlib.Path) -> str:
+    for filename in ('manifest.json', 'checkpoint.json'):
+        candidate = run_dir / filename
+        if not candidate.is_file():
+            continue
+        with contextlib.suppress(OSError, ValueError):
+            data = json.loads(candidate.read_text(encoding='utf-8'))
+            if isinstance(data, dict) and data.get('run_id'):
+                return str(data['run_id'])
+    return run_dir.name
+
+
+def _build_memory_record_from_checkpoint(
+    run_dir: pathlib.Path,
+) -> incident_memory.MemoryRecord | None:
+    ckpt_path = run_dir / 'checkpoint.json'
+    if not ckpt_path.is_file():
+        return None
+    try:
+        saved = json.loads(ckpt_path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(saved, dict):
+        return None
+    raw_report = saved.get('report')
+    raw_task = saved.get('task')
+    if not isinstance(raw_report, dict) or not isinstance(raw_task, dict):
+        return None
+    try:
+        final = report.Report.from_dict(raw_report)
+        if not final.causes:
+            return None
+        task = state.Task.from_dict(raw_task)
+        catalog = saved.get('catalog')
+        catalog_map: Mapping[str, object] = (
+            catalog if isinstance(catalog, Mapping) else {}
+        )
+        result_store = results.ResultStore.from_list(saved.get('results'))
+    except (KeyError, TypeError, ValueError):
+        return None
+    return memory_record.build_record_from_run(
+        task, catalog_map, final, result_store
+    )
+
+
 def run_app_investigation(
     task: state.Task,
     *,
     use_fake: bool = False,
     model_alias: str | None = None,
+    agent_mode: Literal['single', 'multi'] | None = None,
+    memory: bool | None = None,
     settings: agent_config.AgentConfig | None = None,
     runs_dir: pathlib.Path | None = None,
     client_override: contracts.ModelClient | None = None,
@@ -957,6 +1056,8 @@ def run_app_investigation(
     | None = None,
     on_event: Callable[[dict[str, object]], None] | None = None,
     cleanup_session_folder: pathlib.Path | None = None,
+    memory_store: incident_memory.MemoryStore | None = None,
+    memory_path: pathlib.Path | None = None,
     models_path: pathlib.Path = DEFAULT_MODELS_PATH,
     budget_path: pathlib.Path = DEFAULT_BUDGET_PATH,
     agent_path: pathlib.Path = DEFAULT_AGENT_PATH,
@@ -969,12 +1070,16 @@ def run_app_investigation(
         task: Investigation task pointing to the staged folder.
         use_fake: When True, uses `fake_policy.RuleClient` at zero cost.
         model_alias: Optional model alias override.
+        agent_mode: Optional `'single'` or `'multi'` mode override.
+        memory: Optional override for enabling incident memory.
         settings: Optional pre-loaded `AgentConfig`.
         runs_dir: Destination parent directory for the run record.
         client_override: Optional injected `ModelClient` for tests.
         classification_overrides: Optional user file classification overrides.
         on_event: Optional callback receiving each trajectory event live.
         cleanup_session_folder: Optional temporary upload dir removed after run.
+        memory_store: Optional pre-opened incident memory store.
+        memory_path: Optional explicit SQLite path for incident memory.
         models_path: Path to `config/models.yaml`.
         budget_path: Path to `config/budget.yaml`.
         agent_path: Path to `config/agent.yaml`.
@@ -984,9 +1089,12 @@ def run_app_investigation(
     Returns:
         Completed `RunResult`.
     """
-    cfg = settings or agent_config.load_agent_config(agent_path)
-    if model_alias:
-        cfg = dataclasses.replace(cfg, model_alias=model_alias)
+    cfg = _apply_config_overrides(
+        settings or agent_config.load_agent_config(agent_path),
+        model_alias=model_alias,
+        agent_mode=agent_mode,
+        memory=memory,
+    )
     target_runs_dir = (
         runs_dir
         if runs_dir is not None
@@ -1014,6 +1122,8 @@ def run_app_investigation(
                 cfg,
                 runs_dir=target_runs_dir,
                 run_id=run_id,
+                memory_store=memory_store,
+                memory_path=memory_path,
                 ingest_config=_ingest_config(classification_overrides),
             )
 
@@ -1026,8 +1136,9 @@ def run_app_investigation(
             _save_classification_overrides(
                 result.run_dir, classification_overrides
             )
-            if cleanup_session_folder is not None:
-                _preserve_initial_inputs(result.run_dir, task.folder)
+            _preserve_initial_inputs(result.run_dir, task.folder)
+            if agent_mode is not None:
+                _update_manifest_mode(result.run_dir, agent_mode)
         return result
     finally:
         cleanup_session_dir(cleanup_session_folder)
@@ -1086,9 +1197,13 @@ def continue_app_run(
     *,
     use_fake: bool = False,
     model_alias: str | None = None,
+    agent_mode: Literal['single', 'multi'] | None = None,
+    memory: bool | None = None,
     client_override: contracts.ModelClient | None = None,
     on_event: Callable[[dict[str, object]], None] | None = None,
     cleanup_added_dir: pathlib.Path | None = None,
+    memory_store: incident_memory.MemoryStore | None = None,
+    memory_path: pathlib.Path | None = None,
     models_path: pathlib.Path = DEFAULT_MODELS_PATH,
     budget_path: pathlib.Path = DEFAULT_BUDGET_PATH,
     env_path: pathlib.Path = DEFAULT_ENV_PATH,
@@ -1101,9 +1216,13 @@ def continue_app_run(
         added_files: Added file paths.
         use_fake: When True, uses `RuleClient` at zero cost.
         model_alias: Optional model alias override for this continuation pass.
+        agent_mode: Optional `'single'` or `'multi'` mode override.
+        memory: Optional override for enabling incident memory.
         client_override: Optional injected `ModelClient` for tests.
         on_event: Optional callback receiving newly appended events.
         cleanup_added_dir: Optional temporary folder holding added uploads.
+        memory_store: Optional pre-opened incident memory store.
+        memory_path: Optional explicit SQLite path for incident memory.
         models_path: Path to `config/models.yaml`.
         budget_path: Path to `config/budget.yaml`.
         env_path: Path to `.env`.
@@ -1119,9 +1238,20 @@ def continue_app_run(
         raise ValueError(f'{run_dir} is evaluation output, not an app run')
     saved = json.loads((run_dir / 'checkpoint.json').read_text('utf-8'))
     earlier = state.Task.from_dict(saved['task'])
-    settings = agent_config.AgentConfig.from_dict(saved['config'])
-    if model_alias:
-        settings = dataclasses.replace(settings, model_alias=model_alias)
+    settings = _apply_config_overrides(
+        agent_config.AgentConfig.from_dict(saved['config']),
+        model_alias=model_alias,
+        agent_mode=agent_mode,
+        memory=memory,
+    )
+    prev_report = (
+        report.Report.from_dict(saved['report'])
+        if isinstance(saved.get('report'), dict)
+        else None
+    )
+    prev_feedback = load_feedback(
+        run_dir, memory_store=memory_store, memory_path=memory_path
+    )
     traj_path = run_dir / 'trajectory.jsonl'
     existing_count = (
         len(traj_path.read_text(encoding='utf-8').splitlines())
@@ -1147,6 +1277,8 @@ def continue_app_run(
                 added_files,
                 model_client,
                 settings,
+                memory_store=memory_store,
+                memory_path=memory_path,
                 ingest_config=_ingest_config(
                     load_classification_overrides(run_dir)
                 ),
@@ -1154,19 +1286,56 @@ def continue_app_run(
             _tail_trajectory(
                 traj_path, future, on_event, start_seq=existing_count
             )
-            return future.result()
+            result = future.result()
+        if (
+            isinstance(result, graph.RunResult)
+            and prev_feedback is not None
+            and (run_dir / 'feedback.json').is_file()
+        ):
+            prev_cause = (
+                prev_report.ranks[0]
+                if prev_report is not None
+                and prev_report.outcome != 'no_fault_found'
+                and prev_report.ranks
+                else None
+            )
+            new_cause = (
+                result.report.ranks[0]
+                if result.report.outcome != 'no_fault_found'
+                and result.report.ranks
+                else None
+            )
+            carried_outcome: Literal['confirmed', 'rejected', 'unverified'] = (
+                prev_feedback.outcome
+                if prev_cause == new_cause
+                else 'unverified'
+            )
+            carried = dataclasses.replace(
+                prev_feedback,
+                continuation=result.report.continuation,
+                outcome=carried_outcome,
+                recorded_at=datetime.datetime.now(datetime.UTC).isoformat(),
+            )
+            graph.write_json(run_dir / 'feedback.json', carried.to_dict())
+        return result
     finally:
         cleanup_session_dir(cleanup_added_dir)
 
 
 def save_feedback(
-    run_dir: pathlib.Path, feedback: FeedbackRecord
+    run_dir: pathlib.Path,
+    feedback: FeedbackRecord,
+    *,
+    memory_store: incident_memory.MemoryStore | None = None,
+    memory_path: pathlib.Path | None = None,
 ) -> pathlib.Path:
-    """Save operator feedback locally inside `run_dir / 'feedback.json'`.
+    """Save operator feedback locally and sync it to incident memory.
 
     Args:
         run_dir: Run folder.
         feedback: Feedback record to persist.
+        memory_store: Optional pre-opened incident memory store.
+        memory_path: Optional explicit SQLite path for incident memory.
 
     Returns:
         Path to the saved feedback JSON file.
@@ -1181,18 +1350,95 @@ def save_feedback(
     )
     path = run_dir / 'feedback.json'
     graph.write_json(path, stamped.to_dict())
+
+    target_store = memory_store
+    if target_store is None:
+        target_path = memory_path or (run_dir.parent / 'memory.sqlite3')
+        if target_path.is_file() or (run_dir / 'checkpoint.json').is_file():
+            target_store = incident_memory.MemoryStore(target_path)
+
+    if target_store is not None:
+        with contextlib.suppress(
+            incident_memory.FrozenMemoryError, sqlite3.Error, OSError
+        ):
+            existing = target_store.get(stamped.run_id)
+            if existing is None:
+                built = _build_memory_record_from_checkpoint(run_dir)
+                if built is not None:
+                    if built.run_id != stamped.run_id:
+                        built = dataclasses.replace(
+                            built, run_id=stamped.run_id
+                        )
+                    target_store.save(built)
+                    existing = built
+            if existing is not None:
+                target_store.update_outcome(
+                    stamped.run_id,
+                    stamped.outcome,
+                    what_fixed_it=stamped.what_fixed_it.strip() or None,
+                    updated_at=stamped.recorded_at,
+                )
     return path
 
 
-def load_feedback(run_dir: pathlib.Path) -> FeedbackRecord | None:
-    """Load saved operator feedback from `run_dir / 'feedback.json'`, if any."""
+def load_feedback(
+    run_dir: pathlib.Path,
+    *,
+    memory_store: incident_memory.MemoryStore | None = None,
+    memory_path: pathlib.Path | None = None,
+) -> FeedbackRecord | None:
+    """Load operator feedback from `feedback.json` or incident memory.
+
+    Args:
+        run_dir: Run folder.
+        memory_store: Optional pre-opened incident memory store.
+        memory_path: Optional explicit SQLite path for incident memory.
+
+    Returns:
+        Latest feedback record if found, else None.
+    """
+    local_fb: FeedbackRecord | None = None
     path = run_dir / 'feedback.json'
-    if not path.is_file():
-        return None
-    data = json.loads(path.read_text(encoding='utf-8'))
-    if not isinstance(data, dict):
-        return None
-    return FeedbackRecord.from_dict(data)
+    if path.is_file():
+        data = json.loads(path.read_text(encoding='utf-8'))
+        if isinstance(data, dict):
+            local_fb = FeedbackRecord.from_dict(data)
+
+    run_id = (
+        local_fb.run_id
+        if local_fb is not None and local_fb.run_id
+        else _resolve_run_id(run_dir)
+    )
+    read_store = memory_store
+    if read_store is None:
+        target_path = memory_path or (run_dir.parent / 'memory.sqlite3')
+        if target_path.is_file():
+            read_store = incident_memory.MemoryStore(target_path, frozen=True)
+
+    mem_rec: incident_memory.MemoryRecord | None = None
+    if read_store is not None:
+        with contextlib.suppress(sqlite3.Error, OSError, ValueError):
+            mem_rec = read_store.get(run_id)
+
+    if mem_rec is not None:
+        if local_fb is None:
+            return FeedbackRecord(
+                run_id=mem_rec.run_id,
+                continuation=0,
+                outcome=mem_rec.outcome,
+                actual_root_cause=mem_rec.diagnosed_root_cause or '',
+                what_fixed_it=mem_rec.what_fixed_it or '',
+                notes='',
+                recorded_at=mem_rec.updated_at,
+            )
+        if mem_rec.updated_at > local_fb.recorded_at:
+            return dataclasses.replace(
+                local_fb,
+                outcome=mem_rec.outcome,
+                what_fixed_it=mem_rec.what_fixed_it or local_fb.what_fixed_it,
+                recorded_at=mem_rec.updated_at,
+            )
+    return local_fb
 
 
 def is_eval_output(path: pathlib.Path, runs_root: pathlib.Path) -> bool:
@@ -1221,13 +1467,17 @@ def delete_run(
     *,
     runs_root: pathlib.Path = DEFAULT_RUNS_DIR,
     memory_deleter: Callable[[str], None] | None = None,
+    memory_store: incident_memory.MemoryStore | None = None,
+    memory_path: pathlib.Path | None = None,
 ) -> None:
-    """Delete a saved run folder and notify any memory-deletion hook.
+    """Delete a saved run folder and remove any matching memory record.
 
     Args:
         run_dir: Run folder to remove.
         runs_root: Parent runs directory that must contain `run_dir`.
-        memory_deleter: Optional Phase 09 callback receiving `run_id`.
+        memory_deleter: Optional callback receiving `run_id`.
+        memory_store: Optional pre-opened incident memory store.
+        memory_path: Optional explicit SQLite path for incident memory.
 
     Raises:
         ValueError: When `run_dir` is outside `runs_root`, equals it, or is
@@ -1245,16 +1495,32 @@ def delete_run(
     if not resolved_run.is_dir():
         raise FileNotFoundError(f'Run directory not found: {run_dir}')
 
-    run_id = resolved_run.name
-    manifest_path = resolved_run / 'manifest.json'
-    if manifest_path.is_file():
-        with contextlib.suppress(OSError, ValueError):
-            manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
-            if isinstance(manifest, dict) and manifest.get('run_id'):
-                run_id = str(manifest['run_id'])
+    run_id = _resolve_run_id(resolved_run)
 
     if memory_deleter is not None:
         memory_deleter(run_id)
+    if memory_store is not None:
+        with contextlib.suppress(incident_memory.FrozenMemoryError):
+            memory_store.delete(run_id)
+    else:
+        candidates = (
+            [memory_path]
+            if memory_path is not None
+            else sorted(
+                {
+                    resolved_run.parent / 'memory.sqlite3',
+                    resolved_root / 'memory.sqlite3',
+                }
+            )
+        )
+        for candidate in candidates:
+            if candidate.is_file():
+                with contextlib.suppress(
+                    incident_memory.FrozenMemoryError,
+                    sqlite3.Error,
+                    OSError,
+                ):
+                    incident_memory.MemoryStore(candidate).delete(run_id)
     shutil.rmtree(resolved_run)
 
 
