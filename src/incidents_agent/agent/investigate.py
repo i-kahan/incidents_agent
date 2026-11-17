@@ -167,8 +167,9 @@ def investigate(
 
     Every way out is a `LoopResult`; nothing here raises on model or tool
     failure. When the step's tool calls are used up the model gets one more
-    turn in which only the terminal tool runs, and, if that terminal call is
-    refused by validation, one retry to correct it.
+    turn in which only the terminal tool and the ledger update run (the
+    update uses no tool call), and, if that terminal call is refused or the
+    turn only updated the ledger, one more terminal-only turn.
 
     Args:
         session: The run's shared state.
@@ -241,6 +242,7 @@ def investigate(
             continue
         accepted: dict[str, object] | None = None
         refused_before = invalid
+        ledger_on_final = False
         for call in message.tool_calls:
             args = _parse(call.arguments)
             if accepted is not None:
@@ -250,6 +252,12 @@ def investigate(
                 invalid += int(accepted is None)
             elif call.name not in {tool.name for tool in tools}:
                 reply = _error('unknown_tool', f'No tool named {call.name!r}')
+            elif final_turn and call.name == ledger.UPDATE_TOOL_NAME:
+                # Recording hypotheses is bookkeeping, not investigation:
+                # on the last turn it runs without a tool call, so a run
+                # that spent its calls on data still ends with a ledger.
+                reply = _agent_tool(session, brief, call.name, args)
+                ledger_on_final = True
             elif final_turn or not session.budget.charge_tool_call():
                 reply = _error(
                     'tool_call_limit',
@@ -285,9 +293,13 @@ def investigate(
             )
         if accepted is not None:
             return LoopResult('submitted', accepted, tuple(calls_made), invalid)
-        if final_turn and invalid > refused_before and not retried:
-            # The terminal call was refused on the last turn: one more turn,
-            # still terminal-only, to correct it from the reasons given.
+        if (
+            final_turn
+            and (invalid > refused_before or ledger_on_final)
+            and not retried
+        ):
+            # The terminal call was refused on the last turn, or the turn
+            # only updated the ledger: one more turn, still terminal-only.
             retried = True
             conversation.append(
                 contracts.Message(

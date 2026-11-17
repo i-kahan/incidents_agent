@@ -243,6 +243,19 @@ DESIGN.md now states the bootstrap rule.
   changes single mode's prompts, so single-mode results after this are not comparable
   to §5's.
 
+#### Decision 11: Ledger updates on a step's last turn use no tool call
+
+* **Decision:** When a step's tool calls are used up, its last turn runs the ledger
+  update (`update_hypotheses`) as well as the terminal tool, without charging a tool
+  call; a turn that only updated the ledger gets one more terminal-only turn. Data
+  tools stay refused. This applies in both modes.
+* **Context/Constraint:** Across the three comparison runs, single-mode cases ending
+  with no ranking because the final-turn ledger update was refused went 2 → 5 → 8; 6
+  of the 7 cases single lost between the first and third runs ended this way. It is
+  the same bookkeeping starvation the lead had before Decision 8.
+* **Trade-off:** One extra model turn in those cases, inside the turn and cost limits.
+  Totals stay equal across modes.
+
 #### Decision 7: Tool calls are serialised; model calls run in parallel
 
 * **Decision:** Testers run on real threads (LangGraph fan-out). Data-tool calls go
@@ -372,6 +385,8 @@ $0.79 after it, $1.14 after the second follow-up, and $1.83 after the mistaken n
   parallel testers cannot cite fixed call ids in a script, so test turns can be
   functions of the request. No prompt was tuned on the tuning set; the role prompts
   are first drafts, to be judged by the Phase 07 comparison.
+- 07i: Claude Code traced single mode's drop to the final-turn ledger refusal
+  (Decision 11). `PROMPT_VERSION` 07.5.
 - 07h: Claude Code traced the rerun's multi drop to the skeptic overturning true
   causes and to the direction wording; owner approved Decision 10. `PROMPT_VERSION`
   07.4.

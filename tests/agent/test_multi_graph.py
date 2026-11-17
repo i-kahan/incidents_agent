@@ -337,7 +337,13 @@ def test_total_tool_calls_never_exceed_the_single_agent_limit(
     greedy = scripted.calls(*[('list_tables', {})] * 10)
     client = scripted.RoutedClient(
         {
-            'lead': [greedy, _hypotheses(), scripted.dispatch('H1', 'H2')],
+            'lead': [
+                greedy,
+                _hypotheses(),
+                scripted.dispatch('H1', 'H2'),
+                greedy,
+                scripted.submit('inventory-db'),
+            ],
             'tester:H1': [greedy, greedy],
             'tester:H2': [greedy, greedy],
             'skeptic': [greedy, greedy],
