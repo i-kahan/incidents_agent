@@ -455,8 +455,15 @@ def test_multi_mode_correction_pass_offers_memory_to_lead(tmp_path):
                 scripted.verdict('H1', 'supported', _LOCK_QUOTE),
             ],
             'skeptic': [
-                scripted.call('search_text', **scripted.LOCK_SEARCH),
-                scripted.challenge('H1', 'disproved', _LOCK_QUOTE),
+                scripted.call(
+                    'search_text', table='service', pattern='queue saturated'
+                ),
+                scripted.challenge(
+                    'H1',
+                    'disproved',
+                    'api-gateway Request queue saturated',
+                    'api-gateway',
+                ),
             ],
         }
     )

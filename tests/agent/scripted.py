@@ -271,7 +271,10 @@ def verdict(
 
 
 def challenge(
-    hypothesis_id: str, outcome: str, quote: str | None = None
+    hypothesis_id: str,
+    outcome: str,
+    quote: str | None = None,
+    alternative: str | None = None,
 ) -> Callable[[contracts.ChatRequest], contracts.Message]:
     """Return a turn recording the skeptic's outcome, citing its last call."""
 
@@ -290,9 +293,14 @@ def challenge(
         return call(
             roles.CHALLENGE_NAME,
             hypothesis_id=hypothesis_id,
-            check='is it upstream of the other errors?',
+            check='does it call an affected service that failed first?',
             outcome=outcome,
             evidence=evidence,
+            **(
+                {}
+                if alternative is None
+                else {'alternative_component': alternative}
+            ),
         )
 
     return turn

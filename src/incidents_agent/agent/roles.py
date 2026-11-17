@@ -89,6 +89,13 @@ CHALLENGE_SCHEMA: dict[str, object] = {
             'description': 'What you checked and why it could disprove it.',
         },
         'outcome': {'type': 'string', 'enum': list(_CHALLENGES)},
+        'alternative_component': {
+            'type': 'string',
+            'description': (
+                'For "disproved": the affected component the claimed one '
+                'calls, whose trouble started first.'
+            ),
+        },
         'evidence': ledger.EVIDENCE_SCHEMA,
     },
     'required': ['hypothesis_id', 'check', 'outcome'],
@@ -539,8 +546,10 @@ def challenge_tool(
 
     The outcome is stored on the ledger as a verification: `disproved`
     becomes `refuted` (the hypothesis is rejected) and needs a citation of
-    the skeptic's own call; `holds` becomes `supported` with such a
-    citation and `inconclusive` without one.
+    the skeptic's own call that shows the `alternative_component` it
+    names: a different component, and a candidate when there is a list.
+    `holds` becomes `supported` with a citation of the skeptic's own call
+    and `inconclusive` without one.
 
     Args:
         session: The skeptic's session.
@@ -566,7 +575,7 @@ def challenge_tool(
         stance: Literal['for', 'against'] = (
             'against' if outcome == 'disproved' else 'for'
         )
-        _, errors, has_own = _own_evidence(
+        refs, errors, has_own = _own_evidence(
             session, args.get('evidence'), stance, own
         )
         if outcome == 'disproved' and not has_own:
@@ -574,6 +583,12 @@ def challenge_tool(
                 *errors,
                 'a disproved outcome must cite a tool call you made',
             ]
+        if outcome == 'disproved':
+            problems = _alternative_errors(
+                session, hypothesis_id, args, refs, own
+            )
+            if problems:
+                return None, problems
         verification: report.Verification = (
             'refuted'
             if outcome == 'disproved'
@@ -603,6 +618,47 @@ def challenge_tool(
         ),
         validate,
     )
+
+
+def _alternative_errors(
+    session: investigate.Session,
+    hypothesis_id: str,
+    args: Mapping[str, object],
+    refs: list[report.EvidenceRef],
+    own: set[str],
+) -> list[str]:
+    """Check that a disproval names the earlier cause it points to.
+
+    The alternative must be a different component (a candidate, when the
+    task has a candidate list) and must appear in a result of a call the
+    skeptic made and cited.
+    """
+    alternative = _text(args.get('alternative_component'))
+    if not alternative:
+        return [
+            'a disproved outcome must name alternative_component: the '
+            'affected component the claimed one calls, whose trouble '
+            'started first'
+        ]
+    wanted = alternative.casefold()
+    entry = (
+        None
+        if session.ledger is None
+        else session.ledger.entries.get(hypothesis_id)
+    )
+    if entry is not None and entry.component.casefold() == wanted:
+        return ['alternative_component must differ from the claimed one']
+    candidates = {name.casefold() for name in session.task.candidate_services}
+    if candidates and wanted not in candidates:
+        return [f'{alternative!r} is not in the candidate list']
+    for ref in refs:
+        stored = session.executor.store.get(ref.call_id)
+        if ref.call_id not in own or stored is None:
+            continue
+        named = {name.casefold() for name in stored.target_components}
+        if wanted in named or wanted in ref.quote.casefold():
+            return []
+    return [f'cite a call you made whose result shows {alternative!r}']
 
 
 def skeptic_opening(

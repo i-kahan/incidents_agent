@@ -1,5 +1,6 @@
 """Briefs, verdicts and challenges: schemas, validation and merging."""
 
+import dataclasses
 import functools
 from concurrent import futures
 from pathlib import Path
@@ -10,6 +11,7 @@ from incidents_agent import ingest
 from incidents_agent.agent import investigate
 from incidents_agent.agent import report
 from incidents_agent.agent import roles
+from incidents_agent.agent import state
 from incidents_agent.llm import fake
 from tests.agent import scripted
 
@@ -262,11 +264,14 @@ def test_challenge_maps_onto_ledger_verification(
     session = _session(field_ingest, tmp_path)
     call_id = _call_as(session, 'skeptic', None)
 
-    accepted, _ = roles.challenge_tool(session, 'H1').validate(
+    # The lock search shows inventory-db, so the challenge is to H2
+    # (api-gateway), with inventory-db as the earlier cause.
+    accepted, _ = roles.challenge_tool(session, 'H2').validate(
         {
-            'hypothesis_id': 'H1',
-            'check': 'upstream?',
+            'hypothesis_id': 'H2',
+            'check': 'does it call a service that failed first?',
             'outcome': outcome,
+            'alternative_component': 'inventory-db',
             'evidence': _cite(call_id) if own else [],
         }
     )
@@ -274,7 +279,7 @@ def test_challenge_maps_onto_ledger_verification(
     assert session.ledger is not None
     assert accepted is not None
     assert accepted['verification'] == expected
-    assert session.ledger.entries['H1'].verification == expected
+    assert session.ledger.entries['H2'].verification == expected
 
 
 def test_disproval_without_own_evidence_is_refused(
@@ -522,3 +527,67 @@ def test_dispatch_merges_two_briefs_for_one_component(
     assert session.ledger.entries['H3'].statement == (
         'latency regression; or cpu saturation'
     )
+
+
+@pytest.mark.parametrize(
+    ('alternative', 'error'),
+    [
+        pytest.param(None, 'must name alternative_component', id='missing'),
+        pytest.param('api-gateway', 'must differ', id='same_component'),
+        pytest.param('order-service', 'shows', id='not_in_cited_result'),
+    ],
+)
+def test_disproval_needs_a_cited_different_earlier_cause(
+    field_ingest: ingest.IngestResult,
+    tmp_path: Path,
+    alternative: str | None,
+    error: str,
+) -> None:
+    """A skeptic may disprove only by pointing at another, cited component.
+
+    In the rerun after Decision 9, 17 of the skeptic's 20 disprovals
+    overturned the true root cause by calling it a victim.
+    """
+    session = _session(field_ingest, tmp_path)
+    call_id = _call_as(session, 'skeptic', None)
+    args: dict[str, object] = {
+        'hypothesis_id': 'H2',
+        'check': 'x',
+        'outcome': 'disproved',
+        'evidence': _cite(call_id),
+    }
+    if alternative is not None:
+        args['alternative_component'] = alternative
+
+    accepted, errors = roles.challenge_tool(session, 'H2').validate(args)
+
+    assert accepted is None
+    assert error in ' '.join(errors)
+    assert session.ledger is not None
+    assert session.ledger.entries['H2'].verification == 'unverified'
+
+
+def test_disproval_alternative_must_be_a_candidate_when_there_is_a_list(
+    field_ingest: ingest.IngestResult, tmp_path: Path
+) -> None:
+    """On benchmark cases the earlier cause must come from the closed list."""
+    session = dataclasses.replace(
+        _session(field_ingest, tmp_path),
+        task=state.Task(
+            scripted.FIELD_CASE, candidate_services=('api-gateway',)
+        ),
+    )
+    call_id = _call_as(session, 'skeptic', None)
+
+    accepted, errors = roles.challenge_tool(session, 'H2').validate(
+        {
+            'hypothesis_id': 'H2',
+            'check': 'x',
+            'outcome': 'disproved',
+            'alternative_component': 'inventory-db',
+            'evidence': _cite(call_id),
+        }
+    )
+
+    assert accepted is None
+    assert errors == ["'inventory-db' is not in the candidate list"]

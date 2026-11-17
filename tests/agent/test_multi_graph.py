@@ -78,6 +78,11 @@ def _testers() -> dict[str, Sequence[scripted.Turn]]:
 
 
 def _skeptic(outcome: str = 'holds') -> list[scripted.Turn]:
+    if outcome == 'disproved':
+        return [
+            scripted.call('search_text', **_GATEWAY_SEARCH),
+            scripted.challenge('H1', outcome, _GATEWAY_QUOTE, 'api-gateway'),
+        ]
     return [
         scripted.call('search_text', **scripted.LOCK_SEARCH),
         scripted.challenge('H1', outcome, _LOCK_QUOTE),
