@@ -74,12 +74,22 @@ Diagrams (kept in this folder, see §8):
 | 02 | [Baseline & Headroom Study](02-baseline-and-headroom-study.md) | 01 | Merged (#2, #6) |
 | 03 | [Ingest & Tools](03-ingest-and-tools.md) | 01 (its optional model fallback: 04) | Merged (#3, #5) |
 | 04 | [Model Layer](04-model-layer.md) | 01 | Offline checks complete |
-| 05 | [Agent](05-agent.md) | 03, 04 | Built offline; live check waits for model ids and keys |
+| 05 | [Agent](05-agent.md) | 03, 04 | Merged (#11–#16, #20, #21) |
 | 06 | [Evaluation Harness](06-evaluation-harness.md) | 02, 05 | In progress (Wave 4 merged: #24) |
 | 07 | [Multi-Agent Investigation](07-multi-agent.md) | 05, 06 | Not started |
 | 08 | [Upload App](08-upload-app.md) | 05, 07 | In progress (Wave 4 merged: #23) |
 | 09 | [Incident Memory](09-incident-memory.md) | 05, 06, 07, 08 | In progress (Wave 4 merged: #22) |
-| 10 | [Verification & Report](10-verification-and-report.md) | all | Not started |
+| 10 | [Verification & Report](10-verification-and-report.md) | 01–09 | Not started |
+
+Phases 01–10 are the **core pipeline**. Its **end-to-end milestone** is reached when a
+folder of files goes in through the CLI and through the upload page in single mode and
+comes out as a cited report, and the eval runner scores that same path on the tuning
+cases. It needs Phase 05, the Phase 06 runner and Phase 08 single mode (Wave 4 below).
+
+**Additional features** (Phases 11–17) are planned separately in
+[`additional-features/`](additional-features/README.md). They widen the tool to anyone
+debugging a set of files, are not needed by the core pipeline, and none starts before
+the end-to-end milestone.
 
 **Ordering rationale:** the baseline (02) comes before the agent so the target is known.
 Ingest/tools (03) and the model layer (04) are independent of each other and can be
@@ -112,8 +122,9 @@ Every paid use is ranked in Phase 06, Decision 6. The final held-out run is firs
 money is held in a named reserve in the spend guard; everything else is spent in priority
 order and dropped from the bottom if the budget runs out.
 
-**After this plan:** what to build once Phases 01–10 are done, and the known limits of
-this plan, are in [`future-improvements.md`](future-improvements.md).
+**After this plan:** the additional features are in
+[`additional-features/`](additional-features/README.md). What comes after those, and the
+known limits of the core plan, are in [`future-improvements.md`](future-improvements.md).
 
 ## 4. Decision Log (summary — details live in the phase files)
 
@@ -187,6 +198,7 @@ Open items, flagged **⚠️ OPEN** in the phase files:
 | Multi-agent investigation, alongside the single agent | Owner | 07 |
 | Long-term incident memory, off for headline numbers, with an optional experiment | Owner | 09 |
 | Final write-up must not be named `SOLUTION.md` | Owner | 10 |
+| The core pipeline works end to end before any additional feature starts | Owner | 05, 06, 08 |
 | Blind task view, closed answer vocabulary, `predictions.jsonl` format | RCAEval `docs/AGENTS.md` | 02, 06 |
 | Fault start time is given in each task | RCAEval `task.json` | 02, 05 |
 

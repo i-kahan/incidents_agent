@@ -174,8 +174,13 @@ def test_inspect_runtime_status_filters_usable_models(
 @pytest.mark.parametrize(
     'case_name',
     [
-        pytest.param('victim_vs_cause', id='victim_vs_cause'),
+        pytest.param('bad_deploy', id='bad_deploy'),
         pytest.param('config_diff', id='config_diff'),
+        pytest.param('consumer_crash', id='consumer_crash'),
+        pytest.param('disk_full', id='disk_full'),
+        pytest.param('healthy', id='healthy'),
+        pytest.param('lock_contention', id='lock_contention'),
+        pytest.param('victim_vs_cause', id='victim_vs_cause'),
     ],
 )
 def test_run_app_investigation_end_to_end_with_fake_client(
@@ -185,6 +190,10 @@ def test_run_app_investigation_end_to_end_with_fake_client(
     sess = runtime.create_session_dir(tmp_path / 'sessions')
     case_folder = FIELD_ROOT / 'cases' / case_name
     staged, task = runtime.stage_case_folder(sess, case_folder, suite='field')
+    preview = runtime.preview_ingest(staged)
+    assert len(preview.catalog.tables) >= 1
+    assert len(preview.catalog.documents) >= 1
+    assert not preview.catalog.skipped_files
     runs_dir = tmp_path / 'runs'
     seen_types: list[str] = []
 
@@ -210,8 +219,12 @@ def test_run_app_investigation_end_to_end_with_fake_client(
         task_fault_start_s=loaded.task_fault_start_s,
     )
     assert vm.run_id == result.run_id
-    assert vm.total_citations >= 1
-    assert vm.valid_citations == vm.total_citations
+    if case_name == 'healthy':
+        assert vm.outcome_text.startswith('No fault found:')
+        assert vm.total_citations == 0
+    else:
+        assert vm.total_citations >= 1
+        assert vm.valid_citations == vm.total_citations
 
 
 @pytest.mark.integration
