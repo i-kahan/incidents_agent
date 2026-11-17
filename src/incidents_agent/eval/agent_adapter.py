@@ -23,6 +23,7 @@ from incidents_agent.eval import runner
 from incidents_agent.eval import scoring
 from incidents_agent.llm import contracts
 from incidents_agent.llm import ledger as spend_ledger
+from incidents_agent.memory import store as incident_memory
 
 ClientFactory = Callable[[state.Task], contracts.ModelClient]
 
@@ -379,12 +380,27 @@ class Executor:
         *,
         final: bool = False,
         spend: spend_ledger.SpendLedger | None = None,
+        memory_store: incident_memory.MemoryStore | None = None,
     ) -> None:
         """Use a client factory and the existing shared spend ledger."""
         self.client_factory = client_factory
         self.settings = settings
         self.reserve = 'final' if final else None
         self.spend = spend
+        if settings.memory and (
+            memory_store is None
+            or not memory_store.frozen
+            or not settings.memory_frozen
+        ):
+            raise ValueError(
+                'Evaluation memory must be an explicit frozen store'
+            )
+        if not settings.memory and memory_store is not None:
+            raise ValueError('A memory store requires enabled memory')
+        self.memory_store = memory_store
+        self.memory_hash = (
+            memory_store.snapshot_hash() if memory_store else None
+        )
 
     def __call__(
         self, case: runner.Case, attempts: Path, run_id: str
@@ -399,6 +415,14 @@ class Executor:
         folder = attempts / run_id
         started = time.monotonic()
         recovering = (folder / 'report.json').exists()
+        if self.memory_store is not None and (
+            self.memory_store.snapshot_hash() != self.memory_hash
+        ):
+            raise ValueError('Frozen memory changed before attempt')
+        if recovering:
+            saved = runner.read_object(folder / 'manifest.json')
+            if saved.get('memory_snapshot_hash') != self.memory_hash:
+                raise ValueError('Recovered attempt memory identity differs')
         counter = _CallCounter(None)
         try:
             if not recovering:
@@ -410,6 +434,7 @@ class Executor:
                     runs_dir=attempts,
                     run_id=run_id,
                     reserve_name=self.reserve,
+                    memory_store=self.memory_store,
                 )
         except (ValueError, FileNotFoundError) as input_error:
             if counter.calls:

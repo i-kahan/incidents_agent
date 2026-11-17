@@ -15,6 +15,7 @@ from incidents_agent.eval import agent_adapter
 from incidents_agent.eval import answers
 from incidents_agent.eval import baseline_reference
 from incidents_agent.eval import field
+from incidents_agent.eval import memory_seed
 from incidents_agent.eval import reporting
 from incidents_agent.eval import retry
 from incidents_agent.eval import runner
@@ -53,6 +54,8 @@ class Options:
     field_root: Path = ROOT / 'evalsets/field'
     output_root: Path | None = None
     baseline_root: Path | None = None
+    memory: bool = False
+    memory_path: Path | None = None
 
     @classmethod
     def from_args(cls, args: argparse.Namespace) -> 'Options':
@@ -78,6 +81,7 @@ class Prepared:
     answers_path: Path
     executor: runner.Execute
     spend: ledger.SpendLedger | None
+    snapshot: memory_seed.FrozenSnapshot | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -108,6 +112,8 @@ def source_fingerprint(root: Path) -> str:
             'single_call',
             'retry',
             'runner',
+            'telemetry_summary',
+            'memory_seed',
         )
     ]
     for relative in paths:
@@ -156,6 +162,10 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument('--output-root', type=Path, help='Dry-run output root')
     parser.add_argument('--baseline-root', type=Path)
+    parser.add_argument('--memory', action='store_true')
+    parser.add_argument(
+        '--memory-path', type=Path, help='Frozen bundle from seed_memory'
+    )
 
 
 def prepare(args: Options) -> Prepared:
@@ -187,11 +197,23 @@ def prepare(args: Options) -> Prepared:
         )
     if args.agent == 'single_call' and settings.mode == 'multi':
         raise ValueError('The single-call baseline has no multi mode')
-    if settings.memory:
+    memory_enabled = args.memory or settings.memory
+    if args.memory_path is not None and not memory_enabled:
+        raise ValueError('--memory-path requires memory to be enabled')
+    if memory_enabled and args.memory_path is None:
         raise ValueError(
-            'Evaluation runs with incident memory off until a frozen '
-            'snapshot is wired in; set memory: false'
+            'Enabled memory requires --memory-path to a seed bundle'
         )
+    if memory_enabled and args.agent == 'single_call':
+        raise ValueError('Single-call baseline does not support memory')
+    settings = dataclasses.replace(
+        settings, memory=memory_enabled, memory_frozen=memory_enabled
+    )
+    snapshot = (
+        memory_seed.capture(args.memory_path, partition, ids)
+        if memory_enabled and args.memory_path is not None
+        else None
+    )
     suite = 'field' if args.cases == 'field' else 'rcaeval'
     base = args.field_root if suite == 'field' else tasks_root
     cases = [
@@ -309,6 +331,8 @@ def prepare(args: Options) -> Prepared:
         'model': resolved,
         'source_hash': source_fingerprint(ROOT),
         'memory': settings.memory,
+        'memory_frozen': settings.memory_frozen,
+        'memory_snapshot_hash': snapshot.digest if snapshot else None,
         'mode': args.agent,
         'retry_policy': retry.POLICY,
         'summary_policy': single_call.POLICY
@@ -330,11 +354,19 @@ def prepare(args: Options) -> Prepared:
     )
     manifest['partition'] = partition.to_json()
     manifest['heldout_ids'] = sorted(set(ids) & set(partition.heldout))
-    executor_type = (
-        single_call.Executor
-        if args.agent == 'single_call'
-        else agent_adapter.Executor
-    )
+    executor: runner.Execute
+    if args.agent == 'single_call':
+        executor = single_call.Executor(
+            make_client, settings, final=args.final, spend=spend
+        )
+    else:
+        executor = agent_adapter.Executor(
+            make_client,
+            settings,
+            final=args.final,
+            spend=spend,
+            memory_store=snapshot.memory if snapshot else None,
+        )
     return Prepared(
         args,
         tuple(cases),
@@ -343,8 +375,9 @@ def prepare(args: Options) -> Prepared:
         baseline_root,
         tasks_root,
         answers_path,
-        executor_type(make_client, settings, final=args.final, spend=spend),
+        executor,
         spend,
+        snapshot,
     )
 
 
@@ -384,7 +417,15 @@ def execute(
     incurred = float(sum(charges, Decimal(0)))
     usage = reporting.summarize_usage(records)
     runner.atomic_json(folder / 'trajectory-summary.json', usage)
-    runner.atomic_json(folder / 'invocation.json', {'cost_usd': incurred})
+    runner.atomic_json(
+        folder / 'invocation.json',
+        {
+            'cost_usd': incurred,
+            'memory_source': str(args.memory_path.resolve())
+            if args.memory_path
+            else None,
+        },
+    )
     runner.atomic_json(
         folder / 'reports.json',
         {str(record['case_id']): record.get('report') for record in records},
