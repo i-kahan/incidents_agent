@@ -1,6 +1,7 @@
 """Run data tools for the agent and keep their full results citable."""
 
 import json
+import threading
 from collections.abc import Mapping
 
 from incidents_agent.agent import config
@@ -50,7 +51,12 @@ def as_tools(
 
 
 class ToolExecutor:
-    """Call registry tools and store each full result under its call id."""
+    """Call registry tools and store each full result under its call id.
+
+    Calls are serialised behind one lock, so roles running on threads
+    (Phase 07) never share a call id and the run's single DuckDB connection
+    is used by one thread at a time.
+    """
 
     def __init__(
         self,
@@ -65,6 +71,7 @@ class ToolExecutor:
         self.run_id = run_id
         self.continuation = continuation
         self.tools = as_tools(registry.schemas())
+        self._lock = threading.Lock()
 
     def names(self) -> frozenset[str]:
         """Return the data-tool names."""
@@ -82,20 +89,21 @@ class ToolExecutor:
         Returns:
             The stored result, also added to the run's store.
         """
-        result = self._registry.call(name, args)
-        record = self._registry.call_log[-1]
-        stored = results.StoredResult(
-            call_id=record.call_id,
-            run_id=self.run_id,
-            tool=name,
-            args=dict(record.args),
-            ok=record.ok,
-            result=result,
-            target_components=record.target_components,
-            locator=record.locator,
-            continuation=self.continuation,
-        )
-        self.store.add(stored)
+        with self._lock:
+            result = self._registry.call(name, args)
+            record = self._registry.call_log[-1]
+            stored = results.StoredResult(
+                call_id=record.call_id,
+                run_id=self.run_id,
+                tool=name,
+                args=dict(record.args),
+                ok=record.ok,
+                result=result,
+                target_components=record.target_components,
+                locator=record.locator,
+                continuation=self.continuation,
+            )
+            self.store.add(stored)
         return stored
 
     def read(self, call_id: object) -> dict[str, object]:

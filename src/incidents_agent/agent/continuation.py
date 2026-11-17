@@ -26,6 +26,7 @@ from incidents_agent.agent import ledger
 from incidents_agent.agent import memory_record
 from incidents_agent.agent import prompts
 from incidents_agent.agent import results
+from incidents_agent.agent import run_state
 from incidents_agent.agent import state
 from incidents_agent.agent import trajectory
 from incidents_agent.ingest import schema as ingest_schema
@@ -201,7 +202,7 @@ def continue_run(
             reverify=reverify,
             config=settings.to_dict(),
         )
-        run = graph.RunState(
+        run = run_state.RunState(
             session,
             context.Conversation(settings.context, store),
             prompts.has_dependency_data(ingested.catalog),

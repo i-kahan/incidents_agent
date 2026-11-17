@@ -3,6 +3,7 @@
 import dataclasses
 import json
 import re
+import threading
 from collections.abc import Iterator
 from collections.abc import Mapping
 
@@ -117,46 +118,58 @@ class StoredResult:
 
 
 class ResultStore:
-    """Data-tool results of one run, keyed by call id."""
+    """Data-tool results of one run, keyed by call id.
+
+    Safe to share between threads: every access takes one lock, and
+    iteration walks a snapshot.
+    """
 
     def __init__(self) -> None:
         """Start empty."""
         self._items: dict[str, StoredResult] = {}
+        self._lock = threading.RLock()
 
     def add(self, item: StoredResult) -> None:
         """Store a result; call ids are never reused within a store."""
-        if item.call_id in self._items:
-            raise ValueError(f'Duplicate call id {item.call_id}')
-        self._items[item.call_id] = item
+        with self._lock:
+            if item.call_id in self._items:
+                raise ValueError(f'Duplicate call id {item.call_id}')
+            self._items[item.call_id] = item
 
     def get(self, call_id: str) -> StoredResult | None:
         """Return the stored result for a call id, or None."""
-        return self._items.get(call_id)
+        with self._lock:
+            return self._items.get(call_id)
 
     def __contains__(self, call_id: object) -> bool:
         """Return True when the call id is stored."""
-        return call_id in self._items
+        with self._lock:
+            return call_id in self._items
 
     def __len__(self) -> int:
         """Return the number of stored results."""
-        return len(self._items)
+        with self._lock:
+            return len(self._items)
 
     def __iter__(self) -> Iterator[StoredResult]:
-        """Iterate in call order."""
-        return iter(self._items.values())
+        """Iterate in call order, over a snapshot taken now."""
+        with self._lock:
+            snapshot = list(self._items.values())
+        return iter(snapshot)
 
     def next_call_number(self) -> int:
         """Return the number the next call id should use."""
-        numbers = [
-            int(match.group(1))
-            for call_id in self._items
-            if (match := _CALL_NUMBER.match(call_id))
-        ]
+        with self._lock:
+            numbers = [
+                int(match.group(1))
+                for call_id in self._items
+                if (match := _CALL_NUMBER.match(call_id))
+            ]
         return max(numbers, default=0) + 1
 
     def to_list(self) -> list[dict[str, object]]:
         """Return every stored result, JSON-ready, in call order."""
-        return [item.to_dict() for item in self._items.values()]
+        return [item.to_dict() for item in self]
 
     @classmethod
     def from_list(cls, items: object) -> 'ResultStore':

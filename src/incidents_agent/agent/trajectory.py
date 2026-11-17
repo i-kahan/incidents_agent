@@ -1,6 +1,7 @@
 """The run record: an append-only JSON-lines trajectory of every event."""
 
 import json
+import threading
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Literal
@@ -8,6 +9,10 @@ from typing import Literal
 from incidents_agent.llm import contracts
 
 TRAJECTORY_VERSION = 1
+
+# Role tags written on events. `agent` is the single agent; the others are
+# the Phase 07 multi-agent roles. Tester events also carry `hypothesis_id`.
+ROLES: tuple[str, ...] = ('agent', 'lead', 'tester', 'skeptic')
 
 type EventType = Literal[
     'run_start',
@@ -28,7 +33,9 @@ class Trajectory:
     """Collect events in memory and append each one to a JSONL file.
 
     Every event carries the run id, the continuation index and a role tag,
-    so multi-agent roles (Phase 07) share the same schema.
+    so multi-agent roles (Phase 07) share the same schema. Recording is
+    safe from several threads: `seq` is assigned and the line appended
+    under one lock, so sequence numbers have no gaps or repeats.
     """
 
     def __init__(
@@ -39,43 +46,54 @@ class Trajectory:
         self.run_id = run_id
         self.continuation = continuation
         self.events: list[dict[str, object]] = []
+        self._lock = threading.Lock()
         if path is not None:
             path.parent.mkdir(parents=True, exist_ok=True)
             if path.exists():
                 self.events = read_trajectory(path)
 
     def record(
-        self, event_type: EventType, role: str = 'agent', **fields: object
+        self,
+        event_type: EventType,
+        role: str = 'agent',
+        **fields: object,
     ) -> dict[str, object]:
         """Append one event and return it.
 
         Args:
             event_type: Kind of event.
-            role: Role that produced it (`agent` for the single agent).
-            **fields: JSON-serialisable event body.
+            role: Role that produced it, one of `ROLES`.
+            **fields: JSON-serialisable event body. A `hypothesis_id` of
+                None (an event not tied to a tester) is left out.
 
         Returns:
             The event as written.
         """
-        event: dict[str, object] = {
-            'v': TRAJECTORY_VERSION,
-            'seq': len(self.events) + 1,
-            'type': event_type,
-            'run_id': self.run_id,
-            'continuation': self.continuation,
-            'role': role,
-            **fields,
-        }
-        line = json.dumps(event, default=str, ensure_ascii=False)
-        self.events.append(json.loads(line))
-        if self.path is not None:
-            with self.path.open('a', encoding='utf-8') as output:
-                output.write(line + '\n')
-        return self.events[-1]
+        if 'hypothesis_id' in fields and fields['hypothesis_id'] is None:
+            del fields['hypothesis_id']
+        with self._lock:
+            event: dict[str, object] = {
+                'v': TRAJECTORY_VERSION,
+                'seq': len(self.events) + 1,
+                'type': event_type,
+                'run_id': self.run_id,
+                'continuation': self.continuation,
+                'role': role,
+                **fields,
+            }
+            line = json.dumps(event, default=str, ensure_ascii=False)
+            written: dict[str, object] = json.loads(line)
+            self.events.append(written)
+            if self.path is not None:
+                with self.path.open('a', encoding='utf-8') as output:
+                    output.write(line + '\n')
+        return written
 
     def of_type(self, event_type: EventType) -> list[dict[str, object]]:
         """Return the events of one type, in order."""
-        return [event for event in self.events if event['type'] == event_type]
+        with self._lock:
+            events = list(self.events)
+        return [event for event in events if event['type'] == event_type]
 
 
 def read_trajectory(path: Path) -> list[dict[str, object]]:

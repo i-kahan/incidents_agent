@@ -42,6 +42,12 @@ def _run(
     return session, result, client
 
 
+def _single(session: investigate.Session) -> state.Budget:
+    budget = session.budget
+    assert isinstance(budget, state.Budget)
+    return budget
+
+
 def _tool_replies(client: fake.ScriptedClient) -> list[dict[str, object]]:
     history = client.requests[-1][0].history
     return [
@@ -96,7 +102,7 @@ def test_investigate_at_tool_call_limit_forces_finalisation(
 
     final = finalise.finalise(session, submission=None, stop_reason='x')
 
-    assert (result.stop_reason, session.budget.tool_calls) == (
+    assert (result.stop_reason, _single(session).tool_calls) == (
         'tool_call_limit',
         2,
     )
@@ -552,4 +558,97 @@ def test_budget_cost_is_charged_from_settled_results(
         ],
     )
 
-    assert session.budget.cost_usd == Decimal('0.003')
+    assert _single(session).cost_usd == Decimal('0.003')
+
+
+def test_brief_tool_allowlist_hides_and_refuses_other_tools(
+    field_ingest: ingest.IngestResult, tmp_path: Path
+) -> None:
+    """A role sees only its tools; a call to any other is refused."""
+    allowed = frozenset({'search_text', 'read_result'})
+    _, _, client = _run(
+        field_ingest,
+        tmp_path,
+        [
+            scripted.add_hypothesis(evidence=[]),
+            scripted.submit(outcome='no_fault_found'),
+        ],
+        brief=investigate.Brief(role='tester', tools=allowed),
+    )
+
+    names = {tool.name for tool in client.requests[0][0].tools}
+    replies = _tool_replies(client)
+
+    assert names == allowed | {'submit'}
+    assert replies[0]['error'] == {
+        'code': 'unknown_tool',
+        'message': "No tool named 'update_hypotheses'",
+    }
+
+
+def test_brief_system_prompt_replaces_the_agent_prompt(
+    field_ingest: ingest.IngestResult, tmp_path: Path
+) -> None:
+    """A role's own system prompt is the one sent."""
+    _, _, client = _run(
+        field_ingest,
+        tmp_path,
+        [scripted.submit(outcome='no_fault_found')],
+        brief=investigate.Brief(role='skeptic', system='Disprove it.'),
+    )
+
+    assert client.requests[0][0].system_prompt == 'Disprove it.'
+
+
+def test_brief_hypothesis_id_tags_every_event(
+    field_ingest: ingest.IngestResult, tmp_path: Path
+) -> None:
+    """Every event of a tester's step names its role and hypothesis."""
+    session, _, _ = _run(
+        field_ingest,
+        tmp_path,
+        [
+            scripted.call('search_text', **scripted.LOCK_SEARCH),
+            scripted.submit(outcome='no_fault_found'),
+        ],
+        brief=investigate.Brief(role='tester', hypothesis_id='H1'),
+    )
+
+    tags = {
+        (event['type'], event['role'], event.get('hypothesis_id'))
+        for event in session.record.events
+    }
+
+    assert tags == {
+        ('model_call', 'tester', 'H1'),
+        ('tool_call', 'tester', 'H1'),
+    }
+
+
+def test_loop_on_role_allowance_stops_at_the_role_share(
+    field_ingest: ingest.IngestResult, tmp_path: Path
+) -> None:
+    """A role's loop spends its own allowance, not the whole run's."""
+    client = fake.ScriptedClient(
+        [
+            scripted.calls(
+                ('list_tables', {}), ('search_text', scripted.LOCK_SEARCH)
+            ),
+            scripted.call('find_onset'),
+        ]
+    )
+    session = scripted.make_session(
+        field_ingest, client, tmp_path, agent_config=_NO_VERIFY
+    )
+    shared = state.SharedBudget(config.Limits())
+    session.budget = shared.allocate('tester', tool_calls=1, model_turns=5)
+
+    result = investigate.investigate(
+        session,
+        investigate.Brief(role='tester'),
+        scripted.conversation(session),
+        investigate.submit_tool(session),
+    )
+
+    assert result.stop_reason == 'tool_call_limit'
+    assert shared.to_dict()['tool_calls'] == 1

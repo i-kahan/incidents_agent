@@ -31,6 +31,7 @@ from incidents_agent.agent import ledger as agent_ledger
 from incidents_agent.agent import memory_record
 from incidents_agent.agent import report
 from incidents_agent.agent import results
+from incidents_agent.agent import run_state
 from incidents_agent.agent import state
 from incidents_agent.agent import trajectory
 from incidents_agent.eval import field
@@ -854,7 +855,7 @@ def _save_classification_overrides(
 ) -> None:
     """Persist overrides so a later continuation classifies files alike."""
     if overrides:
-        graph.write_json(
+        run_state.write_json(
             run_dir / _OVERRIDES_FILE,
             {name: list(choice) for name, choice in overrides.items()},
         )
@@ -953,7 +954,7 @@ def _preserve_initial_inputs(
         saved = json.loads(ckpt_path.read_text(encoding='utf-8'))
         if isinstance(saved, dict) and isinstance(saved.get('task'), dict):
             saved['task']['folder'] = str(dest)
-            graph.write_json(ckpt_path, saved)
+            run_state.write_json(ckpt_path, saved)
     manifest_path = run_dir / 'manifest.json'
     if manifest_path.is_file():
         manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
@@ -961,7 +962,7 @@ def _preserve_initial_inputs(
             manifest.get('task'), dict
         ):
             manifest['task']['folder'] = str(dest)
-            graph.write_json(manifest_path, manifest)
+            run_state.write_json(manifest_path, manifest)
 
 
 def _apply_config_overrides(
@@ -992,7 +993,7 @@ def _update_manifest_mode(run_dir: pathlib.Path, mode: str) -> None:
         manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
         if isinstance(manifest, dict):
             manifest['mode'] = mode
-            graph.write_json(manifest_path, manifest)
+            run_state.write_json(manifest_path, manifest)
 
 
 def _resolve_run_id(run_dir: pathlib.Path) -> str:
@@ -1316,7 +1317,7 @@ def continue_app_run(
                 outcome=carried_outcome,
                 recorded_at=datetime.datetime.now(datetime.UTC).isoformat(),
             )
-            graph.write_json(run_dir / 'feedback.json', carried.to_dict())
+            run_state.write_json(run_dir / 'feedback.json', carried.to_dict())
         return result
     finally:
         cleanup_session_dir(cleanup_added_dir)
@@ -1349,7 +1350,7 @@ def save_feedback(
         )
     )
     path = run_dir / 'feedback.json'
-    graph.write_json(path, stamped.to_dict())
+    run_state.write_json(path, stamped.to_dict())
 
     target_store = memory_store
     if target_store is None:

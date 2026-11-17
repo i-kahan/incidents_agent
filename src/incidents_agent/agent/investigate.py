@@ -37,7 +37,8 @@ class Session:
         client: Model client (guarded or fake).
         executor: Data-tool executor over the run's result store.
         ledger: Hypothesis ledger, or None when ablated.
-        budget: Limits and counters.
+        budget: Limits and counters: a `Budget` in single mode, a role's
+            `RoleAllowance` in multi mode.
         record: Trajectory.
         briefing: Stable catalog briefing from `orient`.
         stated_ranks: Last ranking the model stated in any submit call,
@@ -50,7 +51,7 @@ class Session:
     client: contracts.ModelClient
     executor: executor.ToolExecutor
     ledger: ledger.HypothesisLedger | None
-    budget: state.Budget
+    budget: state.LoopBudget
     record: trajectory.Trajectory
     briefing: str = ''
     stated_ranks: tuple[str, ...] = ()
@@ -60,11 +61,23 @@ class Session:
         """Return the run id."""
         return self.run.id
 
-    def tools(self, terminal: contracts.Tool) -> tuple[contracts.Tool, ...]:
+    def tools(
+        self,
+        terminal: contracts.Tool,
+        allowed: frozenset[str] | None = None,
+    ) -> tuple[contracts.Tool, ...]:
         """Return the tool list sent with every request of a step.
 
-        The list never changes inside a run, whatever a tool result says,
+        The list never changes inside a step, whatever a tool result says,
         so the cached prompt prefix stays valid.
+
+        Args:
+            terminal: The tool that ends the step; always included.
+            allowed: Names of the other tools this step may use; None
+                allows them all.
+
+        Returns:
+            Data tools, agent tools and the terminal tool, in that order.
         """
         agent_tools = [executor.READ_RESULT_TOOL]
         if self.ledger is not None:
@@ -77,7 +90,10 @@ class Session:
                     executor.json_schema(ledger.UPDATE_TOOL_SCHEMA),
                 ),
             )
-        return (*self.executor.tools, *agent_tools, terminal)
+        listed = (*self.executor.tools, *agent_tools)
+        if allowed is not None:
+            listed = tuple(tool for tool in listed if tool.name in allowed)
+        return (*listed, terminal)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -96,11 +112,19 @@ class Brief:
         node: Graph node name, recorded on every event.
         role: Role tag, recorded on every event (Phase 07).
         max_turns: Extra cap on model turns for this step.
+        hypothesis_id: Hypothesis a tester works on, recorded on every
+            event when set.
+        system: System prompt for this step; None uses the agent's.
+        tools: Names of the non-terminal tools this step may call; None
+            allows every tool. A call to a tool outside it is refused.
     """
 
     node: str = 'investigate'
     role: str = 'agent'
     max_turns: int | None = None
+    hypothesis_id: str | None = None
+    system: str | None = None
+    tools: frozenset[str] | None = None
 
 
 @dataclasses.dataclass(frozen=True)
@@ -153,8 +177,12 @@ def investigate(
     Returns:
         Why and how the step ended.
     """
-    tools = session.tools(terminal.tool)
-    system = prompts.system_prompt(session.config)
+    tools = session.tools(terminal.tool, brief.tools)
+    system = (
+        prompts.system_prompt(session.config)
+        if brief.system is None
+        else brief.system
+    )
     calls_made: list[str] = []
     invalid = 0
     turns = 0
@@ -224,6 +252,7 @@ def investigate(
                 session.record.record(
                     'tool_call',
                     role=brief.role,
+                    hypothesis_id=brief.hypothesis_id,
                     node=brief.node,
                     model_call_id=call.id,
                     **stored.to_dict(),
@@ -279,6 +308,7 @@ def _terminal(
         session.record.record(
             'submit_rejected',
             role=brief.role,
+            hypothesis_id=brief.hypothesis_id,
             node=brief.node,
             tool=terminal.tool.name,
             arguments=args,
@@ -301,6 +331,7 @@ def _agent_tool(
         session.record.record(
             'ledger',
             role=brief.role,
+            hypothesis_id=brief.hypothesis_id,
             node=brief.node,
             arguments=args,
             result=result,
@@ -311,6 +342,7 @@ def _agent_tool(
     session.record.record(
         'agent_tool',
         role=brief.role,
+        hypothesis_id=brief.hypothesis_id,
         node=brief.node,
         tool=name,
         arguments=args,
@@ -329,6 +361,7 @@ def _record_model_call(
     session.record.record(
         'model_call',
         role=brief.role,
+        hypothesis_id=brief.hypothesis_id,
         node=brief.node,
         requested_model=result.requested_model,
         served_model=response.served_model,
@@ -350,6 +383,7 @@ def _record_failure(
     session.record.record(
         'model_error',
         role=brief.role,
+        hypothesis_id=brief.hypothesis_id,
         node=brief.node,
         reason=reason,
         error=type(exc).__name__,

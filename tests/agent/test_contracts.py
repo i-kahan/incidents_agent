@@ -23,6 +23,8 @@ def test_load_agent_config_reads_repo_file() -> None:
     assert loaded.limits.tool_calls == 15
     assert loaded.limits.cost_usd == Decimal('0.05')
     assert loaded.ledger and loaded.verify
+    assert loaded.mode == 'single'
+    assert (loaded.multi.tool_calls, loaded.multi.model_turns) == (15, 30)
 
 
 @pytest.mark.parametrize(
@@ -33,6 +35,24 @@ def test_load_agent_config_reads_repo_file() -> None:
         pytest.param('limits:\n  tool_calls: 1.5\n', id='fractional_calls'),
         pytest.param('ledger: maybe\n', id='non_bool_switch'),
         pytest.param('context:\n  digest_block: 0\n', id='zero_block'),
+        pytest.param('mode: swarm\n', id='unknown_mode'),
+        pytest.param('multi:\n  testers: 2\n', id='unknown_multi_field'),
+        pytest.param('multi:\n  max_testers: 0\n', id='no_testers'),
+        pytest.param('skeptic_model_alias: 3\n', id='non_string_skeptic'),
+        pytest.param(
+            'mode: multi\nmulti:\n  lead_tool_calls: 4\n',
+            id='multi_over_tool_limit',
+        ),
+        pytest.param(
+            'mode: multi\nmulti:\n  tester_model_turns: 6\n',
+            id='multi_over_turn_limit',
+        ),
+        pytest.param(
+            'mode: multi\nmulti:\n  reserve_cost_usd: 0.06\n',
+            id='multi_reserve_over_cost',
+        ),
+        pytest.param('mode: multi\nverify: false\n', id='multi_no_verify'),
+        pytest.param('mode: multi\nledger: false\n', id='multi_no_ledger'),
     ],
 )
 def test_load_agent_config_with_invalid_value_raises(
@@ -44,6 +64,41 @@ def test_load_agent_config_with_invalid_value_raises(
 
     with pytest.raises(llm_config.ConfigError):
         config.load_agent_config(path)
+
+
+def test_single_mode_ignores_an_allocation_over_small_limits() -> None:
+    """The allocation is only checked when multi mode will use it."""
+    settings = config.AgentConfig(limits=config.Limits(tool_calls=2))
+
+    assert settings.mode == 'single'
+
+
+def test_multi_config_round_trips_through_dict() -> None:
+    """Mode, skeptic model and allocation survive the manifest form."""
+    original = config.AgentConfig(
+        mode='multi',
+        skeptic_model_alias='gpt-small',
+        multi=config.MultiAllocation(
+            max_testers=2,
+            tester_wall_time_s=90.0,
+            reserve_cost_usd=Decimal('0.02'),
+        ),
+    )
+
+    rebuilt = config.AgentConfig.from_dict(
+        json.loads(json.dumps(original.to_dict()))
+    )
+
+    assert rebuilt == original
+
+
+def test_mode_changes_the_fingerprinted_configuration() -> None:
+    """The mode is part of what the run cache hashes."""
+    single = config.AgentConfig().to_dict()
+    multi = config.AgentConfig(mode='multi').to_dict()
+
+    assert (single['mode'], multi['mode']) == ('single', 'multi')
+    assert single != multi
 
 
 def test_agent_config_round_trips_through_dict() -> None:

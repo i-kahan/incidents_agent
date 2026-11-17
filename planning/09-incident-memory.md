@@ -131,7 +131,9 @@ app, and (budget permitting) an on-versus-off result.
 * **One extra held-out pass.** *Source: budget.* **Implication:** the experiment runs
   only if its allocation survives the earlier paid runs.
 * **Works in both agent modes.** *Source: Phase 07.* **Implication:** in multi mode only
-  the lead calls `search_past_incidents`; tests cover both modes.
+  the lead calls `search_past_incidents`; tests cover both modes. Phase 07a gives each
+  role a tool allowlist (`investigate.Brief.tools`), so the rule is enforced by the
+  loop, not by the prompt.
 
 ## 5. Verification evidence
 *Experiment table and tool-usage counts go here, if the experiment runs.*
