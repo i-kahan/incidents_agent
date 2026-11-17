@@ -1,6 +1,9 @@
 # Phase 7: Multi-Agent Investigation
 
-**Status:** Not started
+**Status:** In progress. 07a (shared-run contracts: thread safety, role
+allowances, `mode` and the role allocation in the agent configuration) is built and
+tested offline ($0.00 spend). 07b (roles and the multi graph) and 07c (evaluation
+modes) remain. Until 07b lands, `mode: multi` is refused by `run_investigation`.
 
 ## 1. Objective
 Add a second agent architecture — a lead investigator, parallel hypothesis testers and
@@ -30,6 +33,21 @@ See [`flowchart-multi-agent.svg`](flowchart-multi-agent.svg).
       For the single-versus-multi comparison every role uses the same model as the
       single agent; a different skeptic model is a separate, labelled configuration.
 
+**07a — Shared-run contracts (prerequisite for B, lands first)**
+- [x] Tool execution serialised behind one lock in `ToolExecutor`: unique call ids and
+      one thread at a time on the run's DuckDB connection. `ResultStore` and
+      `Trajectory` are lock-guarded; `seq` stays gap-free under threads.
+- [x] `state.SharedBudget` and `state.RoleAllowance`: grants never exceed the pool,
+      every charge counts against the run totals, `close()` returns unused capacity
+      to the pool, `top_up()` hands it on. `role_wall_time` is a soft stop.
+- [x] `state.LoopBudget` protocol; `Session.budget` accepts either budget.
+- [x] `investigate.Brief` gains `hypothesis_id` (recorded on every event), `system`
+      (per-role system prompt) and `tools` (allowlist, enforced by the loop).
+- [x] `RunState`, `write_json` and `target` moved to `agent/run_state.py` so the
+      multi graph can reuse them without importing the single graph.
+- [x] Trajectory role vocabulary fixed: `agent | lead | tester | skeptic`, with
+      `hypothesis_id` on tester events. This is the contract Phases 08 and 09 use.
+
 **Workstream B — Graph (`agent/multi_graph.py`)**
 - [ ] Graph: orient → lead → testers (fan-out, run in parallel) → merge → skeptic →
       report, with one edge from skeptic back to lead when the hypothesis is disproved.
@@ -48,8 +66,9 @@ See [`flowchart-multi-agent.svg`](flowchart-multi-agent.svg).
       the verdicts that exist, and an undecided hypothesis ranks below a supported one
       and above a rejected one.
 - [ ] Limits behave as in Phase 05: on exhaustion, a forced report from the ledger.
-- [ ] `agent.mode: single | multi` in the agent configuration; the mode is part of the
-      run-cache key.
+- [x] `agent.mode: single | multi` in the agent configuration; the mode is part of the
+      run-cache key. *(07a: `AgentConfig.mode`, `skeptic_model_alias` and the
+      `multi` allocation, in `to_dict` and so in the fingerprint.)*
 
 **Workstream C — Run record and evaluation**
 - [ ] Every model and tool call in the trajectory is tagged with the role and, for
@@ -140,6 +159,28 @@ See [`flowchart-multi-agent.svg`](flowchart-multi-agent.svg).
 * **Trade-off:** Two graphs to maintain. Tools, ledger, limits and reporting are shared
   so the duplicated surface is the graph wiring and the prompts.
 
+#### Decision 6: Returned budget is handed out only after the fan-out
+
+* **Decision:** A tester that finishes early returns its unused tool calls, turns and
+  cost to the shared pool, but the pool is granted again only after every tester
+  has finished: to the skeptic and the lead's report.
+* **Context/Constraint:** If a running tester could draw on what another returned,
+  how much each hypothesis was tested would depend on which thread finished first,
+  and two runs of the same case could differ for no reason in the data.
+* **Trade-off:** A tester that needs one more call cannot borrow it from an idle
+  sibling, so some capacity waits until the report.
+
+#### Decision 7: Tool calls are serialised; model calls run in parallel
+
+* **Decision:** Testers run on real threads (LangGraph fan-out). Data-tool calls go
+  through one lock in the shared executor; model calls overlap.
+* **Context/Constraint:** The run has one read-only DuckDB connection and one
+  call-id sequence that every citation refers to. Tool calls take milliseconds;
+  model calls take seconds, so the wall-time gain is kept.
+* **Trade-off:** Testers wait on each other's queries. Per-thread DuckDB cursors
+  would remove that wait at the cost of a second id scheme; not worth it at these
+  sizes.
+
 ## 4. Constraints
 
 * **Both multi-agent and incident memory are in scope.** *Source: owner.*
@@ -155,4 +196,8 @@ See [`flowchart-multi-agent.svg`](flowchart-multi-agent.svg).
 *The equal-budget comparison table and the selection outcome go here.*
 
 ## 6. AI-use notes (feeds `REPORT.md`)
-*Filled in as the work happens.*
+- 07a: Claude Code mapped the thread-safety hazards in the shared run (registry call
+  ids, `call_log[-1]`, budget counters, trajectory `seq`, store iteration), proposed
+  the three-PR split, and wrote the locks, the shared budget, the config fields and
+  their tests. The owner chose real threads over sequential testers and the
+  bootstrap selection rule over DESIGN.md's simpler one.

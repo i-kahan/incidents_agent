@@ -31,7 +31,9 @@ folder of files the agent has never seen.
 - [x] Live view: tool calls and ledger changes streamed as the agent runs; running cost.
       In multi mode, one lane per role so parallel testers are readable. *(Wave 5 splits
       tester lanes by `hypothesis_id`, orders lanes `lead` → `tester:H1..Hn` → `skeptic`,
-      and renders parallel tester lanes side-by-side in columns.)*
+      and renders parallel tester lanes side-by-side in columns. Contract from Phase
+      07a: events carry `role` in `agent | lead | tester | skeptic`, and tester events
+      carry `hypothesis_id`.)*
 - [x] Report view: root cause, fault type, confidence, evidence items each linked to the
       tool call behind them (document evidence shows the cited chunk with its heading), recommended actions, total cost and time.
 - [x] Recommended actions shown with their risk level and how to verify each, read-only

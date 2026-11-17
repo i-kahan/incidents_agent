@@ -1,13 +1,11 @@
 """The agent graph: orient, investigate, verify, report.
 
-The graph is a LangGraph state graph whose nodes act on one `RunState`
+The graph is a LangGraph state graph whose nodes act on one `run_state.RunState`
 held in Python. Tools, the ledger and finalisation are plain Python and do
 not depend on LangGraph. State is checkpointed to JSON at every node exit.
 """
 
 import dataclasses
-import json
-import os
 import tempfile
 import time
 import uuid
@@ -35,6 +33,7 @@ from incidents_agent.agent import prompts
 from incidents_agent.agent import render
 from incidents_agent.agent import report
 from incidents_agent.agent import results
+from incidents_agent.agent import run_state
 from incidents_agent.agent import state
 from incidents_agent.agent import trajectory
 from incidents_agent.ingest import schema as ingest_schema
@@ -42,11 +41,6 @@ from incidents_agent.llm import contracts
 from incidents_agent.memory import store as incident_memory
 
 VERIFY_NAME = 'record_verification'
-CHECKPOINT_VERSION = 1
-START_MESSAGE = (
-    'Investigate the incident described in the briefing and find its root '
-    'cause.'
-)
 _MAX_VERIFY_RUNS = 2
 _VERIFY_OUTCOMES: tuple[report.Verification, ...] = (
     'supported',
@@ -70,89 +64,6 @@ VERIFY_SCHEMA: dict[str, object] = {
     },
     'required': ['hypothesis_id', 'check', 'outcome'],
 }
-
-
-@dataclasses.dataclass
-class RunState:
-    """Everything one run carries between nodes and into its checkpoint.
-
-    Attributes:
-        session: Shared run state for the loop.
-        conversation: Message history.
-        catalog_has_dependencies: Whether dependency data was detected.
-        catalog: Summary of the ingested catalog, for continuations.
-        run_dir: Folder for the run record, or None to keep it in memory.
-        continuation: Continuation index.
-        opening: First user message of this pass.
-        submission: Last accepted `submit` arguments.
-        stop_reason: Why investigation (or the run) stopped.
-        verify_runs: How many times verify has run.
-        corrected: Whether the single return to investigate was used.
-        pending_correction: Refutation that sends the run back, if any.
-        verdicts: Verification outcomes by component, ledger off.
-        final: The finished report.
-    """
-
-    session: investigate.Session
-    conversation: context.Conversation
-    catalog_has_dependencies: bool
-    run_dir: Path | None
-    catalog: dict[str, object] = dataclasses.field(default_factory=dict)
-    continuation: int = 0
-    opening: str = START_MESSAGE
-    submission: dict[str, object] | None = None
-    stop_reason: str = 'submitted'
-    verify_runs: int = 0
-    corrected: bool = False
-    pending_correction: dict[str, str] | None = None
-    verdicts: dict[str, finalise.Verdict] = dataclasses.field(
-        default_factory=dict
-    )
-    final: report.Report | None = None
-
-    def checkpoint(self, node: str) -> None:
-        """Write the state after `node` to `checkpoint.json`, atomically."""
-        if self.run_dir is None:
-            return
-        session = self.session
-        data = {
-            'v': CHECKPOINT_VERSION,
-            'run_id': session.run_id,
-            'continuation': self.continuation,
-            'node': node,
-            'written_at': datetime.now(UTC).isoformat(),
-            'task': session.task.to_dict(),
-            'config': session.config.to_dict(),
-            'briefing': session.briefing,
-            'catalog': self.catalog,
-            'budget': session.budget.to_dict(),
-            'ledger': (
-                None if session.ledger is None else session.ledger.to_dict()
-            ),
-            'results': session.executor.store.to_list(),
-            'conversation': self.conversation.to_dict(),
-            'stated_ranks': list(session.stated_ranks),
-            'submission': self.submission,
-            'stop_reason': self.stop_reason,
-            'verify_runs': self.verify_runs,
-            'corrected': self.corrected,
-            'verdicts': {
-                key: dataclasses.asdict(value)
-                for key, value in self.verdicts.items()
-            },
-            'report': None if self.final is None else self.final.to_dict(),
-        }
-        write_json(self.run_dir / 'checkpoint.json', data)
-
-
-def write_json(path: Path, data: object) -> None:
-    """Write JSON to `path` through a temporary file and a rename."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    handle, temp = tempfile.mkstemp(dir=path.parent, suffix='.tmp')
-    with os.fdopen(handle, 'w', encoding='utf-8') as output:
-        json.dump(data, output, indent=2, ensure_ascii=False, default=str)
-        output.write('\n')
-    os.replace(temp, path)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -181,7 +92,9 @@ class _Step(Protocol):
 
 
 def _node(
-    name: str, run: RunState, action: Callable[[RunState], None]
+    name: str,
+    run: run_state.RunState,
+    action: Callable[[run_state.RunState], None],
 ) -> _Step:
     def step(state: _GraphState) -> _GraphState:
         del state  # The graph state only carries the node name.
@@ -193,14 +106,13 @@ def _node(
     return step
 
 
-def _orient(run: RunState) -> None:
-    session = run.session
+def _orient(run: run_state.RunState) -> None:
     run.conversation.append(contracts.Message('user', run.opening))
-    if not session.budget.reservation_ok():
+    if not run.budget.reservation_ok():
         run.stop_reason = 'reservation_refused'
 
 
-def _investigate(run: RunState) -> None:
+def _investigate(run: run_state.RunState) -> None:
     session = run.session
     brief = investigate.Brief()
     if run.pending_correction is not None:
@@ -226,37 +138,14 @@ def _investigate(run: RunState) -> None:
     run.stop_reason = outcome.stop_reason
 
 
-def _target(run: RunState) -> tuple[str, str] | None:
-    session = run.session
-    ranks = None if run.submission is None else run.submission.get('ranks')
-    names = (
-        tuple(str(name) for name in ranks)
-        if isinstance(ranks, list)
-        else session.stated_ranks
-    )
-    book = session.ledger
-    if book is None:
-        return (names[0], names[0]) if names else None
-    candidates = [book.find(name) for name in names]
-    candidates += book.ranked()
-    for entry in candidates:
-        if (
-            entry is not None
-            and entry.status != 'rejected'
-            and book.has_data_support(entry)
-        ):
-            return entry.id, entry.component
-    return None
-
-
-def _already_checked(run: RunState, target: tuple[str, str]) -> bool:
+def _already_checked(run: run_state.RunState, target: tuple[str, str]) -> bool:
     book = run.session.ledger
     if book is None:
         return target[1].casefold() in run.verdicts
     return book.entries[target[0]].verification != 'unverified'
 
 
-def _route_after_investigate(run: RunState) -> str:
+def _route_after_investigate(run: run_state.RunState) -> str:
     session = run.session
     if run.stop_reason in state.HARD_STOPS or not session.config.verify:
         return 'report'
@@ -265,7 +154,7 @@ def _route_after_investigate(run: RunState) -> str:
         and run.submission.get('outcome') == 'no_fault_found'
     ):
         return 'report'
-    target = _target(run)
+    target = run_state.target(run)
     if (
         target is None
         or run.verify_runs >= _MAX_VERIFY_RUNS
@@ -278,7 +167,7 @@ def _route_after_investigate(run: RunState) -> str:
 
 
 def _verify_tool(
-    run: RunState, target: tuple[str, str], first_fresh: int
+    run: run_state.RunState, target: tuple[str, str], first_fresh: int
 ) -> investigate.TerminalTool:
     session = run.session
     hypothesis_id, component = target
@@ -356,12 +245,12 @@ def _plain_verdict_errors(
     return []
 
 
-def _verify(run: RunState) -> None:
+def _verify(run: run_state.RunState) -> None:
     session = run.session
-    target = _target(run)
+    target = run_state.target(run)
     if target is None:
         return
-    session.budget.release_reserve()
+    run.budget.release_reserve()
     run.verify_runs += 1
     hypothesis_id, component = target
     direction = (
@@ -410,13 +299,13 @@ def _verify(run: RunState) -> None:
         }
 
 
-def _route_after_verify(run: RunState) -> str:
+def _route_after_verify(run: run_state.RunState) -> str:
     if run.pending_correction is not None:
         return 'investigate'
     return 'report'
 
 
-def _report(run: RunState) -> None:
+def _report(run: run_state.RunState) -> None:
     session = run.session
     run.final = finalise.finalise(
         session,
@@ -433,14 +322,16 @@ def _report(run: RunState) -> None:
     )
     suffixes = [''] + ([f'-c{run.continuation}'] if run.continuation else [])
     for suffix in suffixes:
-        write_json(run.run_dir / f'report{suffix}.json', run.final.to_dict())
+        run_state.write_json(
+            run.run_dir / f'report{suffix}.json', run.final.to_dict()
+        )
         (run.run_dir / f'report{suffix}.md').write_text(
             markdown, encoding='utf-8'
         )
 
 
 def build_graph(
-    run: RunState,
+    run: run_state.RunState,
 ) -> Callable[[], None]:
     """Compile the four-node graph over one run and return its runner.
 
@@ -651,7 +542,14 @@ def run_investigation(
 
     Returns:
         The run id, its folder, its report and its events.
+
+    Raises:
+        ValueError: The configuration asks for a mode not built yet.
     """
+    if agent_config.mode != 'single':
+        # TODO: planning/07-multi-agent.md Workstream B - the multi graph
+        # replaces this refusal.
+        raise ValueError(f'Agent mode {agent_config.mode!r} is not built yet')
     identifier = run_id or new_run_id(task)
     run_dir = None if runs_dir is None else runs_dir / identifier
     if run_dir is not None:
@@ -696,11 +594,13 @@ def run_investigation(
         snapshot = (
             None if active_memory is None else active_memory.snapshot_hash()
         )
-        details = manifest(session, memory_snapshot_hash=snapshot)
+        details = manifest(
+            session, mode=agent_config.mode, memory_snapshot_hash=snapshot
+        )
         if run_dir is not None:
-            write_json(run_dir / 'manifest.json', details)
+            run_state.write_json(run_dir / 'manifest.json', details)
         record.record('run_start', manifest=details)
-        run = RunState(
+        run = run_state.RunState(
             session,
             context.Conversation(agent_config.context, store),
             prompts.has_dependency_data(ingested.catalog),
