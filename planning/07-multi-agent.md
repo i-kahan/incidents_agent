@@ -344,9 +344,9 @@ ranking. The cause is the same starvation the lead had before #32: the single ag
 keeps querying, reaches its last turn holding no ledger entry, and its
 `update_hypotheses` call is refused there because only `submit` may run. Runs with no
 ranking for this reason went 2 → 5 → 8 across the three runs; the direction wording
-added in Decision 10 asks for one more check, which leaves less room. Phase 06's
-planned noise check (5 cases × 3 repeats, $0.09) gave a flip rate of 0 but at an
-accuracy of 0 on all repeats, so it does not bound noise. Proposed fix (not made):
+added in Decision 10 asks for one more check, which leaves less room. Run-to-run
+noise for gpt-4o-mini is still unmeasured: the first noise-check attempt ran on the
+wrong model by mistake (see Phase 06). Proposed fix (not made):
 let the ledger update run on the final turn without using a tool call, in both
 modes, as `dispatch` already does for the lead.
 
@@ -357,7 +357,8 @@ noise not yet measured), and small per-role allowances. The result says the
 architecture does not pay off at equal budget with gpt-4o-mini; it does not test a
 larger budget or a stronger model. The run cost about $0.38 of the $1.50 allocation;
 the spend guard's total for the project is $0.40 before the follow-up rerun and
-$0.79 after it, $1.14 after the second follow-up, and $1.23 after the noise check.
+$0.79 after it, $1.14 after the second follow-up, and $1.83 after the mistaken noise-check attempt
+($0.69, on claude-haiku-4-5).
 
 ## 6. AI-use notes (feeds `REPORT.md`)
 - 07a: Claude Code mapped the thread-safety hazards in the shared run (registry call
