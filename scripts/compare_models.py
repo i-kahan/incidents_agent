@@ -8,10 +8,16 @@ from incidents_agent.eval import service
 
 
 def main() -> int:
-    """Run one mode across models and write Markdown, CSV and JSON."""
+    """Run models (and agent modes) and write Markdown, CSV and JSON."""
     parser = argparse.ArgumentParser(description=__doc__)
     service.add_arguments(parser)
     parser.add_argument('--models', nargs='+', required=True)
+    parser.add_argument(
+        '--modes',
+        nargs='+',
+        choices=('single', 'multi'),
+        help='Run each model in these agent modes (Phase 07)',
+    )
     parser.add_argument('--results-root', type=Path)
     parser.add_argument('--noise-runs', nargs='+', type=Path, default=[])
     args = parser.parse_args()
@@ -19,6 +25,7 @@ def main() -> int:
         folder, table = comparison.run(
             service.Options.from_args(args),
             args.models,
+            modes=args.modes,
             results_root=args.results_root,
             noise_runs=args.noise_runs,
         )

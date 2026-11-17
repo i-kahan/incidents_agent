@@ -306,7 +306,7 @@ class AgentConfig:
         skeptic = data.get('skeptic_model_alias')
         if skeptic is not None and not isinstance(skeptic, str):
             raise llm_config.ConfigError('skeptic_model_alias must be a string')
-        mode = _mode(data.get('mode', 'single'))
+        mode = parse_mode(data.get('mode', 'single'))
         for name in ('ledger', 'verify'):
             if not isinstance(data.get(name, True), bool):
                 raise llm_config.ConfigError(f'{name} must be true or false')
@@ -389,7 +389,18 @@ def _context(data: Mapping[str, object]) -> ContextPolicy:
     )
 
 
-def _mode(value: object) -> Mode:
+def parse_mode(value: object) -> Mode:
+    """Return `value` as an agent mode.
+
+    Args:
+        value: A mode name from configuration or the command line.
+
+    Returns:
+        The mode.
+
+    Raises:
+        ConfigError: The value is not a known mode.
+    """
     for mode in MODES:
         if value == mode:
             return mode

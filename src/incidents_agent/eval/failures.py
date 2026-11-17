@@ -109,6 +109,100 @@ def forced(record: Mapping[str, object]) -> bool | None:
     return None
 
 
+_ROLE_METRICS = ('model_turns', 'tool_calls', 'input_tokens', 'output_tokens')
+
+
+def role_columns(usage: Mapping[str, object]) -> dict[str, float]:
+    """Return `<role>_<metric>` columns from a record's per-role usage.
+
+    Args:
+        usage: The record's usage, with `by_role` from the agent adapter.
+
+    Returns:
+        Flat columns; empty when the run recorded no roles.
+    """
+    by_role = usage.get('by_role')
+    columns: dict[str, float] = {}
+    for role, totals in by_role.items() if isinstance(by_role, dict) else ():
+        for metric in _ROLE_METRICS:
+            value = totals.get(metric) if isinstance(totals, dict) else None
+            columns[f'{role}_{metric}'] = (
+                float(value)
+                if isinstance(value, int | float)
+                and not isinstance(value, bool)
+                else 0.0
+            )
+    return columns
+
+
+def skeptic_columns(
+    usage: Mapping[str, object], gold_service: object
+) -> dict[str, object]:
+    """Return the skeptic's outcome and whether a disproval was right.
+
+    A disproval is right when the hypothesis it overturned was not the
+    true root-cause service, and wrong when it was.
+
+    Args:
+        usage: The record's usage, with `skeptic` from the agent adapter.
+        gold_service: The case's true root-cause service.
+
+    Returns:
+        `skeptic_outcome` and `skeptic_overturn_right` (None unless the
+        skeptic disproved its target).
+    """
+    challenge = usage.get('skeptic')
+    if not isinstance(challenge, dict):
+        return {'skeptic_outcome': None, 'skeptic_overturn_right': None}
+    outcome = challenge.get('outcome')
+    right = None
+    if outcome == 'disproved':
+        right = (
+            str(challenge.get('component', '')).casefold()
+            != str(gold_service).casefold()
+        )
+    return {'skeptic_outcome': outcome, 'skeptic_overturn_right': right}
+
+
+_BASE_COLUMNS = frozenset(
+    {
+        'case_id',
+        'fault',
+        'service_rank',
+        'indicator_rank',
+        'model_turns',
+        'tool_calls',
+        'inspected_root',
+        'forced',
+        'outcome',
+        'stop_reason',
+        'attempts',
+        'error',
+        'has_ranking',
+        'category',
+    }
+)
+
+
+def _multi_summary(
+    rows: list[dict[str, object]], role_keys: list[str]
+) -> dict[str, object]:
+    outcomes = [row.get('skeptic_outcome') for row in rows]
+    verdicts = [row.get('skeptic_overturn_right') for row in rows]
+    return {
+        'by_role': {
+            key: sum(float(str(row.get(key, 0))) for row in rows)
+            for key in role_keys
+        },
+        'skeptic': {
+            'challenged': sum(outcome is not None for outcome in outcomes),
+            'disproved': outcomes.count('disproved'),
+            'disproved_right': verdicts.count(True),
+            'disproved_wrong': verdicts.count(False),
+        },
+    }
+
+
 def run(
     folder: Path,
     *,
@@ -167,7 +261,25 @@ def run(
             'has_ranking': bool(record.get('ranks')),
         }
         row['category'] = category(row)
+        row.update(skeptic_columns(usage, score.get('service')))
+        row.update(role_columns(usage))
         rows.append(row)
+    role_keys = sorted(
+        {key for row in rows for key in row if key not in _BASE_COLUMNS}
+        - {'skeptic_outcome', 'skeptic_overturn_right'}
+    )
+    multi = any(not key.startswith('agent_') for key in role_keys)
+    for row in rows:
+        if not multi:
+            for key in [
+                *role_keys,
+                'skeptic_outcome',
+                'skeptic_overturn_right',
+            ]:
+                row.pop(key, None)
+            continue
+        for key in role_keys:
+            row.setdefault(key, 0.0)
     summary = {
         'n_cases': len(ids),
         'dry_run': frozen['dry_run'],
@@ -175,6 +287,7 @@ def run(
         'outcomes': dict(Counter(str(row['outcome']) for row in rows)),
         'stop_reasons': dict(Counter(str(row['stop_reason']) for row in rows)),
         'forced': dict(Counter(str(row['forced']) for row in rows)),
+        **(_multi_summary(rows, role_keys) if multi else {}),
         'cases': rows,
     }
     target = output or folder

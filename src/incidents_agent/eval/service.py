@@ -39,6 +39,7 @@ class Options:
     cases: str = 'tuning'
     model: str | None = None
     agent: str = 'single'
+    mode: str | None = None
     limit: int | None = None
     workers: int = 1
     dry_run: bool = False
@@ -131,6 +132,11 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         '--agent', choices=('single', 'single_call'), default='single'
     )
+    parser.add_argument(
+        '--mode',
+        choices=agent_config.MODES,
+        help='Agent architecture (Phase 07); default: the agent config',
+    )
     parser.add_argument('--limit', type=int)
     parser.add_argument('--workers', type=int, default=1)
     parser.add_argument('--dry-run', action='store_true')
@@ -175,6 +181,12 @@ def prepare(args: Options) -> Prepared:
     settings = agent_config.load_agent_config(args.config)
     if args.model:
         settings = dataclasses.replace(settings, model_alias=args.model)
+    if args.mode is not None:
+        settings = dataclasses.replace(
+            settings, mode=agent_config.parse_mode(args.mode)
+        )
+    if args.agent == 'single_call' and settings.mode == 'multi':
+        raise ValueError('The single-call baseline has no multi mode')
     if settings.memory:
         raise ValueError(
             'Evaluation runs with incident memory off until a frozen '
@@ -280,7 +292,8 @@ def prepare(args: Options) -> Prepared:
         resolved = dataclasses.asdict(info.spec)
         resolved['budget'] = dataclasses.asdict(spend.settings())
         print(
-            f'Paid run {alias}/{args.agent}: {len(cases)} cases; '
+            f'Paid run {alias}/{args.agent}/{settings.mode}: '
+            f'{len(cases)} cases; '
             f'target/case ${settings.limits.cost_usd}; '
             f'target total ${len(cases) * settings.limits.cost_usd}. '
             'Retries also consume the shared budget.',

@@ -177,8 +177,11 @@ Rules:
 - **Grounding is unchanged.** Evidence must cite a tool call from the same run, whichever
   role made it.
 - **The single agent stays** as the default and as the baseline for the comparison.
-- **Selection for the final run** follows a rule fixed in advance: the mode with higher
-  top-1 service accuracy on the tuning set; ties go to the single agent.
+- **Selection for the final run** follows a rule fixed in advance: multi mode is chosen
+  only if the lower bound of the 95% paired bootstrap interval (resampled by
+  service–fault pair) for its gain in top-1 service accuracy on the tuning set is above
+  zero; otherwise the single agent is chosen. `compare_models.py --modes single multi`
+  applies the rule.
 
 ## 4. Model layer
 
