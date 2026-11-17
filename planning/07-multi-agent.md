@@ -359,9 +359,29 @@ keeps querying, reaches its last turn holding no ledger entry, and its
 ranking for this reason went 2 → 5 → 8 across the three runs; the direction wording
 added in Decision 10 asks for one more check, which leaves less room. Run-to-run
 noise for gpt-4o-mini is still unmeasured: the first noise-check attempt ran on the
-wrong model by mistake (see Phase 06). Proposed fix (not made):
-let the ledger update run on the final turn without using a tool call, in both
-modes, as `dispatch` already does for the lead.
+wrong model by mistake (see Phase 06). Fixed by
+Decision 11 (#37).
+
+**Third follow-up rerun, after Decision 11, with noise measured (labelled; does not
+change the selection).** From `main` at `8bb180b`. Result files:
+`results/phase-07/real/1da653cdab2e4e7789c984665aabc178/`.
+
+| Arm | service AC@1 | service AC@3 | cost/case | tool calls/case | wall time/case |
+|---|---|---|---|---|---|
+| single | 0.800 [0.600, 0.967] | 0.867 [0.733, 1.000] | $0.0072 | 12.5 | 63 s |
+| multi | 0.633 [0.433, 0.833] | 0.733 [0.533, 0.900] | $0.0076 | 12.4 | 72 s |
+
+Paired gain of multi: −0.167 [−0.433, +0.100]. Single mode is back at 0.800, so its
+earlier drop came from the final-turn starvation, not from the direction wording.
+Run-to-run noise, now measured (Phase 06, gpt-4o-mini): mean top-1 flip rate 0.133,
+so about 4 of 30 cases can change between identical runs and differences of about
+0.13 in AC@1 are within noise. Multi's 0.700 in the second rerun and 0.633 here are
+within that range of each other.
+
+**Where Phase 07 stands.** After the fixes, multi mode is no better than single at
+equal budget with gpt-4o-mini: the latest gain interval spans zero and its point
+estimate is negative. The pre-registered selection (single) stands, and the
+evidence since then agrees with it.
 
 
 
@@ -370,8 +390,8 @@ noise not yet measured), and small per-role allowances. The result says the
 architecture does not pay off at equal budget with gpt-4o-mini; it does not test a
 larger budget or a stronger model. The run cost about $0.38 of the $1.50 allocation;
 the spend guard's total for the project is $0.40 before the follow-up rerun and
-$0.79 after it, $1.14 after the second follow-up, and $1.83 after the mistaken noise-check attempt
-($0.69, on claude-haiku-4-5).
+$0.79 after it, $1.14 after the second follow-up, $1.83 after the mistaken noise-check attempt
+($0.69, on claude-haiku-4-5), and $2.39 after the noise check and third rerun.
 
 ## 6. AI-use notes (feeds `REPORT.md`)
 - 07a: Claude Code mapped the thread-safety hazards in the shared run (registry call
