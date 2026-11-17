@@ -689,3 +689,50 @@ def test_second_refusal_on_the_final_turn_ends_the_step(
 
     assert (result.stop_reason, result.invalid_calls) == ('tool_call_limit', 2)
     assert len(client.requests) == 3
+
+
+def test_ledger_update_on_the_final_turn_runs_free_then_submit(
+    field_ingest: ingest.IngestResult, tmp_path: Path
+) -> None:
+    """A run out of calls can still record hypotheses, then submit.
+
+    In the third comparison run, 8 single-mode cases ended with no ranking
+    because this update was refused on the last turn.
+    """
+    limits = config.Limits(tool_calls=1)
+    session, result, client = _run(
+        field_ingest,
+        tmp_path,
+        [
+            scripted.call('search_text', **scripted.LOCK_SEARCH),
+            scripted.add_hypothesis(evidence=[scripted.LOCK_EVIDENCE]),
+            scripted.submit('inventory-db'),
+        ],
+        agent_config=config.AgentConfig(verify=False, limits=limits),
+    )
+
+    assert result.stop_reason == 'submitted'
+    assert session.ledger is not None
+    assert list(session.ledger.entries) == ['H1']
+    assert _single(session).tool_calls == 1
+    assert len(client.requests) == 3
+
+
+def test_data_call_on_the_final_turn_is_still_refused(
+    field_ingest: ingest.IngestResult, tmp_path: Path
+) -> None:
+    """Only the ledger update is free; data tools stay at the limit."""
+    limits = config.Limits(tool_calls=1)
+    session, result, client = _run(
+        field_ingest,
+        tmp_path,
+        [scripted.call('list_tables'), scripted.call('list_tables')],
+        agent_config=config.AgentConfig(verify=False, limits=limits),
+    )
+
+    data_calls = session.record.of_type('tool_call')
+
+    assert result.stop_reason == 'tool_call_limit'
+    assert _single(session).tool_calls == 1
+    assert len(data_calls) == 1
+    assert len(client.requests) == 2
