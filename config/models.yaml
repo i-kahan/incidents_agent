@@ -5,4 +5,6 @@ models:
     model: openai/gpt-4o-mini
   gemini-small:
     model: gemini/gemini-3.1-flash-lite
-default: haiku
+# gpt-small since the Phase 06 pilot: haiku hit the $0.05 per-case cost cap on
+# every pilot case (about $0.046/case, AC@1 0), gpt-small costs about $0.007.
+default: gpt-small

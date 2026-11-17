@@ -1,0 +1,47 @@
+# Phase 06 joint ablation: ledger and verify both off. Everything else
+# matches config/agent.yaml.
+# Phase 05 agent settings. Limits are per case. The cost cap comes from the
+# Phase 02 target ($0.05 per case) and is revised after the Phase 06 pilot.
+# model_alias: null uses the default alias in config/models.yaml.
+model_alias: null
+max_output_tokens: 1024
+ledger: false
+verify: false
+memory: false
+memory_frozen: false
+# single (Phase 05) or multi (Phase 07: lead, parallel testers, skeptic).
+mode: single
+# Skeptic model in multi mode; null uses model_alias. A different skeptic
+# model is a separate, labelled configuration, not the equal comparison.
+skeptic_model_alias: null
+limits:
+  tool_calls: 15
+  model_turns: 30
+  wall_time_s: 600
+  cost_usd: 0.05
+  # Set aside before investigation starts, for verify and one correction.
+  verify_tool_calls: 2
+  verify_model_turns: 4
+  verify_cost_usd: 0.01
+  correction_model_turns: 3
+context:
+  keep_recent_results: 3
+  digest_block: 3
+  digest_lines: 3
+  digest_line_chars: 160
+# Phase 07 multi mode: how the limits above are split across roles. The
+# totals stay the same; tool calls and turns must sum to at most the limits.
+# The skeptic's and report's shares are granted before the fan-out.
+multi:
+  max_testers: 3
+  lead_tool_calls: 3
+  lead_model_turns: 6
+  tester_tool_calls: 3
+  tester_model_turns: 5
+  tester_wall_time_s: 180
+  skeptic_tool_calls: 2
+  skeptic_model_turns: 4
+  # Held back for the lead's correction if the skeptic disproves.
+  report_tool_calls: 1
+  report_model_turns: 5
+  reserve_cost_usd: 0.01

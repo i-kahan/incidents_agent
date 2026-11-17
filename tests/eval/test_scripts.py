@@ -174,8 +174,9 @@ def test_fingerprint_distinguishes_mode_and_model(evaluation_options):
     second = service.prepare(
         dataclasses.replace(evaluation_options, agent='single')
     )
+    # A model other than the configured default.
     third = service.prepare(
-        dataclasses.replace(evaluation_options, model='gpt-small')
+        dataclasses.replace(evaluation_options, model='haiku')
     )
 
     assert (

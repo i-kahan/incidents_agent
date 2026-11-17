@@ -2,4 +2,6 @@ total_usd: 15.00
 safety_margin_usd: 1.00
 per_case_cap_usd: null
 reserves:
-  final: 3.25
+  # Phase 06: 60 held-out cases x (agent $0.0076 + single-call baseline,
+  # estimated <= $0.002) on gpt-small, about $0.58, doubled for retries.
+  final: 1.25
