@@ -226,6 +226,23 @@ DESIGN.md now states the bootstrap rule.
   limits. Merged briefs give one tester two explanations to check. The change
   affects single mode as well, so single-mode results after this differ from §5's.
 
+#### Decision 10: Faults travel callee to caller; a disproval must name the earlier cause
+
+* **Decision:** The agent, verify and skeptic prompts state the direction explicitly:
+  a failing service makes the services that call it look broken too, so being called
+  by other affected services is consistent with being the cause. The skeptic may
+  record "disproved" only with an `alternative_component`: a different component (a
+  candidate, on benchmark cases) that appears in a result of a call the skeptic made
+  and cited. This is checked in code.
+* **Context/Constraint:** In the rerun after Decision 9 (§5), the skeptic disproved 20
+  of 25 claims and 17 of those were the true root cause. The old wording ("a cause, or
+  a victim of something upstream?") let it read "called by other affected services"
+  as "victim".
+* **Trade-off:** The code checks that the alternative is cited, not that its trouble
+  started first; that part is still the skeptic's judgment. The direction text also
+  changes single mode's prompts, so single-mode results after this are not comparable
+  to §5's.
+
 #### Decision 7: Tool calls are serialised; model calls run in parallel
 
 * **Decision:** Testers run on real threads (LangGraph fan-out). Data-tool calls go
@@ -297,6 +314,9 @@ the spend guard's total for the project is $0.40.
   parallel testers cannot cite fixed call ids in a script, so test turns can be
   functions of the request. No prompt was tuned on the tuning set; the role prompts
   are first drafts, to be judged by the Phase 07 comparison.
+- 07h: Claude Code traced the rerun's multi drop to the skeptic overturning true
+  causes and to the direction wording; owner approved Decision 10. `PROMPT_VERSION`
+  07.4.
 - 07f: Claude Code broke the comparison's failures down from the trajectories
   (refused dispatches, paraphrased graph quotes, refused submits) and proposed
   Decision 9; the owner chose fixes 1 and 2. `PROMPT_VERSION` 07.3.
