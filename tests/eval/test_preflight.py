@@ -154,16 +154,14 @@ def test_outputs_cannot_enter_task_view(evaluation_options):
         )
 
 
-def test_memory_is_refused_until_a_frozen_snapshot_exists(
-    paid_options, tmp_path
-):
-    """The cache key says memory is off, so a memory config must not run."""
+def test_memory_requires_an_explicit_frozen_snapshot(paid_options, tmp_path):
+    """Memory configuration cannot silently open or create a mutable store."""
     path = tmp_path / 'config/agent.yaml'
     path.write_text(
         path.read_text().replace('memory: false', 'memory: true', 1)
     )
 
-    with pytest.raises(ValueError, match='memory off'):
+    with pytest.raises(ValueError, match='requires --memory-path'):
         service.prepare(paid_options)
 
 

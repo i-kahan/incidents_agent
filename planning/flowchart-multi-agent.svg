@@ -1,4 +1,4 @@
-<svg width="100%" viewBox="0 0 680 630" role="img" xmlns="http://www.w3.org/2000/svg"><title>Multi-agent investigation: lead, hypothesis testers and independent skeptic</title><desc>The lead investigator makes a first pass and proposes hypotheses, then sends one brief to each of up to three hypothesis testers. Each tester works on one hypothesis with a few tool calls and a clean context, in parallel, and returns a verdict with grounded evidence. A merge step writes the verdicts to the shared hypothesis ledger in hypothesis-id order, so the result does not depend on which tester finished first. The independent skeptic receives only the top hypothesis and its evidence, with a fresh context, and tries to disprove it. The lead then ranks the hypotheses and reports; if the skeptic disproved the top one, that report step is a single correction. All agents draw on one budget equal to the single agent's; the skeptic's and the report's shares are set aside before the fan-out, and what testers leave unused goes to the report.</desc>
+<svg width="100%" viewBox="0 0 680 650" role="img" xmlns="http://www.w3.org/2000/svg"><title>Multi-agent investigation: lead, hypothesis testers and independent skeptic</title><desc>The lead investigator makes a first pass (optionally consulting incident memory for leads) and proposes hypotheses, then sends one brief to each of up to three hypothesis testers. Each tester works on one hypothesis with a few tool calls and a clean context, in parallel, and returns a verdict with grounded evidence; testers and the skeptic cannot search or read memory results. A merge step writes the verdicts to the shared hypothesis ledger in hypothesis-id order, preserving memory-origin tags so memory alone never establishes support. The independent skeptic receives only the top hypothesis and its current-run evidence, with a fresh context, and tries to disprove it. The lead then ranks the hypotheses and reports; if the skeptic disproved the top one, that report step is a single correction (still retaining lead-only memory access). When unfrozen memory is on, one record is written for the whole run. All agents draw on one budget equal to the single agent's; the skeptic's and the report's shares are set aside before the fan-out, and what testers leave unused goes to the report.</desc>
 <style>
 :root{--ink:#2C2C2A;--sub:#5F5E5A;--line:#8A8A86;--bg:#ffffff}
 @media (prefers-color-scheme: dark){:root{--ink:#EDEDEA;--sub:#B4B2A9;--line:#6b6b68;--bg:#141414}}
@@ -7,6 +7,7 @@ text{font-family:-apple-system,Helvetica,Arial,sans-serif}
 .ts{font-size:12px;font-weight:400;fill:var(--sub)}
 .th{font-size:14px;font-weight:500;fill:var(--ink)}
 .arr{stroke:var(--line);stroke-width:1.5;fill:none}
+.dashed-swatch{fill:none;stroke:var(--sub)}
 .c-gray rect{fill:#F1EFE8;stroke:#888780}
 .c-gray text.th{fill:#2C2C2A}
 .c-gray text.ts{fill:#5F5E5A}
@@ -35,6 +36,11 @@ text{font-family:-apple-system,Helvetica,Arial,sans-serif}
 }
 </style>
 <defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="var(--line)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>
+
+<!-- Optional lead-only incident memory -->
+<g class="c-teal"><rect x="20" y="30" width="156" height="56" rx="8" stroke-width="0.5" stroke-dasharray="4 3"/><text class="th" x="98" y="48" text-anchor="middle" dominant-baseline="central">Incident memory</text><text class="ts" x="98" y="66" text-anchor="middle" dominant-baseline="central">lead only · optional</text></g>
+<line x1="176" y1="58" x2="214" y2="58" class="arr" marker-end="url(#arrow)"/>
+<path d="M20 58 L12 58 L12 538 L214 538" class="arr" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
 
 <!-- Lead -->
 <g class="c-purple"><rect x="220" y="30" width="240" height="56" rx="8" stroke-width="0.5"/><text class="th" x="340" y="48" text-anchor="middle" dominant-baseline="central">Lead investigator</text><text class="ts" x="340" y="66" text-anchor="middle" dominant-baseline="central">first pass · proposes hypotheses</text></g>
@@ -75,5 +81,6 @@ text{font-family:-apple-system,Helvetica,Arial,sans-serif}
 <g class="c-purple"><rect x="40" y="600" width="10" height="10" rx="2" stroke-width="0.5"/></g><text class="ts" x="56" y="605" dominant-baseline="central">Lead and skeptic</text>
 <g class="c-teal"><rect x="176" y="600" width="10" height="10" rx="2" stroke-width="0.5"/></g><text class="ts" x="192" y="605" dominant-baseline="central">Testers</text>
 <g class="c-coral"><rect x="260" y="600" width="10" height="10" rx="2" stroke-width="0.5"/></g><text class="ts" x="276" y="605" dominant-baseline="central">Run state</text>
-<text class="ts" x="360" y="605" dominant-baseline="central">One shared budget, equal to the single agent's; skeptic and report shares set aside first</text>
+<rect x="360" y="600" width="10" height="10" rx="2" class="dashed-swatch" stroke-width="0.5" stroke-dasharray="3 2"/><text class="ts" x="376" y="605" dominant-baseline="central">Optional memory (lead only; 1 record/run if unfrozen)</text>
+<text class="ts" x="40" y="626" dominant-baseline="central">One shared budget, equal to the single agent's; skeptic and report shares set aside first</text>
 </svg>

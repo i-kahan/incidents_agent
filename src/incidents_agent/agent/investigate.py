@@ -15,6 +15,7 @@ from incidents_agent.agent import executor
 from incidents_agent.agent import ledger
 from incidents_agent.agent import prompts
 from incidents_agent.agent import report
+from incidents_agent.agent import results
 from incidents_agent.agent import state
 from incidents_agent.agent import trajectory
 from incidents_agent.llm import contracts
@@ -178,6 +179,12 @@ def investigate(
         Why and how the step ended.
     """
     tools = session.tools(terminal.tool, brief.tools)
+    # Apply this after any role allowlist: no allowlist can grant memory
+    # access to a tester or skeptic. Dispatch checks the resulting names.
+    if brief.role not in ('agent', 'lead'):
+        tools = tuple(
+            tool for tool in tools if tool.name not in results.MEMORY_TOOLS
+        )
     system = (
         prompts.system_prompt(session.config)
         if brief.system is None
@@ -338,7 +345,15 @@ def _agent_tool(
             ledger=session.ledger.to_dict(),
         )
         return result
-    result = session.executor.read(args.get('call_id'))
+    stored = session.executor.store.get(str(args.get('call_id')))
+    if (
+        stored is not None
+        and stored.from_memory
+        and brief.role not in ('agent', 'lead')
+    ):
+        result = _error('forbidden', 'This role cannot read memory results')
+    else:
+        result = session.executor.read(args.get('call_id'))
     session.record.record(
         'agent_tool',
         role=brief.role,
