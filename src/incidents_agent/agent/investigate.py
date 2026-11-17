@@ -15,10 +15,10 @@ from incidents_agent.agent import executor
 from incidents_agent.agent import ledger
 from incidents_agent.agent import prompts
 from incidents_agent.agent import report
+from incidents_agent.agent import results
 from incidents_agent.agent import state
 from incidents_agent.agent import trajectory
 from incidents_agent.llm import contracts
-from incidents_agent.memory import store as incident_memory
 
 SUBMIT_NAME = 'submit'
 
@@ -183,9 +183,7 @@ def investigate(
     # access to a tester or skeptic. Dispatch checks the resulting names.
     if brief.role not in ('agent', 'lead'):
         tools = tuple(
-            tool
-            for tool in tools
-            if tool.name != incident_memory.SEARCH_TOOL_NAME
+            tool for tool in tools if tool.name not in results.MEMORY_TOOLS
         )
     system = (
         prompts.system_prompt(session.config)

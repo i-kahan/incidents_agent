@@ -366,6 +366,7 @@ def prepare(args: Options) -> Prepared:
             final=args.final,
             spend=spend,
             memory_store=snapshot.memory if snapshot else None,
+            snapshot_owner=snapshot,
         )
     return Prepared(
         args,

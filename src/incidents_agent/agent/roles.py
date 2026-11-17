@@ -517,6 +517,8 @@ def skeptic_opening(
     blocks = []
     for ref in entry.evidence_for:
         stored = store.get(ref.call_id)
+        if stored is not None and stored.from_memory:
+            continue
         body = (
             '(not found)'
             if stored is None

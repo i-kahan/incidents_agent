@@ -381,12 +381,14 @@ class Executor:
         final: bool = False,
         spend: spend_ledger.SpendLedger | None = None,
         memory_store: incident_memory.MemoryStore | None = None,
+        snapshot_owner: object | None = None,
     ) -> None:
         """Use a client factory and the existing shared spend ledger."""
         self.client_factory = client_factory
         self.settings = settings
         self.reserve = 'final' if final else None
         self.spend = spend
+        self._snapshot_owner = snapshot_owner
         if settings.memory and (
             memory_store is None
             or not memory_store.frozen

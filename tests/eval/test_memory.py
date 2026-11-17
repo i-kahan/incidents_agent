@@ -1,5 +1,6 @@
 """Tuning-only seeding and immutable, content-keyed memory evaluation."""
 
+import argparse
 import dataclasses
 import json
 import shutil
@@ -11,6 +12,7 @@ from incidents_agent.agent import config
 from incidents_agent.agent import graph
 from incidents_agent.eval import agent_adapter
 from incidents_agent.eval import answers
+from incidents_agent.eval import comparison
 from incidents_agent.eval import memory_seed
 from incidents_agent.eval import runner
 from incidents_agent.eval import service
@@ -471,3 +473,157 @@ def test_snapshot_change_before_recovery_is_refused(memory_options, tmp_path):
 
     with pytest.raises(ValueError, match='changed before attempt'):
         prepared.executor(prepared.cases[0], tmp_path / 'attempts', 'changed')
+
+
+def test_multi_mode_and_single_mode_cache_distinctly_with_memory(
+    memory_options,
+):
+    """Single and multi modes produce distinct cache keys for the same seed."""
+    single = service.prepare(dataclasses.replace(memory_options, mode='single'))
+    multi = service.prepare(dataclasses.replace(memory_options, mode='multi'))
+    single_cases = single.manifest['cases']
+    multi_cases = multi.manifest['cases']
+    assert isinstance(single_cases, list) and isinstance(multi_cases, list)
+
+    assert (
+        single.manifest['configuration_fingerprint']
+        != multi.manifest['configuration_fingerprint']
+    )
+    assert runner.cache_key(single.manifest, single_cases[0]) != (
+        runner.cache_key(multi.manifest, multi_cases[0])
+    )
+
+
+def test_seeded_lookup_in_multi_mode_through_eval_adapter(
+    memory_options, bundle, tmp_path
+):
+    """Multi mode looks up frozen memory for lead only through the adapter."""
+    prepared = service.prepare(
+        dataclasses.replace(memory_options, mode='multi')
+    )
+    assert isinstance(prepared.executor, agent_adapter.Executor)
+    client = scripted.RoutedClient(
+        {
+            'lead': [
+                scripted.call(
+                    'search_past_incidents', query='cpu', components=['svc-a']
+                ),
+                scripted.call('find_onset'),
+                scripted.add_hypothesis(
+                    'svc-held',
+                    origin='memory',
+                    evidence=[
+                        {
+                            'call_id': 'call_0002',
+                            'locator': 'metrics',
+                            'quote': 'metrics',
+                        }
+                    ],
+                ),
+                scripted.dispatch('H1'),
+                scripted.submit('svc-held'),
+            ],
+            'tester:H1': [
+                scripted.call('find_onset'),
+                scripted.call(
+                    'record_verdict',
+                    hypothesis_id='H1',
+                    verdict='supported',
+                    confidence='low',
+                    evidence=[
+                        {
+                            'call_id': 'call_0003',
+                            'locator': 'metrics',
+                            'quote': 'metrics',
+                        }
+                    ],
+                ),
+            ],
+            'skeptic': [
+                scripted.call('find_onset'),
+                scripted.call(
+                    'record_challenge',
+                    hypothesis_id='H1',
+                    check='onset check',
+                    outcome='holds',
+                    evidence=[
+                        {
+                            'call_id': 'call_0004',
+                            'locator': 'metrics',
+                            'quote': 'metrics',
+                        }
+                    ],
+                ),
+            ],
+        }
+    )
+    prepared.executor.client_factory = lambda _: client
+    source = (bundle / 'memory.sqlite3').read_bytes()
+
+    output = prepared.executor(
+        prepared.cases[0], tmp_path / 'attempts', 'multi-lookup'
+    )
+    events = (tmp_path / 'attempts/multi-lookup/trajectory.jsonl').read_text()
+
+    assert '"leads_count": 3' in events
+    assert '"role": "lead"' in events
+    assert 'search_past_incidents' not in {
+        tool.name for tool in client.of('tester:H1')[0].tools
+    }
+    assert 'search_past_incidents' not in {
+        tool.name for tool in client.of('skeptic')[0].tools
+    }
+    assert output['ranks'] == ['svc-held']
+    assert (bundle / 'memory.sqlite3').read_bytes() == source
+
+
+def test_executor_keeps_private_snapshot_alive_without_prepared(
+    memory_options, tmp_path
+):
+    """Dropping Prepared leaves the Executor's private snapshot copy alive."""
+    executor = service.prepare(memory_options).executor
+    assert isinstance(executor, agent_adapter.Executor)
+    assert executor.memory_store is not None
+    assert executor.memory_store.path.exists()
+    output = executor(
+        runner.Case('held', memory_options.tasks_root / 'cases/held'),
+        tmp_path / 'attempts',
+        'alive',
+    )
+    assert output['ranks']
+
+
+def test_memory_cli_options_and_comparison_modes(
+    memory_options, bundle, tmp_path
+):
+    """Shared CLI options and model-comparison work with frozen memory."""
+    parser = argparse.ArgumentParser()
+    service.add_arguments(parser)
+    parsed = service.Options.from_args(
+        parser.parse_args(['--memory', '--memory-path', str(bundle)])
+    )
+    assert parsed.memory is True
+    assert parsed.memory_path == bundle
+
+    source = (bundle / 'memory.sqlite3').read_bytes()
+    folder, table = comparison.run(
+        dataclasses.replace(memory_options, workers=2),
+        ['haiku'],
+        modes=['single', 'multi'],
+        results_root=tmp_path / 'comparison',
+    )
+    saved = runner.read_object(folder / 'comparison.json')
+    manifest = runner.read_object(folder / 'manifest.json')
+    runs = manifest['runs']
+    assert isinstance(runs, list) and len(runs) == 2
+    for run in runs:
+        configuration = run['configuration']
+        assert isinstance(configuration, dict)
+        assert configuration['memory'] is True
+        assert configuration['memory_frozen'] is True
+        assert isinstance(configuration['memory_snapshot_hash'], str)
+    models = saved['models']
+    assert isinstance(models, dict)
+    assert set(models) == {'haiku:single', 'haiku:multi'}
+    assert 'selected:' in table
+    assert (bundle / 'memory.sqlite3').read_bytes() == source

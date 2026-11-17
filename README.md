@@ -28,5 +28,7 @@ therefore cannot be used to evaluate the tuning cases it contains. Existing
 not accept memory.
 
 Offline checks use synthetic cases. The paid memory experiment remains deferred
-to Phase 10. Multi-graph integration awaits Phase 07; the shared loop already
-restricts memory lookup and re-reading to `agent` (single mode) and `lead` roles.
+to Phase 10. In multi mode, `search_past_incidents` is restricted to the lead
+(including its correction pass), testers and the skeptic cannot look up or
+read memory results, and `origin='memory'` hypotheses still require current-run
+evidence before they can be supported.
