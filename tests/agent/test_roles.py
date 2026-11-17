@@ -122,25 +122,6 @@ def test_id_order_puts_h2_before_h10() -> None:
         pytest.param(
             {
                 'outcome': 'dispatch',
-                'briefs': [
-                    {
-                        'hypothesis_id': 'H1',
-                        'confirm_if': 'a',
-                        'refute_if': 'b',
-                    },
-                    {
-                        'hypothesis_id': 'H1',
-                        'confirm_if': 'a',
-                        'refute_if': 'b',
-                    },
-                ],
-            },
-            'briefed twice',
-            id='duplicate',
-        ),
-        pytest.param(
-            {
-                'outcome': 'dispatch',
                 'briefs': [{'hypothesis_id': 'H1', 'confirm_if': 'a'}],
             },
             'confirm_if and refute_if',
@@ -493,3 +474,51 @@ def test_dispatch_refuses_incomplete_new_briefs_and_changes_nothing(
     assert error in ' '.join(errors)
     assert session.ledger is not None
     assert len(session.ledger.entries) == 2
+
+
+def test_dispatch_merges_two_briefs_for_one_component(
+    field_ingest: ingest.IngestResult, tmp_path: Path
+) -> None:
+    """Two explanations of one component become one brief, not a refusal.
+
+    In the first comparison the lead's dispatch was refused in 8 of 30
+    cases for briefing a component twice, and no tester ran.
+    """
+    session = _session(field_ingest, tmp_path)
+
+    accepted, errors = roles.dispatch_tool(session, 3).validate(
+        {
+            'outcome': 'dispatch',
+            'briefs': [
+                {
+                    'component': 'order-service',
+                    'statement': 'latency regression',
+                    'confirm_if': 'p99 rises first',
+                    'refute_if': 'p99 is flat',
+                },
+                {
+                    'component': 'Order-Service',
+                    'statement': 'cpu saturation',
+                    'confirm_if': 'cpu pegs first',
+                    'refute_if': 'cpu is flat',
+                },
+                {'hypothesis_id': 'H1', 'confirm_if': 'a', 'refute_if': 'b'},
+                {
+                    'component': 'inventory-db',
+                    'confirm_if': 'c',
+                    'refute_if': 'd',
+                },
+            ],
+        }
+    )
+
+    assert errors == []
+    assert accepted is not None
+    briefs = roles.briefs_from(accepted)
+    assert [b.hypothesis_id for b in briefs] == ['H3', 'H1']
+    assert briefs[0].confirm_if == 'p99 rises first; or cpu pegs first'
+    assert briefs[1].refute_if == 'b; or d'
+    assert session.ledger is not None
+    assert session.ledger.entries['H3'].statement == (
+        'latency regression; or cpu saturation'
+    )

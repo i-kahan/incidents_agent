@@ -262,6 +262,11 @@ def dependency_graph(
     else:
         filtered = all_edges
 
+    # A quotable form of each edge, so evidence can cite it word for word.
+    filtered = [
+        {**edge, 'edge': f'{edge["caller"]} -> {edge["callee"]}'}
+        for edge in filtered
+    ]
     nodes: list[str] = []
     for edge in filtered:
         for role in ('caller', 'callee'):

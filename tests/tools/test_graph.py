@@ -4,6 +4,7 @@ import pathlib
 
 from incidents_agent import ingest
 from incidents_agent import tools
+from incidents_agent.agent import results as agent_results
 from tests.tools import conftest
 
 
@@ -104,3 +105,28 @@ def test_dependency_graph_states_explicitly_when_no_relationships_exist(
         assert 'cannot be established' in str(res['message'])
     finally:
         ingested.close()
+
+
+def test_dependency_graph_edges_have_a_quotable_form(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Each edge carries `caller -> callee`, which a citation can quote."""
+    src = tmp_path / 'case'
+    src.mkdir()
+    (src / 'calls.csv').write_text(
+        'time,caller,callee,duration_ms,status\n'
+        '1700000010,api,orders,10.0,ok\n',
+        encoding='utf-8',
+    )
+    ingested = ingest.ingest_folder(src, workdir=tmp_path / 'db')
+    try:
+        result = tools.create_default_registry(ingested).call(
+            'dependency_graph', {}
+        )
+    finally:
+        ingested.close()
+
+    edges = conftest.as_dict_list(conftest.untrusted_content(result)['edges'])
+
+    assert edges[0]['edge'] == 'api -> orders'
+    assert agent_results.contains_quote(result, 'API  ->  orders')

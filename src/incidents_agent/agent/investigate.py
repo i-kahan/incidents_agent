@@ -167,7 +167,8 @@ def investigate(
 
     Every way out is a `LoopResult`; nothing here raises on model or tool
     failure. When the step's tool calls are used up the model gets one more
-    turn in which only the terminal tool runs.
+    turn in which only the terminal tool runs, and, if that terminal call is
+    refused by validation, one retry to correct it.
 
     Args:
         session: The run's shared state.
@@ -194,6 +195,7 @@ def investigate(
     invalid = 0
     turns = 0
     final_turn = False
+    retried = False
     while True:
         reason = session.budget.stop_reason()
         if (
@@ -238,6 +240,7 @@ def investigate(
             )
             continue
         accepted: dict[str, object] | None = None
+        refused_before = invalid
         for call in message.tool_calls:
             args = _parse(call.arguments)
             if accepted is not None:
@@ -282,6 +285,19 @@ def investigate(
             )
         if accepted is not None:
             return LoopResult('submitted', accepted, tuple(calls_made), invalid)
+        if final_turn and invalid > refused_before and not retried:
+            # The terminal call was refused on the last turn: one more turn,
+            # still terminal-only, to correct it from the reasons given.
+            retried = True
+            conversation.append(
+                contracts.Message(
+                    'user',
+                    prompts.RETRY_TERMINAL_PROMPT.format(
+                        terminal=terminal.tool.name
+                    ),
+                )
+            )
+            continue
         if final_turn:
             return LoopResult(
                 'tool_call_limit', None, tuple(calls_made), invalid

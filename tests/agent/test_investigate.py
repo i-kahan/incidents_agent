@@ -652,3 +652,40 @@ def test_loop_on_role_allowance_stops_at_the_role_share(
 
     assert result.stop_reason == 'tool_call_limit'
     assert shared.to_dict()['tool_calls'] == 1
+
+
+def test_refused_submit_on_the_final_turn_gets_one_retry(
+    field_ingest: ingest.IngestResult, tmp_path: Path
+) -> None:
+    """A last-turn submit refused by validation can be corrected once."""
+    limits = config.Limits(tool_calls=1)
+    _, result, client = _run(
+        field_ingest,
+        tmp_path,
+        [
+            scripted.call('list_tables'),
+            scripted.submit('inventory-db', outcome='no_fault_found'),
+            scripted.submit(outcome='no_fault_found'),
+        ],
+        agent_config=config.AgentConfig(verify=False, limits=limits),
+    )
+
+    assert (result.stop_reason, result.invalid_calls) == ('submitted', 1)
+    assert 'was refused' in str(client.requests[-1][0].history[-1].text)
+
+
+def test_second_refusal_on_the_final_turn_ends_the_step(
+    field_ingest: ingest.IngestResult, tmp_path: Path
+) -> None:
+    """The retry happens once; a second refusal ends at the limit."""
+    limits = config.Limits(tool_calls=1)
+    bad = scripted.submit('inventory-db', outcome='no_fault_found')
+    _, result, client = _run(
+        field_ingest,
+        tmp_path,
+        [scripted.call('list_tables'), bad, bad],
+        agent_config=config.AgentConfig(verify=False, limits=limits),
+    )
+
+    assert (result.stop_reason, result.invalid_calls) == ('tool_call_limit', 2)
+    assert len(client.requests) == 3
