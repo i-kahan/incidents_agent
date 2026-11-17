@@ -296,11 +296,36 @@ cases (the other runs had no hypothesis with data support to challenge) and disp
 testers used 183 tool calls and 214 turns, the lead 99 calls, the skeptic 20. With 3
 calls each, testers mostly returned `undecided`, as in the live run.
 
+**Follow-up rerun after Decision 9 (labelled; does not change the selection).** Same
+command, from `main` at `e021458` (after #32 and #34), both arms rerun because the
+retry and prompt changes affect single mode too. Result files:
+`results/phase-07/real/6d08fd461877412499cb244ddda83555/`.
+
+| Arm | service AC@1 | cost/case | tool calls/case | wall time/case |
+|---|---|---|---|---|
+| single | 0.700 [0.500, 0.867] | $0.0063 | 11.5 | 53 s |
+| multi | 0.133 [0.000, 0.300] | $0.0066 | 12.5 | 65 s |
+
+Paired gain of multi: −0.567 [−0.733, −0.367]. The fixes worked as intended: no
+dispatch was refused for a repeated component (27 of 30 dispatched 2–3 briefs; 3 fell
+back with an empty ledger), and the skeptic now finishes (25 challenges, against 5).
+That exposed the real problem: **the skeptic disproved 20 of 25 claims, and 17 of those
+20 were the true root cause.** Its prompt frames the check as "a cause, or a victim of
+something upstream?", but in a call graph a fault in a callee shows up in its callers,
+so a true root cause is usually *downstream* of the other anomalous services; the
+skeptic reads that as "victim" and refutes it. Single mode's verify step uses the same
+direction hint but refuted only 2 of 6 targets, neither the true cause. Single's drop
+from 0.800 to 0.700 is inside both intervals; run noise is not yet measured. Next fix
+(not yet made): correct the direction framing in the skeptic and verify prompts, and
+allow a disproval only when it cites a different component whose anomaly starts
+first.
+
 **Limitations, stated as Decision 3 requires:** one cheap model, one run per arm (run
 noise not yet measured), and small per-role allowances. The result says the
 architecture does not pay off at equal budget with gpt-4o-mini; it does not test a
 larger budget or a stronger model. The run cost about $0.38 of the $1.50 allocation;
-the spend guard's total for the project is $0.40.
+the spend guard's total for the project is $0.40 before the follow-up rerun and
+$0.79 after it.
 
 ## 6. AI-use notes (feeds `REPORT.md`)
 - 07a: Claude Code mapped the thread-safety hazards in the shared run (registry call
