@@ -1,0 +1,17 @@
+{
+  "per_case_flip_rate": {
+    "re2-ob-0008": 0.0,
+    "re2-ob-0016": 0.0,
+    "re2-ob-0017": 0.0,
+    "re2-ob-0018": 0.6666666666666666,
+    "re2-ob-0021": 0.0
+  },
+  "mean_flip_rate": 0.13333333333333333,
+  "accuracies": [
+    0.8,
+    0.8,
+    0.8
+  ],
+  "accuracy_range": 0.0,
+  "accuracy_stddev": 0.0
+}

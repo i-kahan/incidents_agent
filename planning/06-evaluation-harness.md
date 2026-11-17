@@ -141,13 +141,15 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
 - [ ] Set the `final` reserve in the spend guard to the pilot's cost per case times 60,
       plus the single-call baseline on the same 60 cases, with a margin, before running
       anything else.
-- [ ] Noise check: five tuning cases, three repeats each, same configuration. Record
+- [x] Noise check: five tuning cases, three repeats each, same configuration. Record
       the flip rate. A later difference between two configurations that is smaller
-      than this is reported as within noise. *(A first attempt on 2026-11-17 ran on the
-      default alias, claude-haiku-4-5, instead of gpt-4o-mini because `--model` was
-      left out. Every case hit the $0.05 cost cap and scored 0, so it measures nothing
-      about the gpt-4o-mini runs; it cost $0.69. Not counted; still to do with
-      `--model gpt-small`.)*
+      than this is reported as within noise. *(gpt-4o-mini, single mode, `main` at
+      `8bb180b`, $0.12: mean top-1 flip rate 0.133 (one of five cases flipped in
+      two of three repeats); AC@1 0.8 in every repeat. File:
+      `results/phase-06/noise-single-gpt-small-5x3.json`. At a 0.133 flip rate, about
+      4 of 30 cases can change top-1 between identical runs, so differences of about
+      0.13 in AC@1 are within noise. An earlier attempt ran on claude-haiku-4-5 by
+      mistake ($0.69) and is not counted.)*
 - [ ] Onset evaluation on the tuning cases (free).
 - [ ] First full pass on the tuning set.
 - [ ] Single-call baseline on the tuning set. If the agent does not beat it, that is
