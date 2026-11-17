@@ -141,9 +141,13 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
 - [ ] Set the `final` reserve in the spend guard to the pilot's cost per case times 60,
       plus the single-call baseline on the same 60 cases, with a margin, before running
       anything else.
-- [ ] Noise check: five tuning cases, three repeats each, same configuration. Record
+- [x] Noise check: five tuning cases, three repeats each, same configuration. Record
       the flip rate. A later difference between two configurations that is smaller
-      than this is reported as within noise.
+      than this is reported as within noise. *(Single mode, gpt-4o-mini, `main` at
+      `5dcf848`, about $0.09: flip rate 0.0 on all five, but every repeat missed every
+      case (AC@1 0.0), so this sample sits at the floor and bounds little. File:
+      `results/phase-06/noise-single-5x3.json`. A repeat of all 30 tuning cases is the
+      better measure; see Phase 07 §5.)*
 - [ ] Onset evaluation on the tuning cases (free).
 - [ ] First full pass on the tuning set.
 - [ ] Single-call baseline on the tuning set. If the agent does not beat it, that is

@@ -337,6 +337,19 @@ run-to-run noise is not yet measured, so whether the direction wording hurt sing
 mode is open. Measuring noise (Phase 06's noise check) should come before any further
 single-versus-multi reading.
 
+**Why single mode fell (case-by-case across the three single runs, no extra spend).**
+14 cases were right in all three runs and 5 wrong in all three; 11 changed. Of the 7
+right in the first run and wrong in the third, 6 ended at the tool-call limit with no
+ranking. The cause is the same starvation the lead had before #32: the single agent
+keeps querying, reaches its last turn holding no ledger entry, and its
+`update_hypotheses` call is refused there because only `submit` may run. Runs with no
+ranking for this reason went 2 → 5 → 8 across the three runs; the direction wording
+added in Decision 10 asks for one more check, which leaves less room. Phase 06's
+planned noise check (5 cases × 3 repeats, $0.09) gave a flip rate of 0 but at an
+accuracy of 0 on all repeats, so it does not bound noise. Proposed fix (not made):
+let the ledger update run on the final turn without using a tool call, in both
+modes, as `dispatch` already does for the lead.
+
 
 
 **Limitations, stated as Decision 3 requires:** one cheap model, one run per arm (run
@@ -344,7 +357,7 @@ noise not yet measured), and small per-role allowances. The result says the
 architecture does not pay off at equal budget with gpt-4o-mini; it does not test a
 larger budget or a stronger model. The run cost about $0.38 of the $1.50 allocation;
 the spend guard's total for the project is $0.40 before the follow-up rerun and
-$0.79 after it, and $1.14 after the second follow-up.
+$0.79 after it, $1.14 after the second follow-up, and $1.23 after the noise check.
 
 ## 6. AI-use notes (feeds `REPORT.md`)
 - 07a: Claude Code mapped the thread-safety hazards in the shared run (registry call
