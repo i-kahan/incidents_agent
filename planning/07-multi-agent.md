@@ -1,11 +1,7 @@
 # Phase 7: Multi-Agent Investigation
 
-**Status:** In progress. 07a (shared-run contracts: thread safety, role
-allowances, `mode` and the role allocation in the agent configuration) and 07b (roles,
-role prompts and the multi graph, runnable through `run_investigation` and continuation)
-and 07c (evaluation modes: `--mode`, mode arms with the selection rule in
-`compare_models.py`, per-role failure report) are built and tested offline with fakes
-($0.00 spend). The paid comparison and the live test remain.
+**Status:** Complete. Built in 07a–07c and #32; the equal-budget comparison is in §5.
+Single mode is selected for the final run by the Decision 4 rule.
 
 ## 1. Objective
 Add a second agent architecture — a lead investigator, parallel hypothesis testers and
@@ -106,11 +102,11 @@ against the tuning answer). Single-mode reports keep their Phase 06 columns.
 DESIGN.md now states the bootstrap rule.
 
 **Experiment (paid)**
-- [ ] Single versus multi on the 30 tuning cases: same model for every role, same
+- [x] Single versus multi on the 30 tuning cases: same model for every role, same
       candidate lists and time windows, same total limits. Report accuracy with
       intervals, the paired difference with its interval, and realised cost, tokens and
       wall time per case beside the equal caps.
-- [ ] Record the selection rule's outcome (Decision 4) in §5.
+- [x] Record the selection rule's outcome (Decision 4) in §5.
 
 **Tests**
 - [x] Unit tests: brief and verdict schemas, budget allocation and pool return, the
@@ -120,9 +116,8 @@ DESIGN.md now states the bootstrap rule.
       returns to the lead exactly once; shared budget exhausted mid-fan-out.
 - [x] Test that the skeptic's input contains no message from the lead or the testers.
 - [x] Test that total tool calls in multi mode never exceed the single-agent limit.
-- [ ] One `live` test: a single tuning case in multi mode on the cheapest model.
-      *(Written in 07b as `test_live_multi_agent_completes_one_tuning_case`; not run,
-      since it costs about $0.05 and needs the owner's go-ahead.)*
+- [x] One `live` test: a single tuning case in multi mode on the cheapest model.
+      *(First run failed, which led to Decision 8; passed after #32, $0.0074.)*
 - [x] Keep `flowchart-multi-agent.svg` in sync with the graph as built.
 
 ## 3. Architectural Decisions & Trade-offs
@@ -254,7 +249,41 @@ DESIGN.md now states the bootstrap rule.
   message history) so a tester is the same code with a different brief.
 
 ## 5. Verification evidence
-*The equal-budget comparison table and the selection outcome go here.*
+
+**Equal-budget comparison, tuning set (30 cases, 10 service–fault pairs).** Run from
+`main` at `20bac5b` with
+`compare_models.py --models gpt-small --modes single multi --cases tuning --workers 4`;
+gpt-4o-mini (served `gpt-4o-mini-2024-07-18`) for every role; same candidate lists,
+time windows and per-case limits (15 tool calls, 30 model turns, $0.05). Result files:
+`results/phase-07/real/239317c23c9e4c79a68407ad008d5724/`. Intervals: 95%, bootstrap
+resampled by service–fault pair, seed 6, 10,000 draws.
+
+| Arm | service AC@1 | service AC@3 | cost/case | tool calls/case | wall time/case |
+|---|---|---|---|---|---|
+| guarded BARO (reference, free) | 0.933 [0.833, 1.000] | 1.000 | $0 | 0 | — |
+| single | 0.800 [0.600, 0.967] | 0.900 [0.767, 1.000] | $0.0075 | 11.5 | 64 s |
+| multi | 0.433 [0.200, 0.667] | 0.567 [0.300, 0.800] | $0.0053 | 10.7 | 75 s |
+
+Indicator AC@k was 0.000 for both agent arms.
+
+**Decision 4 outcome: single mode is selected for the final run.** The paired gain of
+multi over single in service AC@1 is −0.367 [−0.633, −0.133]: the whole interval is
+below zero, so multi is not just "not shown better" but worse on tuning at this budget
+with this model.
+
+**Where multi lost (failure report on the multi run):** 13 correct top-1, 9 with no
+ranking, 8 wrong after inspecting the root. 13 of 30 runs ended forced (10 at the tool
+limit, 1 at the turn limit); 11 reports were inconclusive. The skeptic ran on only 5
+cases (the other runs had no hypothesis with data support to challenge) and disproved
+2, both of which were the true root cause, so both overturns were wrong. By role:
+testers used 183 tool calls and 214 turns, the lead 99 calls, the skeptic 20. With 3
+calls each, testers mostly returned `undecided`, as in the live run.
+
+**Limitations, stated as Decision 3 requires:** one cheap model, one run per arm (run
+noise not yet measured), and small per-role allowances. The result says the
+architecture does not pay off at equal budget with gpt-4o-mini; it does not test a
+larger budget or a stronger model. The run cost about $0.38 of the $1.50 allocation;
+the spend guard's total for the project is $0.40.
 
 ## 6. AI-use notes (feeds `REPORT.md`)
 - 07a: Claude Code mapped the thread-safety hazards in the shared run (registry call
