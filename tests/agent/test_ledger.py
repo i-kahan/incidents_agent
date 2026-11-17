@@ -316,3 +316,45 @@ def test_store_round_trips_and_continues_numbering(
     rebuilt = results.ResultStore.from_list(store.to_list())
 
     assert (len(rebuilt), rebuilt.next_call_number()) == (4, 5)
+
+
+@pytest.mark.parametrize(
+    'locator',
+    [
+        pytest.param('metrics:inventory_db_lock_wait_ms', id='colon'),
+        pytest.param('metrics/inventory_db_lock_wait_ms', id='slash'),
+        pytest.param('metrics.inventory_db_lock_wait_ms', id='dot'),
+    ],
+)
+def test_check_citation_accepts_table_and_column_together(
+    store: results.ResultStore, locator: str
+) -> None:
+    """`table:column` is accepted when both halves locate that result.
+
+    In the last tuning run, 23 of 24 correct diagnoses were reported as
+    inconclusive because locators in this form were refused.
+    """
+    ref, error = ledger.check_citation(
+        {**_GOOD, 'locator': locator}, store, conftest.RUN_ID
+    )
+
+    assert (ref is not None, error) == (True, None)
+
+
+@pytest.mark.parametrize(
+    'locator',
+    [
+        pytest.param('metrics:no_such_column', id='unknown_column'),
+        pytest.param('logs:inventory_db_lock_wait_ms', id='unknown_table'),
+    ],
+)
+def test_check_citation_refuses_composite_with_an_unknown_half(
+    store: results.ResultStore, locator: str
+) -> None:
+    """Each half must itself be a locator of the cited result."""
+    ref, error = ledger.check_citation(
+        {**_GOOD, 'locator': locator}, store, conftest.RUN_ID
+    )
+
+    assert ref is None
+    assert error is not None and 'is not in that result' in error
