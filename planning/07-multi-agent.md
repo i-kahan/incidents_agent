@@ -215,6 +215,22 @@ DESIGN.md now states the bootstrap rule.
   It shrinks the testers' share and fails the same way for a model that batches four
   calls.
 
+#### Decision 9: Validation failures get one correction, and briefs merge by component
+
+* **Decision:** (a) A refused terminal call on a step's last turn gets one more
+  terminal-only turn to correct it, in every role and in single mode. (b) Two
+  dispatch briefs for one component are merged into one hypothesis and one tester
+  instead of refusing the dispatch; the brief count is checked after merging.
+  (c) `dependency_graph` gives each edge a quotable `caller -> callee` string, and
+  the skeptic is told to copy quotes exactly.
+* **Context/Constraint:** In the first comparison (§5) the lead's dispatch was
+  refused for a repeated component in 8 of 30 cases, on its last turn, so no tester
+  ran; the skeptic hit its limit in 15 of 20 cases after quoting graph edges in its
+  own words; 21 `submit` calls were refused for fixable reasons.
+* **Trade-off:** One extra model turn per refusal, inside the same turn and cost
+  limits. Merged briefs give one tester two explanations to check. The change
+  affects single mode as well, so single-mode results after this differ from §5's.
+
 #### Decision 7: Tool calls are serialised; model calls run in parallel
 
 * **Decision:** Testers run on real threads (LangGraph fan-out). Data-tool calls go
@@ -252,6 +268,9 @@ DESIGN.md now states the bootstrap rule.
   parallel testers cannot cite fixed call ids in a script, so test turns can be
   functions of the request. No prompt was tuned on the tuning set; the role prompts
   are first drafts, to be judged by the Phase 07 comparison.
+- 07f: Claude Code broke the comparison's failures down from the trajectories
+  (refused dispatches, paraphrased graph quotes, refused submits) and proposed
+  Decision 9; the owner chose fixes 1 and 2. `PROMPT_VERSION` 07.3.
 - 07d: the first live multi run failed (see Decision 8); Claude Code diagnosed it
   from the trajectory, proposed letting `dispatch` add hypotheses, and the owner chose
   that over a larger lead allowance. `PROMPT_VERSION` 07.2.

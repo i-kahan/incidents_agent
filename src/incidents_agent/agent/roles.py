@@ -272,7 +272,7 @@ def _plan_briefs(
     """Check every brief before the ledger changes; resolve known ids."""
     errors: list[str] = []
     planned: list[dict[str, object]] = []
-    seen: set[str] = set()
+    seen: dict[str, dict[str, object]] = {}
     for index, item in enumerate(briefs):
         prefix = f'briefs[{index}]'
         if not isinstance(item, dict):
@@ -309,20 +309,48 @@ def _plan_briefs(
             errors.append(f'{prefix}: {entry.id} is rejected')
             continue
         key = entry.id if entry is not None else component.casefold()
-        if key in seen:
-            errors.append(f'{prefix}: {key} is briefed twice')
-        seen.add(key)
-        planned.append(
-            {
-                'hypothesis_id': None if entry is None else entry.id,
-                'component': component,
-                'statement': statement,
-                'evidence': item.get('evidence'),
-                'confirm_if': confirm,
-                'refute_if': refute,
-            }
-        )
+        earlier = seen.get(key)
+        if earlier is not None:
+            # One hypothesis per component: merge a second brief for the
+            # same component into the first instead of refusing both.
+            _merge_brief(
+                earlier, statement, item.get('evidence'), confirm, refute
+            )
+            continue
+        brief: dict[str, object] = {
+            'hypothesis_id': None if entry is None else entry.id,
+            'component': component,
+            'statement': statement,
+            'evidence': item.get('evidence'),
+            'confirm_if': confirm,
+            'refute_if': refute,
+        }
+        seen[key] = brief
+        planned.append(brief)
     return planned, errors
+
+
+def _merge_brief(
+    brief: dict[str, object],
+    statement: str,
+    evidence: object,
+    confirm: str,
+    refute: str,
+) -> None:
+    """Fold a second brief for the same hypothesis into the first."""
+
+    def joined(name: str, extra: str) -> str:
+        first = str(brief[name])
+        return first if not extra or extra == first else f'{first}; or {extra}'
+
+    brief['statement'] = joined('statement', statement)
+    brief['confirm_if'] = joined('confirm_if', confirm)
+    brief['refute_if'] = joined('refute_if', refute)
+    items = [
+        *(brief['evidence'] if isinstance(brief['evidence'], list) else []),
+        *(evidence if isinstance(evidence, list) else []),
+    ]
+    brief['evidence'] = items or None
 
 
 def _add_new(
@@ -399,9 +427,14 @@ def dispatch_tool(
             return {'outcome': 'no_fault_found', 'briefs': []}, []
         if outcome != 'dispatch':
             return None, ['outcome must be "dispatch" or "no_fault_found"']
-        if not 1 <= len(briefs) <= max_testers:
+        if not briefs:
             return None, [f'dispatch needs 1 to {max_testers} briefs']
         planned, errors = _plan_briefs(book, briefs)
+        if not errors and len(planned) > max_testers:
+            errors = [
+                f'dispatch needs 1 to {max_testers} briefs (after merging '
+                'briefs for the same component)'
+            ]
         if errors or book is None:
             return None, errors or ['dispatch needs the hypothesis ledger']
         accepted, ledger_errors = _add_new(book, planned)

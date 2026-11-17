@@ -538,3 +538,44 @@ def test_lead_that_spends_every_call_on_data_still_dispatches(
     assert set(_ledger(result)) == {'H1', 'H2'}
     assert result.report.outcome == 'verified'
     assert result.report.ranks[0] == 'inventory-db'
+
+
+def test_lead_briefing_one_component_twice_still_reaches_testers(
+    tmp_path: Path,
+) -> None:
+    """Duplicate-component briefs are merged, so the fan-out happens."""
+    briefs = scripted.call(
+        'dispatch',
+        outcome='dispatch',
+        briefs=[
+            {
+                'component': 'inventory-db',
+                'statement': 'lock contention',
+                'evidence': [scripted.LOCK_EVIDENCE],
+                'confirm_if': 'lock waits start first',
+                'refute_if': 'lock waits follow the gateway',
+            },
+            {
+                'component': 'inventory-db',
+                'statement': 'pool exhaustion',
+                'confirm_if': 'pool hits 100/100 first',
+                'refute_if': 'pool is fine',
+            },
+        ],
+    )
+    client = scripted.RoutedClient(
+        {
+            'lead': [
+                scripted.call('search_text', **scripted.LOCK_SEARCH),
+                briefs,
+                scripted.submit('inventory-db'),
+            ],
+            'tester:H1': _testers()['tester:H1'],
+            'skeptic': _skeptic(),
+        }
+    )
+
+    result = _run(tmp_path, client)
+
+    assert set(_ledger(result)) == {'H1'}
+    assert result.report.outcome == 'verified'
