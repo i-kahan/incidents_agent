@@ -75,10 +75,10 @@ Diagrams (kept in this folder, see §8):
 | 03 | [Ingest & Tools](03-ingest-and-tools.md) | 01 (its optional model fallback: 04) | Merged (#3, #5) |
 | 04 | [Model Layer](04-model-layer.md) | 01 | Offline checks complete |
 | 05 | [Agent](05-agent.md) | 03, 04 | Merged (#11–#16, #20, #21) |
-| 06 | [Evaluation Harness](06-evaluation-harness.md) | 02, 05 | In progress (Wave 4 merged: #24) |
+| 06 | [Evaluation Harness](06-evaluation-harness.md) | 02, 05 | Built; paid experiments in progress |
 | 07 | [Multi-Agent Investigation](07-multi-agent.md) | 05, 06 | Complete (#27, #30–#32; single selected) |
-| 08 | [Upload App](08-upload-app.md) | 05, 07 | In progress (Wave 4 merged: #23) |
-| 09 | [Incident Memory](09-incident-memory.md) | 05, 06, 07, 08 | In progress (Wave 4 merged: #22) |
+| 08 | [Upload App](08-upload-app.md) | 05, 07 | Built (#23, #28); owner click-through remains |
+| 09 | [Incident Memory](09-incident-memory.md) | 05, 06, 07, 08 | Built (#22, #29); memory experiment remains |
 | 10 | [Verification & Report](10-verification-and-report.md) | 01–09 | Not started |
 
 Phases 01–10 are the **core pipeline**. Its **end-to-end milestone** is reached when a
