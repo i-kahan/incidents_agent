@@ -315,17 +315,36 @@ something upstream?", but in a call graph a fault in a callee shows up in its ca
 so a true root cause is usually *downstream* of the other anomalous services; the
 skeptic reads that as "victim" and refutes it. Single mode's verify step uses the same
 direction hint but refuted only 2 of 6 targets, neither the true cause. Single's drop
-from 0.800 to 0.700 is inside both intervals; run noise is not yet measured. Next fix
-(not yet made): correct the direction framing in the skeptic and verify prompts, and
-allow a disproval only when it cites a different component whose anomaly starts
-first.
+from 0.800 to 0.700 is inside both intervals; run noise is not yet measured. Fixed
+afterwards by Decision 10 (#36).
+
+**Second follow-up rerun, after Decision 10 (labelled; does not change the
+selection).** Same command, from `main` at `5dcf848`; both arms rerun because the
+direction wording changed single mode's prompt too. Result files:
+`results/phase-07/real/47d1f0b0e61a4d0fab23d2c267185436/`.
+
+| Arm | service AC@1 | service AC@3 | cost/case | tool calls/case | wall time/case |
+|---|---|---|---|---|---|
+| single | 0.600 [0.367, 0.800] | 0.667 [0.467, 0.833] | $0.0058 | 11.4 | 50 s |
+| multi | 0.700 [0.567, 0.833] | 0.733 [0.600, 0.867] | $0.0059 | 12.1 | 57 s |
+
+Paired gain of multi: +0.100 [−0.100, +0.300]. Applied to this run, the Decision 4
+rule would still choose single, because the lower bound is below zero. The skeptic now
+holds on the true cause: it challenged 23 claims, held 18 that were the true cause, and
+both of its 2 disprovals overturned a wrong answer. Single mode's top-1 has moved 0.800
+→ 0.700 → 0.600 across the three runs as its prompt changed; the intervals overlap and
+run-to-run noise is not yet measured, so whether the direction wording hurt single
+mode is open. Measuring noise (Phase 06's noise check) should come before any further
+single-versus-multi reading.
+
+
 
 **Limitations, stated as Decision 3 requires:** one cheap model, one run per arm (run
 noise not yet measured), and small per-role allowances. The result says the
 architecture does not pay off at equal budget with gpt-4o-mini; it does not test a
 larger budget or a stronger model. The run cost about $0.38 of the $1.50 allocation;
 the spend guard's total for the project is $0.40 before the follow-up rerun and
-$0.79 after it.
+$0.79 after it, and $1.14 after the second follow-up.
 
 ## 6. AI-use notes (feeds `REPORT.md`)
 - 07a: Claude Code mapped the thread-safety hazards in the shared run (registry call
