@@ -143,7 +143,11 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
       anything else.
 - [ ] Noise check: five tuning cases, three repeats each, same configuration. Record
       the flip rate. A later difference between two configurations that is smaller
-      than this is reported as within noise.
+      than this is reported as within noise. *(A first attempt on 2026-11-17 ran on the
+      default alias, claude-haiku-4-5, instead of gpt-4o-mini because `--model` was
+      left out. Every case hit the $0.05 cost cap and scored 0, so it measures nothing
+      about the gpt-4o-mini runs; it cost $0.69. Not counted; still to do with
+      `--model gpt-small`.)*
 - [ ] Onset evaluation on the tuning cases (free).
 - [ ] First full pass on the tuning set.
 - [ ] Single-call baseline on the tuning set. If the agent does not beat it, that is

@@ -1,0 +1,1714 @@
+{
+  "models": [
+    "gpt-small"
+  ],
+  "modes": [
+    "single",
+    "multi"
+  ],
+  "agent": "single",
+  "dry_run": false,
+  "reference": "guarded_baro",
+  "runs": [
+    {
+      "version": 1,
+      "configuration": {
+        "agent": {
+          "model_alias": "gpt-small",
+          "max_output_tokens": 1024,
+          "ledger": true,
+          "verify": true,
+          "memory": false,
+          "memory_frozen": false,
+          "limits": {
+            "tool_calls": 15,
+            "model_turns": 30,
+            "wall_time_s": 600.0,
+            "cost_usd": "0.05",
+            "verify_tool_calls": 2,
+            "verify_model_turns": 4,
+            "verify_cost_usd": "0.01",
+            "correction_model_turns": 3
+          },
+          "context": {
+            "keep_recent_results": 3,
+            "digest_block": 3,
+            "digest_lines": 3,
+            "digest_line_chars": 160
+          },
+          "mode": "single",
+          "skeptic_model_alias": "",
+          "multi": {
+            "max_testers": 3,
+            "lead_tool_calls": 3,
+            "lead_model_turns": 6,
+            "tester_tool_calls": 3,
+            "tester_model_turns": 5,
+            "tester_wall_time_s": 180.0,
+            "skeptic_tool_calls": 2,
+            "skeptic_model_turns": 4,
+            "report_tool_calls": 1,
+            "report_model_turns": 5,
+            "reserve_cost_usd": "0.01"
+          }
+        },
+        "model": {
+          "alias": "gpt-small",
+          "id": "openai/gpt-4o-mini",
+          "provider": "openai",
+          "override": null,
+          "max_input_tokens": null,
+          "budget": {
+            "total": "15",
+            "margin": "1",
+            "per_case": null,
+            "reserves": {
+              "final": "3.25"
+            }
+          }
+        },
+        "source_hash": "5e3b3a3dd91076327be2913b3c465f862b4d82014f73bd031430d4ef528b02fb",
+        "memory": false,
+        "memory_frozen": false,
+        "memory_snapshot_hash": null,
+        "mode": "single",
+        "retry_policy": {
+          "version": 2,
+          "request_attempts": 2,
+          "attempts": 2,
+          "window_s": 90,
+          "fallback": null
+        },
+        "summary_policy": null,
+        "temperature": 0,
+        "final": false,
+        "split_hash": "d6b298021621ff430731f9ec0c38157ea155d6d667abeddb7bad16222e773fff"
+      },
+      "configuration_fingerprint": "e320bac2b79efe9b5e1d04bb7b5e4f777e41806617cf1e8ba019058ca6add92f",
+      "git_commit": "e021458d8eb56cc0b4a4b48adfb7d1724a9d2d27",
+      "dry_run": false,
+      "repeat_id": "default",
+      "cases": [
+        {
+          "case_id": "re2-ob-0008",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0008",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "9f718533f1b14e5416d24ff5e284a6d7fc06e5511a3047a43f258d4e49e80e5b",
+            "logs.csv": "55db9ca0c6ff1feb9f517cfa059bbadc95a3efcdbdf010950b8589cbc362a28e",
+            "logts.csv": "1742dc862ca1486e13ba6bb507a4d5e5cf6480fc23bf78d7f85767554dd34084",
+            "metrics.csv": "2fef12b78a19201c4cb4c462f4cb2b5e810a05e865b7e31932d0d01ed2b430b5",
+            "metrics_raw.csv": "a8d3c0ea36fdd15b3b73424e815612135c2a9a5c98d98b4a880176487864e257",
+            "task.json": "462cdaf05edccff85850b4192be955f7436ca0803f05605ae4ddb19561b5bf46",
+            "traces.csv": "56f101440c0e932c4af2d5e803bbf16f8fa18ddf11dd474a30d7a5f17ae90261",
+            "tracets_err.csv": "de54cc4b031053d29eee598cfe617787ccf804bed50b05f60f760b4cb8a534da",
+            "tracets_lat.csv": "ab54f3ee05ba0e527cc7c13ea2fdbe43821ccc43e5ec16b90320465edfad1aa4"
+          }
+        },
+        {
+          "case_id": "re2-ob-0016",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0016",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "815fa378f3a54edae9006d5e83b02613623d1927c161dde723e850bcbabf8b15",
+            "logs.csv": "1cba5f138fa9c7c37b8c87d425c2b90c5f0b1079d24b398dec2f3dbefdd10356",
+            "logts.csv": "14d9aa0a44543afeabe578ee93172154b0b2d0bee17c6f5ab24bf3e8c26753d0",
+            "metrics.csv": "256db660748b43aa8b6fed5974d418d9f1d77189e532a9ec0d57f26980505ad2",
+            "metrics_raw.csv": "8803ff5f8cccfa2d9fd0b9a574927f00a11cc8c181231a20d6fd67737af39e40",
+            "task.json": "14556546d531e336b52f7520b01ecd94f33b1d0415c63b72e598e4373ecc436f",
+            "traces.csv": "177e9de62f64e88787d01264365f826c1f7bc919edac95a69fb0aae60d92f79e",
+            "tracets_err.csv": "b0ba00435a53dbf779f35953ce6e3ff15cc1628f5af613516a8b095f223e598f",
+            "tracets_lat.csv": "9ea030e3b11b1f11ea3c4b6a9084116682132c1359d9c7a195e831685d79f474"
+          }
+        },
+        {
+          "case_id": "re2-ob-0017",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0017",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "776fd93554b9148b2ecc4f4b69142dd3e40f84f36107f4ff1127152613e4c9be",
+            "logs.csv": "000f7f1fb19e1b0620416e36e4ef640ef49ddd99e6eaf3e455aa7b7761095725",
+            "logts.csv": "b6a551e9500bd90fd45898eb5012185f3310a36cc7223aa186f69b6b4212a9a9",
+            "metrics.csv": "cd3d1b5ecc83d7875b71c631448628be24f04796abb82269c2609e205291f7fa",
+            "metrics_raw.csv": "ccd6b9fcf6112c266b287db5b631e65164d747d86fc97531c02e3dcbdeff33ae",
+            "task.json": "360c0301e7061417d972893ded024a685937c45d4040d6594eb3f5da4066338e",
+            "traces.csv": "4cf7b8a7b04834ea1b6e49b2606363615564be2a007681382931cc0bc831a9e8",
+            "tracets_err.csv": "c81422538aef7579327173d3597004aff399e2653c1e545cfd9f8db50b154aa3",
+            "tracets_lat.csv": "9db4a5151f4a5fdd0106e135cfa6fcc6767eb3013c32a19676dcbd70133c8bfa"
+          }
+        },
+        {
+          "case_id": "re2-ob-0018",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0018",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "b7c70fdaa560cda530e5e12108ce3f3ce18e7cf67cafa2f693b2ecff81aa7249",
+            "logs.csv": "f91316b34cce77110f5f6ca11aa747b9315e2a52543b38c3606d32e9ee100d99",
+            "logts.csv": "3760776f0199cfecf6c37388c3396806c013ff6b874fddadccae74ff9c092550",
+            "metrics.csv": "cf4f518d88cbc4232c2299ddbce4e93b7f01fe6bf112cbcef579a3c01be54e63",
+            "metrics_raw.csv": "8d4c4282d1102d466b3eead4d19fb9d945ccd5171cd9a34eb7acaee97a6fdad7",
+            "task.json": "b650addf192f16e00f5d7e64ded12e64fbf6314a6869e33678787ec924eda324",
+            "traces.csv": "b126b114fb120df7e0c46ee879076d952a7d2f2ec938f61d8f15fe9c530c67e1",
+            "tracets_err.csv": "178728b4ebd096e18de8b29f3071ad2b0c1682b35f956b2998a564bb67ad74e9",
+            "tracets_lat.csv": "688a39573fc5e82bc6d89deb861d3129a2fff2423a2861d3430e98fe5715cb9d"
+          }
+        },
+        {
+          "case_id": "re2-ob-0021",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0021",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "346d7ec296faf27ff9309e0572f0bf934f61da9ad615834e5b0567caa633a87f",
+            "logs.csv": "6b7172169391119e0e142b393b5149f09e83bacff467338879ab859f754ea812",
+            "logts.csv": "7f5fb0aff9b1b9db821af385e705a79aa24eb913a045b2cd7e0a680de166f43c",
+            "metrics.csv": "bd5e5ed33a01e64bccf69ad66d116b61e8e271752cdbeccd0a9bba965f969d7d",
+            "metrics_raw.csv": "54cacbab8632785cc880372cbd8b7791e4aeae74ef6ccb993b1b35fe4de6eba9",
+            "task.json": "d60cf5738bf64e23aa2a152480809a68cc30ea30069d82dffed9b32c3b8265ec",
+            "traces.csv": "fc9bfa4f554b9a1c96cac0dc820037c003dc1bd98fa7428a17202652dd60760b",
+            "tracets_err.csv": "69de3a1696d689bf1d15f15ecc205cee6fc2d9b534068307aa7bfdf2a64bc709",
+            "tracets_lat.csv": "5d9281ac3202bd8d8765da0d1a3ab1f730053be6db837e4e1bb8739bbee3c4a6"
+          }
+        },
+        {
+          "case_id": "re2-ob-0023",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0023",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "6f48ce895d25e7108603c25635c8523f7462086980cb19389e460c61b3d69c71",
+            "logs.csv": "ee8874dd92546b1cafce56dee894668f1cc7a8c78df5aaa1ae4ae6201949a9f3",
+            "logts.csv": "00d82a3bf03988a2e983c7c26dcfc27d6aab3a1ccd3bef7c7c824096bc992b28",
+            "metrics.csv": "b2981dbf1227af8f2301cf96ddada2ad81d901db765bfdea6b0093384c952647",
+            "metrics_raw.csv": "5e52362a89bf9e4e17b81487d7b0135f375ce065f96890c0ad9bf107599387ef",
+            "task.json": "fcd8b05553650b9fa634b790adb5630158028c0337f61958f860c50eef80abf8",
+            "traces.csv": "957d18ff0c968fdfb7ee4f4ebdaf52bc1ff57b7348507d28a235ea9c450ed2d0",
+            "tracets_err.csv": "d6d7aaf4878f9eb4c5d5853bad44ab4ad5d17754159f7a62529d42323640803d",
+            "tracets_lat.csv": "c4ea53dcc20266e5ddc6b685583a9e510bd6dccc6f76adf46836dbbe5c12d135"
+          }
+        },
+        {
+          "case_id": "re2-ob-0029",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0029",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "3a9c16d7d6b060942e4cde168b1cf9455d296ae39b32f5261f9f1a214162875e",
+            "logs.csv": "936c1ac90cbe66aa8b5a0da10e2e9278c2a83cc9d6a665d7be33ff352156f7d5",
+            "logts.csv": "21b97950c8de19b5b7ef1f6728dd63e0eddbc4d64b3ffcf5eefa61b926e51fb6",
+            "metrics.csv": "8719e040a072015a8ec3fc947704a6f6374d82474407d6112b8db4f5ae8e55e9",
+            "metrics_raw.csv": "d61b1f0fffcafbacbbbec161a383d53a408ec48e39975045c7e03a223d229a8d",
+            "task.json": "1f68f0758403e560d9cfe8abd918de042a05148567f9b8bf14f76df8d27b15f6",
+            "traces.csv": "5308c3f838097335de1156fa1d07e8d21b2c41d1f5fd20a34c3cc26b4ff3aa6d",
+            "tracets_err.csv": "64b2100e1b2901a6e80a9c1977cd6081169278dd852cadb2a575dd64f412b7e9",
+            "tracets_lat.csv": "aac7aafb2ac6e39b24af96a69fec6402a1fde70bbbcb2e36ef9a3d95d397f3bb"
+          }
+        },
+        {
+          "case_id": "re2-ob-0033",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0033",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "2fbbbe2b8da9644eb030374316c3139516786747536224b3ec0003ad7c4b947d",
+            "logs.csv": "bbad4c9c2f1f3e9133d8596353799d3ab4d63b8f8bf65a37d1367da6add4967f",
+            "logts.csv": "9fac92fb0b25efe968c6684609ba06306642d1bcfd2226c117639ef91afff50f",
+            "metrics.csv": "edc75fec68b3bb33fbfbd5af31b0c1b17652fc5d6f478cd0de3a2f7a42b2417d",
+            "metrics_raw.csv": "ec9b66bb1d3402bbf196fa8aaf527b16a4ed10a33f9b1c9507c5f2db2a50679d",
+            "task.json": "1aa3c6e80dca09964b51ebd28fec1c714be20aec764ba9d225307c7f9a86794e",
+            "traces.csv": "9f272b495f8bf155822457f009e94bd6073fa2cab4f293c17f61c93c5e29d28a",
+            "tracets_err.csv": "8bd0f3bc419d5c010f988dbd331d76a7a5b8af6cb6139b4cd62e7e2158621d2f",
+            "tracets_lat.csv": "98e79724b1b94b424750dfbbc96dffdc9d60b06d8923f6c430f5d149e8411c6e"
+          }
+        },
+        {
+          "case_id": "re2-ob-0034",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0034",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "195c27ccb8f5418aa996177942374e173b362e99d05cf0c9faea2ff74cfe5a5c",
+            "logs.csv": "f8a1480c2d7fe173e81e187dbc973b40570ad167ae4cf04ff1624aad4c9fb09c",
+            "logts.csv": "2746d82e624d75ea8e0088196818bf0f6b030cede89bed8027cf18bc7b9c890e",
+            "metrics.csv": "21feba721063253da567aac56a3c1792d83f7881d4e89ca196456620ebe2ed19",
+            "metrics_raw.csv": "4eae6781eae7a8080b49bc6f0c5adee7fe29c2bd668e71244ce8ac14459d7de6",
+            "task.json": "238d4f534e4b8d786973a47c14896cd3c9d5f52e00feb9c6516f3dc9ebfc8e08",
+            "traces.csv": "fd171e7ea502182c52eda05ac1e722be9ccb887beadd2b59d85e726fb880293e",
+            "tracets_err.csv": "b3bfaf043aca6c14cc464941e41b89af991fd90526438b460710b6ee4aec1479",
+            "tracets_lat.csv": "210acd60a907881998e19d3a9654022c5bc2eda323626883ed281332afe34678"
+          }
+        },
+        {
+          "case_id": "re2-ob-0035",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0035",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "acb0cadaa3fe1d0c8539cc92c637da964d834a73285073ce39bcd89583a06f01",
+            "logs.csv": "9ffb5ac22acc670e8227cc5cd263d062d656d1b9f01ea2511dbcb6b2d7b6646b",
+            "logts.csv": "56ff6444d2f393fc52f1d1a2cf4a7ad74c545d8204ce7655733dc83d6291997f",
+            "metrics.csv": "f34bccad1a92659d63ece8fce4428d65eb39eecf1513adb1a64daa19bf188c2b",
+            "metrics_raw.csv": "cc44d15de45aa1dd7ad5a067b505681f5ce1e54374307600b572fd7543d9a38d",
+            "task.json": "a728dc7c5de86e32c542b989b86a7c330759b6359fa8b26ef018827a70482c79",
+            "traces.csv": "fdd6185e21140a6f5ef61d74b5778c88d0d1433aea915d03a2e5f69e0db2b31b",
+            "tracets_err.csv": "221c4cb3f416c0279bbf9fd93dba89eb0f98c1872a43c34ee01f3fc1d8058326",
+            "tracets_lat.csv": "67ffa3e74ac22a6186693868500c4dd70a80583c317c66199d92d7a4674cc539"
+          }
+        },
+        {
+          "case_id": "re2-ob-0036",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0036",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "44653d880f620151f3cc44e1a497471b81207c24ed92d4af9b215a8cde4f7069",
+            "logs.csv": "d03f181ccbc6ce27fbc4e6f844bc01a0510a5aff525212956610c0d64c513c66",
+            "logts.csv": "eaae4f7589adb41857a9fe3f98c65be692b778c6d8541bb1787f2098b270e6ce",
+            "metrics.csv": "02e9a0b8fb996048dffba124786ac60598ffd64be0d6c1e732916ecfe3b8fa8b",
+            "metrics_raw.csv": "e8d7296ff1c16c7513f0c2ebdc8a89fa27de9952922cfcb3804d5d4bf3f82a33",
+            "task.json": "37eea3f56d067a600a4cfc33401f12158bc92ab9d4442b11dde179601aa510d4",
+            "traces.csv": "a848b286a1da89aea1a8e866e4e9b54d5b25ad5752803fd52366c67a13e8a8ec",
+            "tracets_err.csv": "2c82e3405deca502e39518424bd2e9511a9ef9bf1ce1ed2e1ab97ec1072b9295",
+            "tracets_lat.csv": "4c5cc14591496d131950f4001ba8c54097a6efd3266287c5a177759487300eaa"
+          }
+        },
+        {
+          "case_id": "re2-ob-0039",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0039",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "4446ff4d193bbf676dbfe19e202d23a56c24683b2616a609a7add04c90183b8c",
+            "logs.csv": "141b612e31cebbff5fb2119ea5381f158db59eff9207b27c7367ec94e9a361ef",
+            "logts.csv": "9cf69faa01159ae926975fb73b33ba4226e344fa9e55e5850e9d5c4a25ac042f",
+            "metrics.csv": "fc9b256447795845389923f9ed02fd426290201d014342739d8c65edcbc78576",
+            "metrics_raw.csv": "88aa1af932f4060388b4e981ae2e07986bb3ddd3cbcb5e0974fe064a19475c4b",
+            "task.json": "aca463e943857bc03a3b8495727cfabe21620acf165e7e0dbeca90357177b694",
+            "traces.csv": "f20af717db61bd0e53208993805e3dd893759d15d459ac241a6fa2bd7486ec54",
+            "tracets_err.csv": "daeba59bc2fca5b9f7fd8b38a311b7dcd4e1463df6a1a367e93a4743711dc13d",
+            "tracets_lat.csv": "a6de6e8d88653c80151f58822522805ca022505e204dcd7c13c2ba5ec1b8c9cf"
+          }
+        },
+        {
+          "case_id": "re2-ob-0042",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0042",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "3218a5d832c30baaebd721875ff1cf6f459615e75eeaecb86fe91e593e63d64e",
+            "logs.csv": "6fb3b1a86f69bcb0663c8b5a3529253ae88bfde0da32978678d2e5789a501cf2",
+            "logts.csv": "2b9cd97d23ecdd8b0adfa9d7ec82b04474f076f6a638f3be10395341186f8c65",
+            "metrics.csv": "965af24e76b006286c5a0db975dcf0ad5a6766858e2771420291269c8bfb7052",
+            "metrics_raw.csv": "89457fba55d2be90af266332da352dbdd3d7da5bc706d608382266f71f11b9b9",
+            "task.json": "6c040aadcc84c395e473cb395eb65c80b80a44e9fe08c304348704b21138bf65",
+            "traces.csv": "524cd280cf479c8ac7f9be04bbd95f6bba162a651dd6378f8293ad69a32b600f",
+            "tracets_err.csv": "12dcd960981a470d6aa88b15edee997a7ddb83fce95f5f56a54893d5f9ac5f58",
+            "tracets_lat.csv": "73152ecc2a1aedc3262e35a530828cc7d95f67ee5938dbc10cbe691932da46c2"
+          }
+        },
+        {
+          "case_id": "re2-ob-0044",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0044",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "c4be6c849c8d3018f84278b78b81a9f604f1812bc1b5297ec26945548a6b8ba8",
+            "logs.csv": "bb91fbb0eb034bacdf0ec750fe1db4f5617215840247064b085c835008bc1669",
+            "logts.csv": "da0ee09c37dee99143b13385ffe6a57bde472c26837d64c8f3d384da8b18e80d",
+            "metrics.csv": "05cd4b320f74636484a323f5a39e962fa053416ed474e1ccf5f7f6ed54adff1d",
+            "metrics_raw.csv": "8ec200d3bddc583b226d711949176e5a417aa35a1f2759f0d173f3761aac62f6",
+            "task.json": "f8bcb9c2b3d23bc5e087a0b5c016768082a0fa561233e528a4ab9de4d09787d8",
+            "traces.csv": "0c8d509fd6dbe8320ae223ef25589a0a6c8d5264b8892ad34f1c4d0a6f699fbf",
+            "tracets_err.csv": "12f99786a9f48f889dc4708f59422fda8b15eacb833e81b5a8e2249e8e485f71",
+            "tracets_lat.csv": "712fe160c524e31c036baee43341d0782756771453d35e95ae33d02d253386e1"
+          }
+        },
+        {
+          "case_id": "re2-ob-0049",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0049",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "a4bff53bfaac8094ec9fcc8d15bb35063b96b38f54fcf12c68ec64e20bf6ebf1",
+            "logs.csv": "eb0b6c1d2c610b1317045c3904b1ec7e4f4664c7e44c597ecff1ffa2dd405fa6",
+            "logts.csv": "c684dab35a98011a1481db7fff077b35eb5717fce4cd86622cf89c4fa725e021",
+            "metrics.csv": "3b39b96430a79d14da2d858c52cccb94497130bd9fe6cd1a1cfa52d00e00338d",
+            "metrics_raw.csv": "769ece700b369f248b307999523203a323b3bc749a3cb1559f2d65e79b235d5d",
+            "task.json": "d01ee7d6a24c3fd81718858d202a4172365dcd56ef473fba16335958360bc205",
+            "traces.csv": "fcdad661bd776e83b787dd0a2042c009a9d18d1892f78dc58dc183b2ceb273af",
+            "tracets_err.csv": "a400089726e90e2a2f40755e9dfb38656509efef87d77631d082a81fe95956bd",
+            "tracets_lat.csv": "e74ae9406895b61744fe77dcc16b79efedf6642f47aa43fe9a186524f57e9d6a"
+          }
+        },
+        {
+          "case_id": "re2-ob-0050",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0050",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "cd0fdaa453891f09c82ae9a4ec0dd8e6f84912238481439f45c332a4f01b6782",
+            "logs.csv": "3d348c10109f828d693934e06f3e3de1171430b26557be155b8f9dacb49ef535",
+            "logts.csv": "124c97726605293c2b6563b53b4e08f4686a70b644d397a50c8a5a06b7f541a7",
+            "metrics.csv": "84a329fb5b689f3a15d13b8ffeeee853c51da57b43ad17ae360f25b1a6949c10",
+            "metrics_raw.csv": "53150bdf26500acc8ab4a82028cfa8a2e1a334cf99cb104a4a0da8a8ffa61289",
+            "task.json": "9202d4d526bbeaadcc41c1a58c9109ffc17e77dae7c1b2ad6de47d99cb80fa4e",
+            "traces.csv": "24b70fd280ef3e90baf0a5e7e9e49c9c27bbd7e214ebc1557f06dd008de868ce",
+            "tracets_err.csv": "77bc389aa12a45b80d5d450b34f4e49b2c69b627887dcbe21adc6985e0557f62",
+            "tracets_lat.csv": "55400b2b3f302d20794d32ebc5c98fb04b73a4dcae869447e20ed9d16e632849"
+          }
+        },
+        {
+          "case_id": "re2-ob-0051",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0051",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "b75c4d14d58bafbdd234dc5afd08eda15fa4fc383fbdffcf2870957f37feabc6",
+            "logs.csv": "25d73b433462edcc22deb77895e0accf28cd470d1fd49180181cc59265094b6d",
+            "logts.csv": "970452fca869255d85b79fbe87205e752b677727dc86e9de22b08888648f7a80",
+            "metrics.csv": "3ccce977d5cae34da91bf9cc679e4eee979d3d330faf6d62c313479cc9f7b455",
+            "metrics_raw.csv": "7be406f3e9815e70191b6e8b925dc89ccf072f9bd4374a9df62f545af51f23aa",
+            "task.json": "c01bc1be3138c31f411713121b8e4fd42059791a33e9150c28dafbaf13c057d6",
+            "traces.csv": "dc098c518db7fe1152c5b914f66ae3a34df0772624447d8b692066fca7a4ecf4",
+            "tracets_err.csv": "2dbba9464a93eac790c80c1beb4354364019fe3a589f9b30e3119c420da5bf46",
+            "tracets_lat.csv": "319fc3466edff7bf59c073f0e78f042d61b0c067e5f8fc36fd67b61c51f9572a"
+          }
+        },
+        {
+          "case_id": "re2-ob-0054",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0054",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "41c6c7ccf97a5be0ed93c57f753b0379fabeb655ccc911a8fc64616d3f0ea5d9",
+            "logs.csv": "72971b5a0649f42d97d8a480e3234e82c0755887bbdc75ce8b1d46524bb8fe53",
+            "logts.csv": "678359a04688a237c3648329dac2b4c702f7bd9429d9db41d1c12fdc33b80600",
+            "metrics.csv": "c3c29a5b4a8316a937687794922545f3fd3a23f59ab8015555bf9d3670420dca",
+            "metrics_raw.csv": "b75913aa9d415aa1515aa49d0fbbf69d547fa0504821be7b71254b8c1c74ce6b",
+            "task.json": "cff28011f18e2494169274f1914aa28c36f44dc9a8dddb907cf6e38b26e0406c",
+            "traces.csv": "90583d0236eb308a9322bc3f4bcd904a1e4bb5696d1bbf2068d6d8406102f58e",
+            "tracets_err.csv": "b05c6c123c3d59d3824f892790f43d400859bf329c6f3202a10d26033debf363",
+            "tracets_lat.csv": "232698086d1a79ded0000e2cbf4a15f68b208eaf2c4aabf4aa02df7e31a1d462"
+          }
+        },
+        {
+          "case_id": "re2-ob-0067",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0067",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "b9c6528507826ad510518bec5aee230bbe5b39bf82708b9f5090c9e664e06122",
+            "logs.csv": "1e7d5c9b7cdeed8c0827d7069e451b6781213bcd1b32e90db7faca55dca3f9d5",
+            "logts.csv": "0206778225a35332e397a7fb7ad2b74b664e612e673d8f7d1206252374d88117",
+            "metrics.csv": "7061684cbff459226fd71c9f34c758e63770b0f4845fb0aabe033bda1a40acef",
+            "metrics_raw.csv": "4a71cd98726baaf57801aedd97888862711fd513836e889fa387a9d05c0e4ffa",
+            "task.json": "95c365c7a1a9cd828731e1f830a2f22b4e5afa76826935868091cafc037192fe",
+            "traces.csv": "710571bd17adb65803eec04f86b729d7e6e2fa181fbda37603508fc9da96dd77",
+            "tracets_err.csv": "248895be9f0b6a8718571fd16f572bc9889e2ea9aef17812601919760e1df2de",
+            "tracets_lat.csv": "c50c8d9ee5f1e01362997c467b69b5b7b12f7eae11e0fbd0ff589db0bc9ba0da"
+          }
+        },
+        {
+          "case_id": "re2-ob-0068",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0068",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "06d293231231fe2f6362fe5f73624025e856c523134bb442d58e2f1d42e2ce5d",
+            "logs.csv": "dadbb3f3fa96cc33c46dfc56f2f48de21bc58f5eefdb2267d2f4218999e7d9ca",
+            "logts.csv": "87f33f223b03624a6892d8cef488ee8ffd6195f16f1e596957f63228b1a81f02",
+            "metrics.csv": "616eee2b2d672b019ff612ca87497bc1c8283728069337a64f8d2b8e55535fd1",
+            "metrics_raw.csv": "7ef5ee9a4f23aa1354b04899ddf02309bf85a54d2a7ba4c64e0094b83c4b358e",
+            "task.json": "999ce8471c45a5045c54304e5d857bcc3562ad18a7fabbd6568811fb0643639b",
+            "traces.csv": "594b0e1fe01e2bdfd893f1a96c9cedc44820b017f67d53c0c735253183f9cb97",
+            "tracets_err.csv": "348114314a0b8553be537fad46570dbd215febd38496df69054e07ca651b40c9",
+            "tracets_lat.csv": "0fa8ace569c036001335aa56a32f4c62e59fb2a216a729717ff16921c703bf9c"
+          }
+        },
+        {
+          "case_id": "re2-ob-0073",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0073",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "6c2b4fa07227020012807253c6ab455d77112f4005fad536c9e0d3275cc1e5a0",
+            "logs.csv": "c669f03be50a0fc4d212085b7ce5845b2d770e623214dd7b52e7d0960692d71a",
+            "logts.csv": "2b38a4fb1a9d6099b917c9f0cb4eabdffa2071dd13aba872ae34761422fc9221",
+            "metrics.csv": "265d2eb97c613da670bddd9072efc5b749676503b231d5dbbdd65c9a0131d408",
+            "metrics_raw.csv": "6aec414c9816e51acd1864328ba9f4d98fba35549d9ae2b70b3e292228d16dc2",
+            "task.json": "5778fbbcbd948eb85c143cfe8e11fa5945b918aad73194a909e33c3a2b0733c2",
+            "traces.csv": "0d8e9f31d07687efa10054a2d2ff9cf5ddef5f415eceb2ad15743c702ebd7c52",
+            "tracets_err.csv": "ac31820c9aa1818b8d4f8df7391ed997784503dbc9279954da6ed1692a238914",
+            "tracets_lat.csv": "2be3f97b86bbb42721c50a962f4d860ec7772df7d9fd643a04f220650b8febf8"
+          }
+        },
+        {
+          "case_id": "re2-ob-0074",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0074",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "ef2708c983c0b0cdb1e4ffeae09aeb80005e73bc3a739f294119dd2d6198731a",
+            "logs.csv": "c3c242e9b8eb1e4ee42ede27fb4b575195da8761849005dc4aec326a27bfea83",
+            "logts.csv": "0b8f45a320326a695e53855e64cac44b814b00c61b899a6647548551be0daf4d",
+            "metrics.csv": "446988683205c36d594397f1686e9b447edfb469e387c1dd337ce885850558e1",
+            "metrics_raw.csv": "d7c07aa6899d8b07441bcd365dd41761ebf36a6a521a830175d3a366f7ff6e55",
+            "task.json": "3665bb5d7a647c312975ea0b6f318a4026a3bcb5c7f9ced05e03c5600ec33e38",
+            "traces.csv": "89070667a1cbfbcbb02d27b095c2815559dcea41811e094cff17bfdaf903de78",
+            "tracets_err.csv": "9dc18f6c8e4ec4e06a172168a9c18440103c0a9e600aaeb75df0988afd108a59",
+            "tracets_lat.csv": "7c24410131c6fa1beb2f3d879a8749077b0f4526cdd7a90debe28aca799d5739"
+          }
+        },
+        {
+          "case_id": "re2-ob-0075",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0075",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "0d3a0be9e3c4793465990e386b20389686df66475595a6fe84d0e80020bebff5",
+            "logs.csv": "6ee1bd39d2a9f29726021f067e64845f9b87f9f68115c09e87d0c80c55f370bf",
+            "logts.csv": "d52ba901a14e0056d0b80bcf46e20721bd327ca6914fe792c96b3e847fdb4dc8",
+            "metrics.csv": "59a58b633e2661ec580ce26ac24087a7eb664afa51ada6311b0d618952f06478",
+            "metrics_raw.csv": "754b83b34eef738190aa50f90f236177cbcd7dda38b879b3dde842c4c0c6d6a3",
+            "task.json": "e1cd02a98e184cdc566e67b24e77a52f5a4444e96a546ba59fdb43b6c8572325",
+            "traces.csv": "402876267d270441a69bad164105bcac57f19c11435906004fd19c0b5544578d",
+            "tracets_err.csv": "2f5b9ba66f987658755007347bcc93647a3f1a6df98818cb5a27afe77cdf2367",
+            "tracets_lat.csv": "6119ea01ff9f4c79a2e5c2aa2ba27441d688cc2f0ad276e952229c4603d48441"
+          }
+        },
+        {
+          "case_id": "re2-ob-0077",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0077",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "fd4f88c12436f5e89f3a7678245d268f2cd7701ae449dcff3455fd39b0c3f22b",
+            "logs.csv": "30e12fd8b0c4d7d88e09c0414ebfc7db2b51f84dbb7e08bf67072a7dfdba1350",
+            "logts.csv": "8fddf6de5835fe1dab37ad19d8601fa85050ddf4ab607cf43263422887fb1519",
+            "metrics.csv": "b55ebae478ba114814190cc357a4023fe29d00c7b500f8aba5dfc17acab02b78",
+            "metrics_raw.csv": "dd827a35073e45bd4cae28debdc73334b8fbc500d8ed77e2aa2a53092abd8579",
+            "task.json": "a848d043f40ec7d8a8b0ef530544013a342732cdaaa2b386e3c288762f18793e",
+            "traces.csv": "b68a298bea4853d5ce9e067874fc843701338cb3c7eb7b9ab5756cfefe8d2771",
+            "tracets_err.csv": "a822138a4d7ea5b286befa2aa9208d0245591d2d1376adbcf9ecd8df8ddbf5ee",
+            "tracets_lat.csv": "4c32f91f338c6870c670bcf422d023fe98e0dec2f85aa6f6f01e193fd9352f81"
+          }
+        },
+        {
+          "case_id": "re2-ob-0078",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0078",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "911850e6f76dee0f349ec7972d64d582b9ca1d91361bbe8274774020b7e9f112",
+            "logs.csv": "c0027c28fdd2bff2136f2c2827b6cb74b31ceac99968f51d15b9433cbc3731a7",
+            "logts.csv": "508c231a2e7c13f5d4236e9b049185de511ecbfcf9d7bb3950292424baa54116",
+            "metrics.csv": "66eaad2eb8ce5f383d198fc5c263a854c37757262de613e93a1b185d729c0e48",
+            "metrics_raw.csv": "ef88e627aba022fe56d65b0b6533945dabdc0d09bbbb31428e1c25efc6f7927f",
+            "task.json": "f50bce1b189390f3266fdd3084e88cb7d273da9a8e5c4418ca4de34472cd49fb",
+            "traces.csv": "2c1013fa2973110f3df22d4610b66308ebc293bbbdbbee2f27aa331f0f958ff8",
+            "tracets_err.csv": "d88bc7c244bc6b4655c7ad773c42fcc4da5fb48b4aba87b1c3bf3f29e08162ee",
+            "tracets_lat.csv": "b1f0ebfe07cd6b6491cc849bc9f11566933c9b557c30e38394d597f45e576d71"
+          }
+        },
+        {
+          "case_id": "re2-ob-0080",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0080",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "0eaf92757a95519933ac70abde25bca4dab161961820d808828ccb85ebfeac5e",
+            "logs.csv": "54b8254692885aea3f7918cc56d0ed954c12855c1c22d12d25d0a3605a6bc772",
+            "logts.csv": "9361c74c785bb85903cee3b4348f7bad6aed007f9c0b8a8005a6308a064badfc",
+            "metrics.csv": "4caa3d23f8190aa3b6102f71e46c5909385f694ec1c7f0a372ab8f9918531a08",
+            "metrics_raw.csv": "34e9df2d03b34909fb38debcc80dff6f56685b5115da6475e9b8f593993b30e8",
+            "task.json": "36d31ae58a385d56bdaa8943081b65a8e3d3e9202367755f9203db8ec5ede447",
+            "traces.csv": "67ad89e3892c36972c49c1344165a52995fbb935147757feadb8ad427f5250cc",
+            "tracets_err.csv": "2e8a06465045bce1f57b281e17d4f53eea22ebc8006e22b2061d69a0ead29ec3",
+            "tracets_lat.csv": "f0ec990059ed11bf0cb404e534ee70b4f4704ee2c9d3ad76ebe764db5daf3616"
+          }
+        },
+        {
+          "case_id": "re2-ob-0084",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0084",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "84a9d8e29e40a8c2846f30dc9c28bddfff1cddc9311aea87464f467e633d25a3",
+            "logs.csv": "7347543c95b1f8ba7699a6584d066b840ac5a61a5099a412a58744833bd0d9a2",
+            "logts.csv": "049ab51025ccb1155b0e47848db37e55d6364a8ef90280a6c09444580a0dbff8",
+            "metrics.csv": "5d1c77420320569e29c6023434b852023f951faa43b92aa5ad12060a947b1c3b",
+            "metrics_raw.csv": "735d94a9a66374e135a8ebe428738c0e4d8b317763902f7cfc5049698eab637c",
+            "task.json": "40bb46d2d3ee1fea7dff0b1967dc98664a5c10b34fd42734ac61e5d5f449603b",
+            "traces.csv": "e72c2d355c56734a53179a48ccd7bd8fe0c1176017fc9e709f4e576adc254399",
+            "tracets_err.csv": "74142f5d2906eed38587fa079ae559c0c28487547a5018cf375b5afb46ec3f02",
+            "tracets_lat.csv": "191698134f563189521dbfd65343fd0e58e1cdbe6cc201053baaf26faed6986c"
+          }
+        },
+        {
+          "case_id": "re2-ob-0085",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0085",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "04e78d3e4cd4979eae2daedac7d50713dfff9b099e0e81cb4ff403d4f79abcfe",
+            "logs.csv": "bc7c0b7370e37395d4d1889005e4cdce431c66068e69ead8a5335087b00e10a8",
+            "logts.csv": "ed0ae36c44065320c7447119729c3e284db05b523b7042ab218fbaa8bfe6d25d",
+            "metrics.csv": "07411c9598e79be0ef41e4abb47d72408691bbd3d973c1bab4c0837d92511fb3",
+            "metrics_raw.csv": "2f3e229b9531ded4221a9ee0ae2fb19288f7039b8b9423967bd90daad3bc2cf0",
+            "task.json": "c0decf967fc22f73382ec70179c2403943f875a40c6a5019c9b35a9e6872fe6f",
+            "traces.csv": "afe960ff6399a76086f767e83e28e5b5613334f004b43eb6021aa61d40340942",
+            "tracets_err.csv": "6691956d937d2bb339f07659ac0161445e254c6564024a575e2bca457ccea502",
+            "tracets_lat.csv": "016629c8605453c836b6a106945b0b2a2e0cc506fd807363f55da2e83043f200"
+          }
+        },
+        {
+          "case_id": "re2-ob-0087",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0087",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "532d593e9094d851bd906ede62871dc8f7f455d22c53d3db61674b934286143e",
+            "logs.csv": "c53987722ea8d87999f847007e2af5e8abd25fcc0e230d040c2b8c311fbd4beb",
+            "logts.csv": "975a82bfaa2b83539ec1996ccdad826b2d94679e5b83065e97ab7c9a244c8a53",
+            "metrics.csv": "a465004ba8e5ddb3aeecf4474589c9315da542319fabfd2a41008249ced0d98e",
+            "metrics_raw.csv": "649960937974e24707afdec1671a0c0f592cda4f1001ab9d4f89cbbd085a2440",
+            "task.json": "6cdb443dcff238e99d0826c83ffc66e14471d7debb1e1d15eabbf9528d26c12f",
+            "traces.csv": "afa81a0e4bd43d7d19126042ee2bc2b56234c0c7ea045ccf91279eaadb08ad1d",
+            "tracets_err.csv": "73f3f58126b122c5a2e1ed3dac39ae9d9cf7682e7767196d61c8d517b21b5263",
+            "tracets_lat.csv": "ab6766e16762d852a19260ce37d1465630d342d64a42b58493429587cf4caf65"
+          }
+        },
+        {
+          "case_id": "re2-ob-0089",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0089",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "fee421e8ba00d9d7b7819916d9d1b571175ea69074a277cb9a8211008ac0cc6f",
+            "logs.csv": "b90d2ccac12f6433074752a0c2d0c6f3ba24d9253880bed00089231a118a4b15",
+            "logts.csv": "017aa30e64bc591dafaae5bc82b55c5430b9cbcdfee0570ac159583abafaefae",
+            "metrics.csv": "11e6234e33d3b56331eadb640cfb55bc19d73b2f1522a10af203797cc4330c8a",
+            "metrics_raw.csv": "ea57e0c1204245a90a83821a420559fad17d28d1e3aebeecdd2daf626a626dec",
+            "task.json": "41f1114be68696d1bd0df3cdaf45165dc530d6fe71d616fc3e3f4af4aa3e0d39",
+            "traces.csv": "5de5e501ae1b0eddf5d8f815168a26e74a1b68f78aa6156fa32e30499afd30b5",
+            "tracets_err.csv": "d954a068ce9f00931e657f8881220e5b322f4384489b5583e6364ec0657f9776",
+            "tracets_lat.csv": "dd3771679cef82d0776425f03f57d2a057261c4cf2327ce66d379f41b0025382"
+          }
+        }
+      ],
+      "partition": {
+        "schema_version": 1,
+        "dataset": "re2-ob",
+        "algorithm": "pair-sample-with-coverage-v1",
+        "seed": 2026,
+        "attempt": 2,
+        "answers_sha256": "9ccb21e73c0ee5329254cad3c001eaf535205574effa2ea290251cdf86fcc814",
+        "groups": {
+          "g01": [
+            "re2-ob-0001",
+            "re2-ob-0030",
+            "re2-ob-0079"
+          ],
+          "g02": [
+            "re2-ob-0002",
+            "re2-ob-0065",
+            "re2-ob-0088"
+          ],
+          "g03": [
+            "re2-ob-0003",
+            "re2-ob-0022",
+            "re2-ob-0055"
+          ],
+          "g04": [
+            "re2-ob-0004",
+            "re2-ob-0011",
+            "re2-ob-0076"
+          ],
+          "g05": [
+            "re2-ob-0005",
+            "re2-ob-0046",
+            "re2-ob-0081"
+          ],
+          "g06": [
+            "re2-ob-0006",
+            "re2-ob-0015",
+            "re2-ob-0037"
+          ],
+          "g07": [
+            "re2-ob-0007",
+            "re2-ob-0028",
+            "re2-ob-0071"
+          ],
+          "g08": [
+            "re2-ob-0008",
+            "re2-ob-0039",
+            "re2-ob-0067"
+          ],
+          "g09": [
+            "re2-ob-0009",
+            "re2-ob-0053",
+            "re2-ob-0061"
+          ],
+          "g10": [
+            "re2-ob-0010",
+            "re2-ob-0038",
+            "re2-ob-0062"
+          ],
+          "g11": [
+            "re2-ob-0012",
+            "re2-ob-0031",
+            "re2-ob-0041"
+          ],
+          "g12": [
+            "re2-ob-0013",
+            "re2-ob-0020",
+            "re2-ob-0047"
+          ],
+          "g13": [
+            "re2-ob-0014",
+            "re2-ob-0056",
+            "re2-ob-0072"
+          ],
+          "g14": [
+            "re2-ob-0016",
+            "re2-ob-0050",
+            "re2-ob-0074"
+          ],
+          "g15": [
+            "re2-ob-0017",
+            "re2-ob-0049",
+            "re2-ob-0077"
+          ],
+          "g16": [
+            "re2-ob-0018",
+            "re2-ob-0042",
+            "re2-ob-0084"
+          ],
+          "g17": [
+            "re2-ob-0019",
+            "re2-ob-0063",
+            "re2-ob-0069"
+          ],
+          "g18": [
+            "re2-ob-0021",
+            "re2-ob-0033",
+            "re2-ob-0075"
+          ],
+          "g19": [
+            "re2-ob-0023",
+            "re2-ob-0029",
+            "re2-ob-0068"
+          ],
+          "g20": [
+            "re2-ob-0024",
+            "re2-ob-0040",
+            "re2-ob-0045"
+          ],
+          "g21": [
+            "re2-ob-0025",
+            "re2-ob-0032",
+            "re2-ob-0057"
+          ],
+          "g22": [
+            "re2-ob-0026",
+            "re2-ob-0048",
+            "re2-ob-0090"
+          ],
+          "g23": [
+            "re2-ob-0027",
+            "re2-ob-0052",
+            "re2-ob-0082"
+          ],
+          "g24": [
+            "re2-ob-0034",
+            "re2-ob-0044",
+            "re2-ob-0080"
+          ],
+          "g25": [
+            "re2-ob-0035",
+            "re2-ob-0085",
+            "re2-ob-0087"
+          ],
+          "g26": [
+            "re2-ob-0036",
+            "re2-ob-0051",
+            "re2-ob-0089"
+          ],
+          "g27": [
+            "re2-ob-0043",
+            "re2-ob-0066",
+            "re2-ob-0083"
+          ],
+          "g28": [
+            "re2-ob-0054",
+            "re2-ob-0073",
+            "re2-ob-0078"
+          ],
+          "g29": [
+            "re2-ob-0058",
+            "re2-ob-0059",
+            "re2-ob-0064"
+          ],
+          "g30": [
+            "re2-ob-0060",
+            "re2-ob-0070",
+            "re2-ob-0086"
+          ]
+        },
+        "tuning_groups": [
+          "g08",
+          "g14",
+          "g15",
+          "g16",
+          "g18",
+          "g19",
+          "g24",
+          "g25",
+          "g26",
+          "g28"
+        ],
+        "heldout_groups": [
+          "g01",
+          "g02",
+          "g03",
+          "g04",
+          "g05",
+          "g06",
+          "g07",
+          "g09",
+          "g10",
+          "g11",
+          "g12",
+          "g13",
+          "g17",
+          "g20",
+          "g21",
+          "g22",
+          "g23",
+          "g27",
+          "g29",
+          "g30"
+        ],
+        "tuning": [
+          "re2-ob-0008",
+          "re2-ob-0016",
+          "re2-ob-0017",
+          "re2-ob-0018",
+          "re2-ob-0021",
+          "re2-ob-0023",
+          "re2-ob-0029",
+          "re2-ob-0033",
+          "re2-ob-0034",
+          "re2-ob-0035",
+          "re2-ob-0036",
+          "re2-ob-0039",
+          "re2-ob-0042",
+          "re2-ob-0044",
+          "re2-ob-0049",
+          "re2-ob-0050",
+          "re2-ob-0051",
+          "re2-ob-0054",
+          "re2-ob-0067",
+          "re2-ob-0068",
+          "re2-ob-0073",
+          "re2-ob-0074",
+          "re2-ob-0075",
+          "re2-ob-0077",
+          "re2-ob-0078",
+          "re2-ob-0080",
+          "re2-ob-0084",
+          "re2-ob-0085",
+          "re2-ob-0087",
+          "re2-ob-0089"
+        ],
+        "heldout": [
+          "re2-ob-0001",
+          "re2-ob-0002",
+          "re2-ob-0003",
+          "re2-ob-0004",
+          "re2-ob-0005",
+          "re2-ob-0006",
+          "re2-ob-0007",
+          "re2-ob-0009",
+          "re2-ob-0010",
+          "re2-ob-0011",
+          "re2-ob-0012",
+          "re2-ob-0013",
+          "re2-ob-0014",
+          "re2-ob-0015",
+          "re2-ob-0019",
+          "re2-ob-0020",
+          "re2-ob-0022",
+          "re2-ob-0024",
+          "re2-ob-0025",
+          "re2-ob-0026",
+          "re2-ob-0027",
+          "re2-ob-0028",
+          "re2-ob-0030",
+          "re2-ob-0031",
+          "re2-ob-0032",
+          "re2-ob-0037",
+          "re2-ob-0038",
+          "re2-ob-0040",
+          "re2-ob-0041",
+          "re2-ob-0043",
+          "re2-ob-0045",
+          "re2-ob-0046",
+          "re2-ob-0047",
+          "re2-ob-0048",
+          "re2-ob-0052",
+          "re2-ob-0053",
+          "re2-ob-0055",
+          "re2-ob-0056",
+          "re2-ob-0057",
+          "re2-ob-0058",
+          "re2-ob-0059",
+          "re2-ob-0060",
+          "re2-ob-0061",
+          "re2-ob-0062",
+          "re2-ob-0063",
+          "re2-ob-0064",
+          "re2-ob-0065",
+          "re2-ob-0066",
+          "re2-ob-0069",
+          "re2-ob-0070",
+          "re2-ob-0071",
+          "re2-ob-0072",
+          "re2-ob-0076",
+          "re2-ob-0079",
+          "re2-ob-0081",
+          "re2-ob-0082",
+          "re2-ob-0083",
+          "re2-ob-0086",
+          "re2-ob-0088",
+          "re2-ob-0090"
+        ]
+      },
+      "heldout_ids": []
+    },
+    {
+      "version": 1,
+      "configuration": {
+        "agent": {
+          "model_alias": "gpt-small",
+          "max_output_tokens": 1024,
+          "ledger": true,
+          "verify": true,
+          "memory": false,
+          "memory_frozen": false,
+          "limits": {
+            "tool_calls": 15,
+            "model_turns": 30,
+            "wall_time_s": 600.0,
+            "cost_usd": "0.05",
+            "verify_tool_calls": 2,
+            "verify_model_turns": 4,
+            "verify_cost_usd": "0.01",
+            "correction_model_turns": 3
+          },
+          "context": {
+            "keep_recent_results": 3,
+            "digest_block": 3,
+            "digest_lines": 3,
+            "digest_line_chars": 160
+          },
+          "mode": "multi",
+          "skeptic_model_alias": "",
+          "multi": {
+            "max_testers": 3,
+            "lead_tool_calls": 3,
+            "lead_model_turns": 6,
+            "tester_tool_calls": 3,
+            "tester_model_turns": 5,
+            "tester_wall_time_s": 180.0,
+            "skeptic_tool_calls": 2,
+            "skeptic_model_turns": 4,
+            "report_tool_calls": 1,
+            "report_model_turns": 5,
+            "reserve_cost_usd": "0.01"
+          }
+        },
+        "model": {
+          "alias": "gpt-small",
+          "id": "openai/gpt-4o-mini",
+          "provider": "openai",
+          "override": null,
+          "max_input_tokens": null,
+          "budget": {
+            "total": "15",
+            "margin": "1",
+            "per_case": null,
+            "reserves": {
+              "final": "3.25"
+            }
+          }
+        },
+        "source_hash": "5e3b3a3dd91076327be2913b3c465f862b4d82014f73bd031430d4ef528b02fb",
+        "memory": false,
+        "memory_frozen": false,
+        "memory_snapshot_hash": null,
+        "mode": "single",
+        "retry_policy": {
+          "version": 2,
+          "request_attempts": 2,
+          "attempts": 2,
+          "window_s": 90,
+          "fallback": null
+        },
+        "summary_policy": null,
+        "temperature": 0,
+        "final": false,
+        "split_hash": "d6b298021621ff430731f9ec0c38157ea155d6d667abeddb7bad16222e773fff"
+      },
+      "configuration_fingerprint": "f52844c1ddb35cd202775b537257d1925b2b3aab7217cccb8c8a30c8d1c86b4a",
+      "git_commit": "e021458d8eb56cc0b4a4b48adfb7d1724a9d2d27",
+      "dry_run": false,
+      "repeat_id": "default",
+      "cases": [
+        {
+          "case_id": "re2-ob-0008",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0008",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "9f718533f1b14e5416d24ff5e284a6d7fc06e5511a3047a43f258d4e49e80e5b",
+            "logs.csv": "55db9ca0c6ff1feb9f517cfa059bbadc95a3efcdbdf010950b8589cbc362a28e",
+            "logts.csv": "1742dc862ca1486e13ba6bb507a4d5e5cf6480fc23bf78d7f85767554dd34084",
+            "metrics.csv": "2fef12b78a19201c4cb4c462f4cb2b5e810a05e865b7e31932d0d01ed2b430b5",
+            "metrics_raw.csv": "a8d3c0ea36fdd15b3b73424e815612135c2a9a5c98d98b4a880176487864e257",
+            "task.json": "462cdaf05edccff85850b4192be955f7436ca0803f05605ae4ddb19561b5bf46",
+            "traces.csv": "56f101440c0e932c4af2d5e803bbf16f8fa18ddf11dd474a30d7a5f17ae90261",
+            "tracets_err.csv": "de54cc4b031053d29eee598cfe617787ccf804bed50b05f60f760b4cb8a534da",
+            "tracets_lat.csv": "ab54f3ee05ba0e527cc7c13ea2fdbe43821ccc43e5ec16b90320465edfad1aa4"
+          }
+        },
+        {
+          "case_id": "re2-ob-0016",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0016",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "815fa378f3a54edae9006d5e83b02613623d1927c161dde723e850bcbabf8b15",
+            "logs.csv": "1cba5f138fa9c7c37b8c87d425c2b90c5f0b1079d24b398dec2f3dbefdd10356",
+            "logts.csv": "14d9aa0a44543afeabe578ee93172154b0b2d0bee17c6f5ab24bf3e8c26753d0",
+            "metrics.csv": "256db660748b43aa8b6fed5974d418d9f1d77189e532a9ec0d57f26980505ad2",
+            "metrics_raw.csv": "8803ff5f8cccfa2d9fd0b9a574927f00a11cc8c181231a20d6fd67737af39e40",
+            "task.json": "14556546d531e336b52f7520b01ecd94f33b1d0415c63b72e598e4373ecc436f",
+            "traces.csv": "177e9de62f64e88787d01264365f826c1f7bc919edac95a69fb0aae60d92f79e",
+            "tracets_err.csv": "b0ba00435a53dbf779f35953ce6e3ff15cc1628f5af613516a8b095f223e598f",
+            "tracets_lat.csv": "9ea030e3b11b1f11ea3c4b6a9084116682132c1359d9c7a195e831685d79f474"
+          }
+        },
+        {
+          "case_id": "re2-ob-0017",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0017",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "776fd93554b9148b2ecc4f4b69142dd3e40f84f36107f4ff1127152613e4c9be",
+            "logs.csv": "000f7f1fb19e1b0620416e36e4ef640ef49ddd99e6eaf3e455aa7b7761095725",
+            "logts.csv": "b6a551e9500bd90fd45898eb5012185f3310a36cc7223aa186f69b6b4212a9a9",
+            "metrics.csv": "cd3d1b5ecc83d7875b71c631448628be24f04796abb82269c2609e205291f7fa",
+            "metrics_raw.csv": "ccd6b9fcf6112c266b287db5b631e65164d747d86fc97531c02e3dcbdeff33ae",
+            "task.json": "360c0301e7061417d972893ded024a685937c45d4040d6594eb3f5da4066338e",
+            "traces.csv": "4cf7b8a7b04834ea1b6e49b2606363615564be2a007681382931cc0bc831a9e8",
+            "tracets_err.csv": "c81422538aef7579327173d3597004aff399e2653c1e545cfd9f8db50b154aa3",
+            "tracets_lat.csv": "9db4a5151f4a5fdd0106e135cfa6fcc6767eb3013c32a19676dcbd70133c8bfa"
+          }
+        },
+        {
+          "case_id": "re2-ob-0018",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0018",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "b7c70fdaa560cda530e5e12108ce3f3ce18e7cf67cafa2f693b2ecff81aa7249",
+            "logs.csv": "f91316b34cce77110f5f6ca11aa747b9315e2a52543b38c3606d32e9ee100d99",
+            "logts.csv": "3760776f0199cfecf6c37388c3396806c013ff6b874fddadccae74ff9c092550",
+            "metrics.csv": "cf4f518d88cbc4232c2299ddbce4e93b7f01fe6bf112cbcef579a3c01be54e63",
+            "metrics_raw.csv": "8d4c4282d1102d466b3eead4d19fb9d945ccd5171cd9a34eb7acaee97a6fdad7",
+            "task.json": "b650addf192f16e00f5d7e64ded12e64fbf6314a6869e33678787ec924eda324",
+            "traces.csv": "b126b114fb120df7e0c46ee879076d952a7d2f2ec938f61d8f15fe9c530c67e1",
+            "tracets_err.csv": "178728b4ebd096e18de8b29f3071ad2b0c1682b35f956b2998a564bb67ad74e9",
+            "tracets_lat.csv": "688a39573fc5e82bc6d89deb861d3129a2fff2423a2861d3430e98fe5715cb9d"
+          }
+        },
+        {
+          "case_id": "re2-ob-0021",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0021",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "346d7ec296faf27ff9309e0572f0bf934f61da9ad615834e5b0567caa633a87f",
+            "logs.csv": "6b7172169391119e0e142b393b5149f09e83bacff467338879ab859f754ea812",
+            "logts.csv": "7f5fb0aff9b1b9db821af385e705a79aa24eb913a045b2cd7e0a680de166f43c",
+            "metrics.csv": "bd5e5ed33a01e64bccf69ad66d116b61e8e271752cdbeccd0a9bba965f969d7d",
+            "metrics_raw.csv": "54cacbab8632785cc880372cbd8b7791e4aeae74ef6ccb993b1b35fe4de6eba9",
+            "task.json": "d60cf5738bf64e23aa2a152480809a68cc30ea30069d82dffed9b32c3b8265ec",
+            "traces.csv": "fc9bfa4f554b9a1c96cac0dc820037c003dc1bd98fa7428a17202652dd60760b",
+            "tracets_err.csv": "69de3a1696d689bf1d15f15ecc205cee6fc2d9b534068307aa7bfdf2a64bc709",
+            "tracets_lat.csv": "5d9281ac3202bd8d8765da0d1a3ab1f730053be6db837e4e1bb8739bbee3c4a6"
+          }
+        },
+        {
+          "case_id": "re2-ob-0023",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0023",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "6f48ce895d25e7108603c25635c8523f7462086980cb19389e460c61b3d69c71",
+            "logs.csv": "ee8874dd92546b1cafce56dee894668f1cc7a8c78df5aaa1ae4ae6201949a9f3",
+            "logts.csv": "00d82a3bf03988a2e983c7c26dcfc27d6aab3a1ccd3bef7c7c824096bc992b28",
+            "metrics.csv": "b2981dbf1227af8f2301cf96ddada2ad81d901db765bfdea6b0093384c952647",
+            "metrics_raw.csv": "5e52362a89bf9e4e17b81487d7b0135f375ce065f96890c0ad9bf107599387ef",
+            "task.json": "fcd8b05553650b9fa634b790adb5630158028c0337f61958f860c50eef80abf8",
+            "traces.csv": "957d18ff0c968fdfb7ee4f4ebdaf52bc1ff57b7348507d28a235ea9c450ed2d0",
+            "tracets_err.csv": "d6d7aaf4878f9eb4c5d5853bad44ab4ad5d17754159f7a62529d42323640803d",
+            "tracets_lat.csv": "c4ea53dcc20266e5ddc6b685583a9e510bd6dccc6f76adf46836dbbe5c12d135"
+          }
+        },
+        {
+          "case_id": "re2-ob-0029",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0029",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "3a9c16d7d6b060942e4cde168b1cf9455d296ae39b32f5261f9f1a214162875e",
+            "logs.csv": "936c1ac90cbe66aa8b5a0da10e2e9278c2a83cc9d6a665d7be33ff352156f7d5",
+            "logts.csv": "21b97950c8de19b5b7ef1f6728dd63e0eddbc4d64b3ffcf5eefa61b926e51fb6",
+            "metrics.csv": "8719e040a072015a8ec3fc947704a6f6374d82474407d6112b8db4f5ae8e55e9",
+            "metrics_raw.csv": "d61b1f0fffcafbacbbbec161a383d53a408ec48e39975045c7e03a223d229a8d",
+            "task.json": "1f68f0758403e560d9cfe8abd918de042a05148567f9b8bf14f76df8d27b15f6",
+            "traces.csv": "5308c3f838097335de1156fa1d07e8d21b2c41d1f5fd20a34c3cc26b4ff3aa6d",
+            "tracets_err.csv": "64b2100e1b2901a6e80a9c1977cd6081169278dd852cadb2a575dd64f412b7e9",
+            "tracets_lat.csv": "aac7aafb2ac6e39b24af96a69fec6402a1fde70bbbcb2e36ef9a3d95d397f3bb"
+          }
+        },
+        {
+          "case_id": "re2-ob-0033",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0033",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "2fbbbe2b8da9644eb030374316c3139516786747536224b3ec0003ad7c4b947d",
+            "logs.csv": "bbad4c9c2f1f3e9133d8596353799d3ab4d63b8f8bf65a37d1367da6add4967f",
+            "logts.csv": "9fac92fb0b25efe968c6684609ba06306642d1bcfd2226c117639ef91afff50f",
+            "metrics.csv": "edc75fec68b3bb33fbfbd5af31b0c1b17652fc5d6f478cd0de3a2f7a42b2417d",
+            "metrics_raw.csv": "ec9b66bb1d3402bbf196fa8aaf527b16a4ed10a33f9b1c9507c5f2db2a50679d",
+            "task.json": "1aa3c6e80dca09964b51ebd28fec1c714be20aec764ba9d225307c7f9a86794e",
+            "traces.csv": "9f272b495f8bf155822457f009e94bd6073fa2cab4f293c17f61c93c5e29d28a",
+            "tracets_err.csv": "8bd0f3bc419d5c010f988dbd331d76a7a5b8af6cb6139b4cd62e7e2158621d2f",
+            "tracets_lat.csv": "98e79724b1b94b424750dfbbc96dffdc9d60b06d8923f6c430f5d149e8411c6e"
+          }
+        },
+        {
+          "case_id": "re2-ob-0034",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0034",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "195c27ccb8f5418aa996177942374e173b362e99d05cf0c9faea2ff74cfe5a5c",
+            "logs.csv": "f8a1480c2d7fe173e81e187dbc973b40570ad167ae4cf04ff1624aad4c9fb09c",
+            "logts.csv": "2746d82e624d75ea8e0088196818bf0f6b030cede89bed8027cf18bc7b9c890e",
+            "metrics.csv": "21feba721063253da567aac56a3c1792d83f7881d4e89ca196456620ebe2ed19",
+            "metrics_raw.csv": "4eae6781eae7a8080b49bc6f0c5adee7fe29c2bd668e71244ce8ac14459d7de6",
+            "task.json": "238d4f534e4b8d786973a47c14896cd3c9d5f52e00feb9c6516f3dc9ebfc8e08",
+            "traces.csv": "fd171e7ea502182c52eda05ac1e722be9ccb887beadd2b59d85e726fb880293e",
+            "tracets_err.csv": "b3bfaf043aca6c14cc464941e41b89af991fd90526438b460710b6ee4aec1479",
+            "tracets_lat.csv": "210acd60a907881998e19d3a9654022c5bc2eda323626883ed281332afe34678"
+          }
+        },
+        {
+          "case_id": "re2-ob-0035",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0035",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "acb0cadaa3fe1d0c8539cc92c637da964d834a73285073ce39bcd89583a06f01",
+            "logs.csv": "9ffb5ac22acc670e8227cc5cd263d062d656d1b9f01ea2511dbcb6b2d7b6646b",
+            "logts.csv": "56ff6444d2f393fc52f1d1a2cf4a7ad74c545d8204ce7655733dc83d6291997f",
+            "metrics.csv": "f34bccad1a92659d63ece8fce4428d65eb39eecf1513adb1a64daa19bf188c2b",
+            "metrics_raw.csv": "cc44d15de45aa1dd7ad5a067b505681f5ce1e54374307600b572fd7543d9a38d",
+            "task.json": "a728dc7c5de86e32c542b989b86a7c330759b6359fa8b26ef018827a70482c79",
+            "traces.csv": "fdd6185e21140a6f5ef61d74b5778c88d0d1433aea915d03a2e5f69e0db2b31b",
+            "tracets_err.csv": "221c4cb3f416c0279bbf9fd93dba89eb0f98c1872a43c34ee01f3fc1d8058326",
+            "tracets_lat.csv": "67ffa3e74ac22a6186693868500c4dd70a80583c317c66199d92d7a4674cc539"
+          }
+        },
+        {
+          "case_id": "re2-ob-0036",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0036",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "44653d880f620151f3cc44e1a497471b81207c24ed92d4af9b215a8cde4f7069",
+            "logs.csv": "d03f181ccbc6ce27fbc4e6f844bc01a0510a5aff525212956610c0d64c513c66",
+            "logts.csv": "eaae4f7589adb41857a9fe3f98c65be692b778c6d8541bb1787f2098b270e6ce",
+            "metrics.csv": "02e9a0b8fb996048dffba124786ac60598ffd64be0d6c1e732916ecfe3b8fa8b",
+            "metrics_raw.csv": "e8d7296ff1c16c7513f0c2ebdc8a89fa27de9952922cfcb3804d5d4bf3f82a33",
+            "task.json": "37eea3f56d067a600a4cfc33401f12158bc92ab9d4442b11dde179601aa510d4",
+            "traces.csv": "a848b286a1da89aea1a8e866e4e9b54d5b25ad5752803fd52366c67a13e8a8ec",
+            "tracets_err.csv": "2c82e3405deca502e39518424bd2e9511a9ef9bf1ce1ed2e1ab97ec1072b9295",
+            "tracets_lat.csv": "4c5cc14591496d131950f4001ba8c54097a6efd3266287c5a177759487300eaa"
+          }
+        },
+        {
+          "case_id": "re2-ob-0039",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0039",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "4446ff4d193bbf676dbfe19e202d23a56c24683b2616a609a7add04c90183b8c",
+            "logs.csv": "141b612e31cebbff5fb2119ea5381f158db59eff9207b27c7367ec94e9a361ef",
+            "logts.csv": "9cf69faa01159ae926975fb73b33ba4226e344fa9e55e5850e9d5c4a25ac042f",
+            "metrics.csv": "fc9b256447795845389923f9ed02fd426290201d014342739d8c65edcbc78576",
+            "metrics_raw.csv": "88aa1af932f4060388b4e981ae2e07986bb3ddd3cbcb5e0974fe064a19475c4b",
+            "task.json": "aca463e943857bc03a3b8495727cfabe21620acf165e7e0dbeca90357177b694",
+            "traces.csv": "f20af717db61bd0e53208993805e3dd893759d15d459ac241a6fa2bd7486ec54",
+            "tracets_err.csv": "daeba59bc2fca5b9f7fd8b38a311b7dcd4e1463df6a1a367e93a4743711dc13d",
+            "tracets_lat.csv": "a6de6e8d88653c80151f58822522805ca022505e204dcd7c13c2ba5ec1b8c9cf"
+          }
+        },
+        {
+          "case_id": "re2-ob-0042",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0042",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "3218a5d832c30baaebd721875ff1cf6f459615e75eeaecb86fe91e593e63d64e",
+            "logs.csv": "6fb3b1a86f69bcb0663c8b5a3529253ae88bfde0da32978678d2e5789a501cf2",
+            "logts.csv": "2b9cd97d23ecdd8b0adfa9d7ec82b04474f076f6a638f3be10395341186f8c65",
+            "metrics.csv": "965af24e76b006286c5a0db975dcf0ad5a6766858e2771420291269c8bfb7052",
+            "metrics_raw.csv": "89457fba55d2be90af266332da352dbdd3d7da5bc706d608382266f71f11b9b9",
+            "task.json": "6c040aadcc84c395e473cb395eb65c80b80a44e9fe08c304348704b21138bf65",
+            "traces.csv": "524cd280cf479c8ac7f9be04bbd95f6bba162a651dd6378f8293ad69a32b600f",
+            "tracets_err.csv": "12dcd960981a470d6aa88b15edee997a7ddb83fce95f5f56a54893d5f9ac5f58",
+            "tracets_lat.csv": "73152ecc2a1aedc3262e35a530828cc7d95f67ee5938dbc10cbe691932da46c2"
+          }
+        },
+        {
+          "case_id": "re2-ob-0044",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0044",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "c4be6c849c8d3018f84278b78b81a9f604f1812bc1b5297ec26945548a6b8ba8",
+            "logs.csv": "bb91fbb0eb034bacdf0ec750fe1db4f5617215840247064b085c835008bc1669",
+            "logts.csv": "da0ee09c37dee99143b13385ffe6a57bde472c26837d64c8f3d384da8b18e80d",
+            "metrics.csv": "05cd4b320f74636484a323f5a39e962fa053416ed474e1ccf5f7f6ed54adff1d",
+            "metrics_raw.csv": "8ec200d3bddc583b226d711949176e5a417aa35a1f2759f0d173f3761aac62f6",
+            "task.json": "f8bcb9c2b3d23bc5e087a0b5c016768082a0fa561233e528a4ab9de4d09787d8",
+            "traces.csv": "0c8d509fd6dbe8320ae223ef25589a0a6c8d5264b8892ad34f1c4d0a6f699fbf",
+            "tracets_err.csv": "12f99786a9f48f889dc4708f59422fda8b15eacb833e81b5a8e2249e8e485f71",
+            "tracets_lat.csv": "712fe160c524e31c036baee43341d0782756771453d35e95ae33d02d253386e1"
+          }
+        },
+        {
+          "case_id": "re2-ob-0049",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0049",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "a4bff53bfaac8094ec9fcc8d15bb35063b96b38f54fcf12c68ec64e20bf6ebf1",
+            "logs.csv": "eb0b6c1d2c610b1317045c3904b1ec7e4f4664c7e44c597ecff1ffa2dd405fa6",
+            "logts.csv": "c684dab35a98011a1481db7fff077b35eb5717fce4cd86622cf89c4fa725e021",
+            "metrics.csv": "3b39b96430a79d14da2d858c52cccb94497130bd9fe6cd1a1cfa52d00e00338d",
+            "metrics_raw.csv": "769ece700b369f248b307999523203a323b3bc749a3cb1559f2d65e79b235d5d",
+            "task.json": "d01ee7d6a24c3fd81718858d202a4172365dcd56ef473fba16335958360bc205",
+            "traces.csv": "fcdad661bd776e83b787dd0a2042c009a9d18d1892f78dc58dc183b2ceb273af",
+            "tracets_err.csv": "a400089726e90e2a2f40755e9dfb38656509efef87d77631d082a81fe95956bd",
+            "tracets_lat.csv": "e74ae9406895b61744fe77dcc16b79efedf6642f47aa43fe9a186524f57e9d6a"
+          }
+        },
+        {
+          "case_id": "re2-ob-0050",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0050",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "cd0fdaa453891f09c82ae9a4ec0dd8e6f84912238481439f45c332a4f01b6782",
+            "logs.csv": "3d348c10109f828d693934e06f3e3de1171430b26557be155b8f9dacb49ef535",
+            "logts.csv": "124c97726605293c2b6563b53b4e08f4686a70b644d397a50c8a5a06b7f541a7",
+            "metrics.csv": "84a329fb5b689f3a15d13b8ffeeee853c51da57b43ad17ae360f25b1a6949c10",
+            "metrics_raw.csv": "53150bdf26500acc8ab4a82028cfa8a2e1a334cf99cb104a4a0da8a8ffa61289",
+            "task.json": "9202d4d526bbeaadcc41c1a58c9109ffc17e77dae7c1b2ad6de47d99cb80fa4e",
+            "traces.csv": "24b70fd280ef3e90baf0a5e7e9e49c9c27bbd7e214ebc1557f06dd008de868ce",
+            "tracets_err.csv": "77bc389aa12a45b80d5d450b34f4e49b2c69b627887dcbe21adc6985e0557f62",
+            "tracets_lat.csv": "55400b2b3f302d20794d32ebc5c98fb04b73a4dcae869447e20ed9d16e632849"
+          }
+        },
+        {
+          "case_id": "re2-ob-0051",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0051",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "b75c4d14d58bafbdd234dc5afd08eda15fa4fc383fbdffcf2870957f37feabc6",
+            "logs.csv": "25d73b433462edcc22deb77895e0accf28cd470d1fd49180181cc59265094b6d",
+            "logts.csv": "970452fca869255d85b79fbe87205e752b677727dc86e9de22b08888648f7a80",
+            "metrics.csv": "3ccce977d5cae34da91bf9cc679e4eee979d3d330faf6d62c313479cc9f7b455",
+            "metrics_raw.csv": "7be406f3e9815e70191b6e8b925dc89ccf072f9bd4374a9df62f545af51f23aa",
+            "task.json": "c01bc1be3138c31f411713121b8e4fd42059791a33e9150c28dafbaf13c057d6",
+            "traces.csv": "dc098c518db7fe1152c5b914f66ae3a34df0772624447d8b692066fca7a4ecf4",
+            "tracets_err.csv": "2dbba9464a93eac790c80c1beb4354364019fe3a589f9b30e3119c420da5bf46",
+            "tracets_lat.csv": "319fc3466edff7bf59c073f0e78f042d61b0c067e5f8fc36fd67b61c51f9572a"
+          }
+        },
+        {
+          "case_id": "re2-ob-0054",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0054",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "41c6c7ccf97a5be0ed93c57f753b0379fabeb655ccc911a8fc64616d3f0ea5d9",
+            "logs.csv": "72971b5a0649f42d97d8a480e3234e82c0755887bbdc75ce8b1d46524bb8fe53",
+            "logts.csv": "678359a04688a237c3648329dac2b4c702f7bd9429d9db41d1c12fdc33b80600",
+            "metrics.csv": "c3c29a5b4a8316a937687794922545f3fd3a23f59ab8015555bf9d3670420dca",
+            "metrics_raw.csv": "b75913aa9d415aa1515aa49d0fbbf69d547fa0504821be7b71254b8c1c74ce6b",
+            "task.json": "cff28011f18e2494169274f1914aa28c36f44dc9a8dddb907cf6e38b26e0406c",
+            "traces.csv": "90583d0236eb308a9322bc3f4bcd904a1e4bb5696d1bbf2068d6d8406102f58e",
+            "tracets_err.csv": "b05c6c123c3d59d3824f892790f43d400859bf329c6f3202a10d26033debf363",
+            "tracets_lat.csv": "232698086d1a79ded0000e2cbf4a15f68b208eaf2c4aabf4aa02df7e31a1d462"
+          }
+        },
+        {
+          "case_id": "re2-ob-0067",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0067",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "b9c6528507826ad510518bec5aee230bbe5b39bf82708b9f5090c9e664e06122",
+            "logs.csv": "1e7d5c9b7cdeed8c0827d7069e451b6781213bcd1b32e90db7faca55dca3f9d5",
+            "logts.csv": "0206778225a35332e397a7fb7ad2b74b664e612e673d8f7d1206252374d88117",
+            "metrics.csv": "7061684cbff459226fd71c9f34c758e63770b0f4845fb0aabe033bda1a40acef",
+            "metrics_raw.csv": "4a71cd98726baaf57801aedd97888862711fd513836e889fa387a9d05c0e4ffa",
+            "task.json": "95c365c7a1a9cd828731e1f830a2f22b4e5afa76826935868091cafc037192fe",
+            "traces.csv": "710571bd17adb65803eec04f86b729d7e6e2fa181fbda37603508fc9da96dd77",
+            "tracets_err.csv": "248895be9f0b6a8718571fd16f572bc9889e2ea9aef17812601919760e1df2de",
+            "tracets_lat.csv": "c50c8d9ee5f1e01362997c467b69b5b7b12f7eae11e0fbd0ff589db0bc9ba0da"
+          }
+        },
+        {
+          "case_id": "re2-ob-0068",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0068",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "06d293231231fe2f6362fe5f73624025e856c523134bb442d58e2f1d42e2ce5d",
+            "logs.csv": "dadbb3f3fa96cc33c46dfc56f2f48de21bc58f5eefdb2267d2f4218999e7d9ca",
+            "logts.csv": "87f33f223b03624a6892d8cef488ee8ffd6195f16f1e596957f63228b1a81f02",
+            "metrics.csv": "616eee2b2d672b019ff612ca87497bc1c8283728069337a64f8d2b8e55535fd1",
+            "metrics_raw.csv": "7ef5ee9a4f23aa1354b04899ddf02309bf85a54d2a7ba4c64e0094b83c4b358e",
+            "task.json": "999ce8471c45a5045c54304e5d857bcc3562ad18a7fabbd6568811fb0643639b",
+            "traces.csv": "594b0e1fe01e2bdfd893f1a96c9cedc44820b017f67d53c0c735253183f9cb97",
+            "tracets_err.csv": "348114314a0b8553be537fad46570dbd215febd38496df69054e07ca651b40c9",
+            "tracets_lat.csv": "0fa8ace569c036001335aa56a32f4c62e59fb2a216a729717ff16921c703bf9c"
+          }
+        },
+        {
+          "case_id": "re2-ob-0073",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0073",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "6c2b4fa07227020012807253c6ab455d77112f4005fad536c9e0d3275cc1e5a0",
+            "logs.csv": "c669f03be50a0fc4d212085b7ce5845b2d770e623214dd7b52e7d0960692d71a",
+            "logts.csv": "2b38a4fb1a9d6099b917c9f0cb4eabdffa2071dd13aba872ae34761422fc9221",
+            "metrics.csv": "265d2eb97c613da670bddd9072efc5b749676503b231d5dbbdd65c9a0131d408",
+            "metrics_raw.csv": "6aec414c9816e51acd1864328ba9f4d98fba35549d9ae2b70b3e292228d16dc2",
+            "task.json": "5778fbbcbd948eb85c143cfe8e11fa5945b918aad73194a909e33c3a2b0733c2",
+            "traces.csv": "0d8e9f31d07687efa10054a2d2ff9cf5ddef5f415eceb2ad15743c702ebd7c52",
+            "tracets_err.csv": "ac31820c9aa1818b8d4f8df7391ed997784503dbc9279954da6ed1692a238914",
+            "tracets_lat.csv": "2be3f97b86bbb42721c50a962f4d860ec7772df7d9fd643a04f220650b8febf8"
+          }
+        },
+        {
+          "case_id": "re2-ob-0074",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0074",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "ef2708c983c0b0cdb1e4ffeae09aeb80005e73bc3a739f294119dd2d6198731a",
+            "logs.csv": "c3c242e9b8eb1e4ee42ede27fb4b575195da8761849005dc4aec326a27bfea83",
+            "logts.csv": "0b8f45a320326a695e53855e64cac44b814b00c61b899a6647548551be0daf4d",
+            "metrics.csv": "446988683205c36d594397f1686e9b447edfb469e387c1dd337ce885850558e1",
+            "metrics_raw.csv": "d7c07aa6899d8b07441bcd365dd41761ebf36a6a521a830175d3a366f7ff6e55",
+            "task.json": "3665bb5d7a647c312975ea0b6f318a4026a3bcb5c7f9ced05e03c5600ec33e38",
+            "traces.csv": "89070667a1cbfbcbb02d27b095c2815559dcea41811e094cff17bfdaf903de78",
+            "tracets_err.csv": "9dc18f6c8e4ec4e06a172168a9c18440103c0a9e600aaeb75df0988afd108a59",
+            "tracets_lat.csv": "7c24410131c6fa1beb2f3d879a8749077b0f4526cdd7a90debe28aca799d5739"
+          }
+        },
+        {
+          "case_id": "re2-ob-0075",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0075",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "0d3a0be9e3c4793465990e386b20389686df66475595a6fe84d0e80020bebff5",
+            "logs.csv": "6ee1bd39d2a9f29726021f067e64845f9b87f9f68115c09e87d0c80c55f370bf",
+            "logts.csv": "d52ba901a14e0056d0b80bcf46e20721bd327ca6914fe792c96b3e847fdb4dc8",
+            "metrics.csv": "59a58b633e2661ec580ce26ac24087a7eb664afa51ada6311b0d618952f06478",
+            "metrics_raw.csv": "754b83b34eef738190aa50f90f236177cbcd7dda38b879b3dde842c4c0c6d6a3",
+            "task.json": "e1cd02a98e184cdc566e67b24e77a52f5a4444e96a546ba59fdb43b6c8572325",
+            "traces.csv": "402876267d270441a69bad164105bcac57f19c11435906004fd19c0b5544578d",
+            "tracets_err.csv": "2f5b9ba66f987658755007347bcc93647a3f1a6df98818cb5a27afe77cdf2367",
+            "tracets_lat.csv": "6119ea01ff9f4c79a2e5c2aa2ba27441d688cc2f0ad276e952229c4603d48441"
+          }
+        },
+        {
+          "case_id": "re2-ob-0077",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0077",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "fd4f88c12436f5e89f3a7678245d268f2cd7701ae449dcff3455fd39b0c3f22b",
+            "logs.csv": "30e12fd8b0c4d7d88e09c0414ebfc7db2b51f84dbb7e08bf67072a7dfdba1350",
+            "logts.csv": "8fddf6de5835fe1dab37ad19d8601fa85050ddf4ab607cf43263422887fb1519",
+            "metrics.csv": "b55ebae478ba114814190cc357a4023fe29d00c7b500f8aba5dfc17acab02b78",
+            "metrics_raw.csv": "dd827a35073e45bd4cae28debdc73334b8fbc500d8ed77e2aa2a53092abd8579",
+            "task.json": "a848d043f40ec7d8a8b0ef530544013a342732cdaaa2b386e3c288762f18793e",
+            "traces.csv": "b68a298bea4853d5ce9e067874fc843701338cb3c7eb7b9ab5756cfefe8d2771",
+            "tracets_err.csv": "a822138a4d7ea5b286befa2aa9208d0245591d2d1376adbcf9ecd8df8ddbf5ee",
+            "tracets_lat.csv": "4c32f91f338c6870c670bcf422d023fe98e0dec2f85aa6f6f01e193fd9352f81"
+          }
+        },
+        {
+          "case_id": "re2-ob-0078",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0078",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "911850e6f76dee0f349ec7972d64d582b9ca1d91361bbe8274774020b7e9f112",
+            "logs.csv": "c0027c28fdd2bff2136f2c2827b6cb74b31ceac99968f51d15b9433cbc3731a7",
+            "logts.csv": "508c231a2e7c13f5d4236e9b049185de511ecbfcf9d7bb3950292424baa54116",
+            "metrics.csv": "66eaad2eb8ce5f383d198fc5c263a854c37757262de613e93a1b185d729c0e48",
+            "metrics_raw.csv": "ef88e627aba022fe56d65b0b6533945dabdc0d09bbbb31428e1c25efc6f7927f",
+            "task.json": "f50bce1b189390f3266fdd3084e88cb7d273da9a8e5c4418ca4de34472cd49fb",
+            "traces.csv": "2c1013fa2973110f3df22d4610b66308ebc293bbbdbbee2f27aa331f0f958ff8",
+            "tracets_err.csv": "d88bc7c244bc6b4655c7ad773c42fcc4da5fb48b4aba87b1c3bf3f29e08162ee",
+            "tracets_lat.csv": "b1f0ebfe07cd6b6491cc849bc9f11566933c9b557c30e38394d597f45e576d71"
+          }
+        },
+        {
+          "case_id": "re2-ob-0080",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0080",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "0eaf92757a95519933ac70abde25bca4dab161961820d808828ccb85ebfeac5e",
+            "logs.csv": "54b8254692885aea3f7918cc56d0ed954c12855c1c22d12d25d0a3605a6bc772",
+            "logts.csv": "9361c74c785bb85903cee3b4348f7bad6aed007f9c0b8a8005a6308a064badfc",
+            "metrics.csv": "4caa3d23f8190aa3b6102f71e46c5909385f694ec1c7f0a372ab8f9918531a08",
+            "metrics_raw.csv": "34e9df2d03b34909fb38debcc80dff6f56685b5115da6475e9b8f593993b30e8",
+            "task.json": "36d31ae58a385d56bdaa8943081b65a8e3d3e9202367755f9203db8ec5ede447",
+            "traces.csv": "67ad89e3892c36972c49c1344165a52995fbb935147757feadb8ad427f5250cc",
+            "tracets_err.csv": "2e8a06465045bce1f57b281e17d4f53eea22ebc8006e22b2061d69a0ead29ec3",
+            "tracets_lat.csv": "f0ec990059ed11bf0cb404e534ee70b4f4704ee2c9d3ad76ebe764db5daf3616"
+          }
+        },
+        {
+          "case_id": "re2-ob-0084",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0084",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "84a9d8e29e40a8c2846f30dc9c28bddfff1cddc9311aea87464f467e633d25a3",
+            "logs.csv": "7347543c95b1f8ba7699a6584d066b840ac5a61a5099a412a58744833bd0d9a2",
+            "logts.csv": "049ab51025ccb1155b0e47848db37e55d6364a8ef90280a6c09444580a0dbff8",
+            "metrics.csv": "5d1c77420320569e29c6023434b852023f951faa43b92aa5ad12060a947b1c3b",
+            "metrics_raw.csv": "735d94a9a66374e135a8ebe428738c0e4d8b317763902f7cfc5049698eab637c",
+            "task.json": "40bb46d2d3ee1fea7dff0b1967dc98664a5c10b34fd42734ac61e5d5f449603b",
+            "traces.csv": "e72c2d355c56734a53179a48ccd7bd8fe0c1176017fc9e709f4e576adc254399",
+            "tracets_err.csv": "74142f5d2906eed38587fa079ae559c0c28487547a5018cf375b5afb46ec3f02",
+            "tracets_lat.csv": "191698134f563189521dbfd65343fd0e58e1cdbe6cc201053baaf26faed6986c"
+          }
+        },
+        {
+          "case_id": "re2-ob-0085",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0085",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "04e78d3e4cd4979eae2daedac7d50713dfff9b099e0e81cb4ff403d4f79abcfe",
+            "logs.csv": "bc7c0b7370e37395d4d1889005e4cdce431c66068e69ead8a5335087b00e10a8",
+            "logts.csv": "ed0ae36c44065320c7447119729c3e284db05b523b7042ab218fbaa8bfe6d25d",
+            "metrics.csv": "07411c9598e79be0ef41e4abb47d72408691bbd3d973c1bab4c0837d92511fb3",
+            "metrics_raw.csv": "2f3e229b9531ded4221a9ee0ae2fb19288f7039b8b9423967bd90daad3bc2cf0",
+            "task.json": "c0decf967fc22f73382ec70179c2403943f875a40c6a5019c9b35a9e6872fe6f",
+            "traces.csv": "afe960ff6399a76086f767e83e28e5b5613334f004b43eb6021aa61d40340942",
+            "tracets_err.csv": "6691956d937d2bb339f07659ac0161445e254c6564024a575e2bca457ccea502",
+            "tracets_lat.csv": "016629c8605453c836b6a106945b0b2a2e0cc506fd807363f55da2e83043f200"
+          }
+        },
+        {
+          "case_id": "re2-ob-0087",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0087",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "532d593e9094d851bd906ede62871dc8f7f455d22c53d3db61674b934286143e",
+            "logs.csv": "c53987722ea8d87999f847007e2af5e8abd25fcc0e230d040c2b8c311fbd4beb",
+            "logts.csv": "975a82bfaa2b83539ec1996ccdad826b2d94679e5b83065e97ab7c9a244c8a53",
+            "metrics.csv": "a465004ba8e5ddb3aeecf4474589c9315da542319fabfd2a41008249ced0d98e",
+            "metrics_raw.csv": "649960937974e24707afdec1671a0c0f592cda4f1001ab9d4f89cbbd085a2440",
+            "task.json": "6cdb443dcff238e99d0826c83ffc66e14471d7debb1e1d15eabbf9528d26c12f",
+            "traces.csv": "afa81a0e4bd43d7d19126042ee2bc2b56234c0c7ea045ccf91279eaadb08ad1d",
+            "tracets_err.csv": "73f3f58126b122c5a2e1ed3dac39ae9d9cf7682e7767196d61c8d517b21b5263",
+            "tracets_lat.csv": "ab6766e16762d852a19260ce37d1465630d342d64a42b58493429587cf4caf65"
+          }
+        },
+        {
+          "case_id": "re2-ob-0089",
+          "folder": "/Users/ilan/PycharmProjects/incidents_agent/agent_tasks/re2-ob/cases/re2-ob-0089",
+          "suite": "rcaeval",
+          "files": {
+            "log_templates.json": "fee421e8ba00d9d7b7819916d9d1b571175ea69074a277cb9a8211008ac0cc6f",
+            "logs.csv": "b90d2ccac12f6433074752a0c2d0c6f3ba24d9253880bed00089231a118a4b15",
+            "logts.csv": "017aa30e64bc591dafaae5bc82b55c5430b9cbcdfee0570ac159583abafaefae",
+            "metrics.csv": "11e6234e33d3b56331eadb640cfb55bc19d73b2f1522a10af203797cc4330c8a",
+            "metrics_raw.csv": "ea57e0c1204245a90a83821a420559fad17d28d1e3aebeecdd2daf626a626dec",
+            "task.json": "41f1114be68696d1bd0df3cdaf45165dc530d6fe71d616fc3e3f4af4aa3e0d39",
+            "traces.csv": "5de5e501ae1b0eddf5d8f815168a26e74a1b68f78aa6156fa32e30499afd30b5",
+            "tracets_err.csv": "d954a068ce9f00931e657f8881220e5b322f4384489b5583e6364ec0657f9776",
+            "tracets_lat.csv": "dd3771679cef82d0776425f03f57d2a057261c4cf2327ce66d379f41b0025382"
+          }
+        }
+      ],
+      "partition": {
+        "schema_version": 1,
+        "dataset": "re2-ob",
+        "algorithm": "pair-sample-with-coverage-v1",
+        "seed": 2026,
+        "attempt": 2,
+        "answers_sha256": "9ccb21e73c0ee5329254cad3c001eaf535205574effa2ea290251cdf86fcc814",
+        "groups": {
+          "g01": [
+            "re2-ob-0001",
+            "re2-ob-0030",
+            "re2-ob-0079"
+          ],
+          "g02": [
+            "re2-ob-0002",
+            "re2-ob-0065",
+            "re2-ob-0088"
+          ],
+          "g03": [
+            "re2-ob-0003",
+            "re2-ob-0022",
+            "re2-ob-0055"
+          ],
+          "g04": [
+            "re2-ob-0004",
+            "re2-ob-0011",
+            "re2-ob-0076"
+          ],
+          "g05": [
+            "re2-ob-0005",
+            "re2-ob-0046",
+            "re2-ob-0081"
+          ],
+          "g06": [
+            "re2-ob-0006",
+            "re2-ob-0015",
+            "re2-ob-0037"
+          ],
+          "g07": [
+            "re2-ob-0007",
+            "re2-ob-0028",
+            "re2-ob-0071"
+          ],
+          "g08": [
+            "re2-ob-0008",
+            "re2-ob-0039",
+            "re2-ob-0067"
+          ],
+          "g09": [
+            "re2-ob-0009",
+            "re2-ob-0053",
+            "re2-ob-0061"
+          ],
+          "g10": [
+            "re2-ob-0010",
+            "re2-ob-0038",
+            "re2-ob-0062"
+          ],
+          "g11": [
+            "re2-ob-0012",
+            "re2-ob-0031",
+            "re2-ob-0041"
+          ],
+          "g12": [
+            "re2-ob-0013",
+            "re2-ob-0020",
+            "re2-ob-0047"
+          ],
+          "g13": [
+            "re2-ob-0014",
+            "re2-ob-0056",
+            "re2-ob-0072"
+          ],
+          "g14": [
+            "re2-ob-0016",
+            "re2-ob-0050",
+            "re2-ob-0074"
+          ],
+          "g15": [
+            "re2-ob-0017",
+            "re2-ob-0049",
+            "re2-ob-0077"
+          ],
+          "g16": [
+            "re2-ob-0018",
+            "re2-ob-0042",
+            "re2-ob-0084"
+          ],
+          "g17": [
+            "re2-ob-0019",
+            "re2-ob-0063",
+            "re2-ob-0069"
+          ],
+          "g18": [
+            "re2-ob-0021",
+            "re2-ob-0033",
+            "re2-ob-0075"
+          ],
+          "g19": [
+            "re2-ob-0023",
+            "re2-ob-0029",
+            "re2-ob-0068"
+          ],
+          "g20": [
+            "re2-ob-0024",
+            "re2-ob-0040",
+            "re2-ob-0045"
+          ],
+          "g21": [
+            "re2-ob-0025",
+            "re2-ob-0032",
+            "re2-ob-0057"
+          ],
+          "g22": [
+            "re2-ob-0026",
+            "re2-ob-0048",
+            "re2-ob-0090"
+          ],
+          "g23": [
+            "re2-ob-0027",
+            "re2-ob-0052",
+            "re2-ob-0082"
+          ],
+          "g24": [
+            "re2-ob-0034",
+            "re2-ob-0044",
+            "re2-ob-0080"
+          ],
+          "g25": [
+            "re2-ob-0035",
+            "re2-ob-0085",
+            "re2-ob-0087"
+          ],
+          "g26": [
+            "re2-ob-0036",
+            "re2-ob-0051",
+            "re2-ob-0089"
+          ],
+          "g27": [
+            "re2-ob-0043",
+            "re2-ob-0066",
+            "re2-ob-0083"
+          ],
+          "g28": [
+            "re2-ob-0054",
+            "re2-ob-0073",
+            "re2-ob-0078"
+          ],
+          "g29": [
+            "re2-ob-0058",
+            "re2-ob-0059",
+            "re2-ob-0064"
+          ],
+          "g30": [
+            "re2-ob-0060",
+            "re2-ob-0070",
+            "re2-ob-0086"
+          ]
+        },
+        "tuning_groups": [
+          "g08",
+          "g14",
+          "g15",
+          "g16",
+          "g18",
+          "g19",
+          "g24",
+          "g25",
+          "g26",
+          "g28"
+        ],
+        "heldout_groups": [
+          "g01",
+          "g02",
+          "g03",
+          "g04",
+          "g05",
+          "g06",
+          "g07",
+          "g09",
+          "g10",
+          "g11",
+          "g12",
+          "g13",
+          "g17",
+          "g20",
+          "g21",
+          "g22",
+          "g23",
+          "g27",
+          "g29",
+          "g30"
+        ],
+        "tuning": [
+          "re2-ob-0008",
+          "re2-ob-0016",
+          "re2-ob-0017",
+          "re2-ob-0018",
+          "re2-ob-0021",
+          "re2-ob-0023",
+          "re2-ob-0029",
+          "re2-ob-0033",
+          "re2-ob-0034",
+          "re2-ob-0035",
+          "re2-ob-0036",
+          "re2-ob-0039",
+          "re2-ob-0042",
+          "re2-ob-0044",
+          "re2-ob-0049",
+          "re2-ob-0050",
+          "re2-ob-0051",
+          "re2-ob-0054",
+          "re2-ob-0067",
+          "re2-ob-0068",
+          "re2-ob-0073",
+          "re2-ob-0074",
+          "re2-ob-0075",
+          "re2-ob-0077",
+          "re2-ob-0078",
+          "re2-ob-0080",
+          "re2-ob-0084",
+          "re2-ob-0085",
+          "re2-ob-0087",
+          "re2-ob-0089"
+        ],
+        "heldout": [
+          "re2-ob-0001",
+          "re2-ob-0002",
+          "re2-ob-0003",
+          "re2-ob-0004",
+          "re2-ob-0005",
+          "re2-ob-0006",
+          "re2-ob-0007",
+          "re2-ob-0009",
+          "re2-ob-0010",
+          "re2-ob-0011",
+          "re2-ob-0012",
+          "re2-ob-0013",
+          "re2-ob-0014",
+          "re2-ob-0015",
+          "re2-ob-0019",
+          "re2-ob-0020",
+          "re2-ob-0022",
+          "re2-ob-0024",
+          "re2-ob-0025",
+          "re2-ob-0026",
+          "re2-ob-0027",
+          "re2-ob-0028",
+          "re2-ob-0030",
+          "re2-ob-0031",
+          "re2-ob-0032",
+          "re2-ob-0037",
+          "re2-ob-0038",
+          "re2-ob-0040",
+          "re2-ob-0041",
+          "re2-ob-0043",
+          "re2-ob-0045",
+          "re2-ob-0046",
+          "re2-ob-0047",
+          "re2-ob-0048",
+          "re2-ob-0052",
+          "re2-ob-0053",
+          "re2-ob-0055",
+          "re2-ob-0056",
+          "re2-ob-0057",
+          "re2-ob-0058",
+          "re2-ob-0059",
+          "re2-ob-0060",
+          "re2-ob-0061",
+          "re2-ob-0062",
+          "re2-ob-0063",
+          "re2-ob-0064",
+          "re2-ob-0065",
+          "re2-ob-0066",
+          "re2-ob-0069",
+          "re2-ob-0070",
+          "re2-ob-0071",
+          "re2-ob-0072",
+          "re2-ob-0076",
+          "re2-ob-0079",
+          "re2-ob-0081",
+          "re2-ob-0082",
+          "re2-ob-0083",
+          "re2-ob-0086",
+          "re2-ob-0088",
+          "re2-ob-0090"
+        ]
+      },
+      "heldout_ids": []
+    }
+  ]
+}

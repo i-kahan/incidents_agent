@@ -296,11 +296,69 @@ cases (the other runs had no hypothesis with data support to challenge) and disp
 testers used 183 tool calls and 214 turns, the lead 99 calls, the skeptic 20. With 3
 calls each, testers mostly returned `undecided`, as in the live run.
 
+**Follow-up rerun after Decision 9 (labelled; does not change the selection).** Same
+command, from `main` at `e021458` (after #32 and #34), both arms rerun because the
+retry and prompt changes affect single mode too. Result files:
+`results/phase-07/real/6d08fd461877412499cb244ddda83555/`.
+
+| Arm | service AC@1 | cost/case | tool calls/case | wall time/case |
+|---|---|---|---|---|
+| single | 0.700 [0.500, 0.867] | $0.0063 | 11.5 | 53 s |
+| multi | 0.133 [0.000, 0.300] | $0.0066 | 12.5 | 65 s |
+
+Paired gain of multi: −0.567 [−0.733, −0.367]. The fixes worked as intended: no
+dispatch was refused for a repeated component (27 of 30 dispatched 2–3 briefs; 3 fell
+back with an empty ledger), and the skeptic now finishes (25 challenges, against 5).
+That exposed the real problem: **the skeptic disproved 20 of 25 claims, and 17 of those
+20 were the true root cause.** Its prompt frames the check as "a cause, or a victim of
+something upstream?", but in a call graph a fault in a callee shows up in its callers,
+so a true root cause is usually *downstream* of the other anomalous services; the
+skeptic reads that as "victim" and refutes it. Single mode's verify step uses the same
+direction hint but refuted only 2 of 6 targets, neither the true cause. Single's drop
+from 0.800 to 0.700 is inside both intervals; run noise is not yet measured. Fixed
+afterwards by Decision 10 (#36).
+
+**Second follow-up rerun, after Decision 10 (labelled; does not change the
+selection).** Same command, from `main` at `5dcf848`; both arms rerun because the
+direction wording changed single mode's prompt too. Result files:
+`results/phase-07/real/47d1f0b0e61a4d0fab23d2c267185436/`.
+
+| Arm | service AC@1 | service AC@3 | cost/case | tool calls/case | wall time/case |
+|---|---|---|---|---|---|
+| single | 0.600 [0.367, 0.800] | 0.667 [0.467, 0.833] | $0.0058 | 11.4 | 50 s |
+| multi | 0.700 [0.567, 0.833] | 0.733 [0.600, 0.867] | $0.0059 | 12.1 | 57 s |
+
+Paired gain of multi: +0.100 [−0.100, +0.300]. Applied to this run, the Decision 4
+rule would still choose single, because the lower bound is below zero. The skeptic now
+holds on the true cause: it challenged 23 claims, held 18 that were the true cause, and
+both of its 2 disprovals overturned a wrong answer. Single mode's top-1 has moved 0.800
+→ 0.700 → 0.600 across the three runs as its prompt changed; the intervals overlap and
+run-to-run noise is not yet measured, so whether the direction wording hurt single
+mode is open. Measuring noise (Phase 06's noise check) should come before any further
+single-versus-multi reading.
+
+**Why single mode fell (case-by-case across the three single runs, no extra spend).**
+14 cases were right in all three runs and 5 wrong in all three; 11 changed. Of the 7
+right in the first run and wrong in the third, 6 ended at the tool-call limit with no
+ranking. The cause is the same starvation the lead had before #32: the single agent
+keeps querying, reaches its last turn holding no ledger entry, and its
+`update_hypotheses` call is refused there because only `submit` may run. Runs with no
+ranking for this reason went 2 → 5 → 8 across the three runs; the direction wording
+added in Decision 10 asks for one more check, which leaves less room. Run-to-run
+noise for gpt-4o-mini is still unmeasured: the first noise-check attempt ran on the
+wrong model by mistake (see Phase 06). Proposed fix (not made):
+let the ledger update run on the final turn without using a tool call, in both
+modes, as `dispatch` already does for the lead.
+
+
+
 **Limitations, stated as Decision 3 requires:** one cheap model, one run per arm (run
 noise not yet measured), and small per-role allowances. The result says the
 architecture does not pay off at equal budget with gpt-4o-mini; it does not test a
 larger budget or a stronger model. The run cost about $0.38 of the $1.50 allocation;
-the spend guard's total for the project is $0.40.
+the spend guard's total for the project is $0.40 before the follow-up rerun and
+$0.79 after it, $1.14 after the second follow-up, and $1.83 after the mistaken noise-check attempt
+($0.69, on claude-haiku-4-5).
 
 ## 6. AI-use notes (feeds `REPORT.md`)
 - 07a: Claude Code mapped the thread-safety hazards in the shared run (registry call
