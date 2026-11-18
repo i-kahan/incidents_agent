@@ -1,7 +1,6 @@
 # Phase 4: Model Layer
 
-**Status:** Implemented and checked offline. Live provider checks require owner
-model IDs and keys after merge.
+**Status:** Complete. Implemented, checked offline, and verified live on `gpt-small` (`gpt-4o-mini-2024-07-18`), `gemini-small`, and `haiku` across tuning and Phase 10 held-out runs.
 
 ## 1. Objective
 One place through which every model call goes: provider-agnostic, configured by the

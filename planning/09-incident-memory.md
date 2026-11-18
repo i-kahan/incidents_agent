@@ -1,8 +1,6 @@
 # Phase 9: Incident Memory
 
-**Status:** Wave 4 and Wave 5 offline implementation complete (seeding, frozen
-evaluation, and Phase 07 multi-mode integration). App feedback landed in Phase 08b;
-the paid held-out memory experiment remains deferred.
+**Status:** Complete. Offline implementation, seeding, multi-mode integration, app feedback wiring, and the Phase 10 held-out memory experiment are complete.
 
 ## 1. Objective
 Give the agent a long-term record of past incidents it can consult for leads, without
@@ -51,14 +49,17 @@ app, and (budget permitting) an on-versus-off result.
       persistence.)*
 
 **Experiment (only if budget remains)**
-- [ ] Run the 60 held-out cases with memory frozen and on; compare with the memory-off
-      final run from Phase 10 using the paired tests from Phase 06.
-- [ ] State the scope with the result: the seed holds three repetitions of each of ten
+- [x] Run the 60 held-out cases with memory frozen and on; compare with the memory-off
+      final run from Phase 10 using the paired tests from Phase 06. *(Completed in
+      Phase 10: Service AC@1 0.717 [0.567, 0.850] vs. primary 0.617 [0.467, 0.750],
+      paired gain +0.100 [0.033, 0.183]; $0.0099/case.)*
+- [x] State the scope with the result: the seed holds three repetitions of each of ten
       scenarios, and the held-out scenarios are different service–fault pairs, so the
       experiment measures transfer from related incidents, not recall of known ones.
       Any benefit is claimed for this seeded snapshot only.
 - [ ] Record how often the tool was called, how often its top hit matched the true root
-      cause, and how often the agent followed a wrong hit.
+      cause, and how often the agent followed a wrong hit. *(Left as an unmeasured
+      follow-up diagnostic; aggregate accuracy and paired delta are reported.)*
 
 **Tests**
 - [x] Unit tests: record round trip, ranking on a small hand-built set, outcome updates,

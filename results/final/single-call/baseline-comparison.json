@@ -1,0 +1,98 @@
+{
+  "baseline": "single-call",
+  "differences": {
+    "service_AC@1": {
+      "value": 0.3333333333333333,
+      "low": 0.13333333333333333,
+      "high": 0.5166666666666667,
+      "n_cases": 60,
+      "n_groups": 20,
+      "reason": null
+    },
+    "service_AC@3": {
+      "value": -0.16666666666666666,
+      "low": -0.2833333333333333,
+      "high": -0.06666666666666667,
+      "n_cases": 60,
+      "n_groups": 20,
+      "reason": null
+    },
+    "service_AC@5": {
+      "value": -0.23333333333333334,
+      "low": -0.3333333333333333,
+      "high": -0.13333333333333333,
+      "n_cases": 60,
+      "n_groups": 20,
+      "reason": null
+    },
+    "indicator_AC@1": {
+      "value": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n_cases": 60,
+      "n_groups": 20,
+      "reason": null
+    },
+    "indicator_AC@3": {
+      "value": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n_cases": 60,
+      "n_groups": 20,
+      "reason": null
+    },
+    "indicator_AC@5": {
+      "value": 0.0,
+      "low": 0.0,
+      "high": 0.0,
+      "n_cases": 60,
+      "n_groups": 20,
+      "reason": null
+    }
+  },
+  "mcnemar_top1": {
+    "service": {
+      "wins": 24,
+      "losses": 4,
+      "p_value": 0.00017999112606048584,
+      "caveat": "secondary case-level test; repeats are not independent"
+    },
+    "indicator": {
+      "wins": 0,
+      "losses": 0,
+      "p_value": 1.0,
+      "caveat": "secondary case-level test; repeats are not independent"
+    }
+  },
+  "agreement": {
+    "agreement": 0.3,
+    "agree_n": 18,
+    "differ_n": 42,
+    "agree_accuracy": 0.7222222222222222,
+    "differ_accuracy": 0.5714285714285714
+  },
+  "noise": {
+    "measurements": {
+      "per_case_flip_rate": {
+        "re2-ob-0008": 0.0,
+        "re2-ob-0016": 0.0,
+        "re2-ob-0017": 0.0,
+        "re2-ob-0018": 0.6666666666666666,
+        "re2-ob-0021": 0.0
+      },
+      "mean_flip_rate": 0.13333333333333333,
+      "accuracies": [
+        0.8,
+        0.8,
+        0.8
+      ],
+      "accuracy_range": 0.0,
+      "accuracy_stddev": 0.0
+    },
+    "source": "results/phase-06/noise-single-gpt-small-5x3.json",
+    "sha256": "4a73835d6e95a161600c8aae2db6aca82b1f3e965f3309ead404c3507f1cb6a9",
+    "tuning_commit": "8bb180b",
+    "note": "Five tuning cases, three repeats, gpt-small in single mode. No exact final configuration or held-out noise match is claimed.",
+    "same_commit": false
+  }
+}

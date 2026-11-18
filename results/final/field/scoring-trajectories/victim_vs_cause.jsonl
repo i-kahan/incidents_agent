@@ -1,0 +1,19 @@
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "api"}, "derived": true, "source_call_id": "call_0001", "source_tool": "find_onset"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "api"}, "derived": true, "source_call_id": "call_0001", "source_tool": "find_onset"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "duration"}, "derived": true, "source_call_id": "call_0001", "source_tool": "find_onset"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "inventory"}, "derived": true, "source_call_id": "call_0001", "source_tool": "find_onset"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "order"}, "derived": true, "source_call_id": "call_0001", "source_tool": "find_onset"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "api"}, "derived": true, "source_call_id": "call_0002", "source_tool": "compare_windows"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "api"}, "derived": true, "source_call_id": "call_0002", "source_tool": "compare_windows"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "inventory"}, "derived": true, "source_call_id": "call_0002", "source_tool": "compare_windows"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "inventory"}, "derived": true, "source_call_id": "call_0002", "source_tool": "compare_windows"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "order"}, "derived": true, "source_call_id": "call_0002", "source_tool": "compare_windows"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "api-gateway"}, "derived": true, "source_call_id": "call_0003", "source_tool": "dependency_graph"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "cache-proxy"}, "derived": true, "source_call_id": "call_0003", "source_tool": "dependency_graph"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "inventory"}, "derived": true, "source_call_id": "call_0003", "source_tool": "dependency_graph"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "order-service"}, "derived": true, "source_call_id": "call_0003", "source_tool": "dependency_graph"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "api-gateway"}, "derived": true, "source_call_id": "call_0008", "source_tool": "dependency_graph"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "cache-proxy"}, "derived": true, "source_call_id": "call_0008", "source_tool": "dependency_graph"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "inventory"}, "derived": true, "source_call_id": "call_0008", "source_tool": "dependency_graph"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "order-service"}, "derived": true, "source_call_id": "call_0008", "source_tool": "dependency_graph"}
+{"type": "tool_call", "tool": "submit", "args": {}}

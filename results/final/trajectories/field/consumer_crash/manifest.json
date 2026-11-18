@@ -1,0 +1,9 @@
+{
+  "task": {
+    "case_id": "consumer_crash",
+    "question": "",
+    "fault_start_s": null,
+    "candidate_services": [],
+    "candidate_indicators": []
+  }
+}

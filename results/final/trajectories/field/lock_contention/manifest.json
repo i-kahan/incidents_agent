@@ -1,0 +1,9 @@
+{
+  "task": {
+    "case_id": "lock_contention",
+    "question": "",
+    "fault_start_s": null,
+    "candidate_services": [],
+    "candidate_indicators": []
+  }
+}

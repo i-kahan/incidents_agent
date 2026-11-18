@@ -1,6 +1,6 @@
 # Phase 5: Agent
 
-**Status:** Built and tested offline. The live smoke test passed on one tuning case.
+**Status:** Complete. Built and verified offline and on live tuning, field, and Phase 10 held-out runs.
 
 ## 1. Objective
 Build the investigating agent: it reads the catalog, forms hypotheses, tests them with

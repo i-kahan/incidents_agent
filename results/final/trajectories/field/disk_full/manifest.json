@@ -1,0 +1,9 @@
+{
+  "task": {
+    "case_id": "disk_full",
+    "question": "",
+    "fault_start_s": null,
+    "candidate_services": [],
+    "candidate_indicators": []
+  }
+}

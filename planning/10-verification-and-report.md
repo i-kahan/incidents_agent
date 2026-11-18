@@ -1,6 +1,6 @@
 # Phase 10: Verification & Report
 
-**Status:** Release tooling implemented. Final evaluation and release gates remain open.
+**Status:** Complete. Final held-out, field, and optional arms published under `results/final/`; clean-clone replay, lint/test, and `REPORT.md` / `README.md` verified. (Final CI check runs on PR merge to `main`.)
 
 ## 1. Objective
 Produce the final numbers once, on held-out cases, prove the whole system works from a
@@ -10,52 +10,52 @@ planning docs. Nothing is written in the report before it is true.
 ## 2. Next Steps (Checklist)
 
 **Final run**
-- [ ] Freeze the agent configuration and mode (single or multi) chosen on the tuning
+- [x] Freeze the agent configuration and mode (single or multi) chosen on the tuning
       set by Phase 07's rule; record its hash and the git commit.
-- [ ] Run the 60 held-out cases once with `--final`; no changes to the agent afterwards.
-- [ ] Score against BARO, and multi-source BARO if it ran, on the same 60 cases, each
+- [x] Run the 60 held-out cases once with `--final`; no changes to the agent afterwards.
+- [x] Score against BARO, and multi-source BARO if it ran, on the same 60 cases, each
       against the held-out answers subset, with pair-resampled intervals and paired
       differences. State the difference in inputs between each baseline and the agent.
-- [ ] Run the single-call baseline on the same 60 cases, from the `final` reserve, and
+- [x] Run the single-call baseline on the same 60 cases, from the `final` reserve, and
       include it in the paired comparison.
-- [ ] Report agreement with BARO's top answer on the held-out cases, with accuracy split
+- [x] Report agreement with BARO's top answer on the held-out cases, with accuracy split
       by agree and differ.
-- [ ] Report `find_onset`'s error on the held-out cases (free).
-- [ ] Quote the noise estimate from Phase 06 beside every difference reported.
-- [ ] Record the model identifiers actually served during the final run, and check they
+- [x] Report `find_onset`'s error on the held-out cases (free).
+- [x] Quote the noise estimate from Phase 06 beside every difference reported.
+- [x] Record the model identifiers actually served during the final run, and check they
       match those served during tuning; a mismatch is stated in the report.
-- [ ] Run `failure_report.py` on the held-out results; write up the failure categories.
-- [ ] Run the field set once with the frozen configuration; report the counts in their
+- [x] Run `failure_report.py` on the held-out results; write up the failure categories.
+- [x] Run the field set once with the frozen configuration; report the counts in their
       own table with the stated limits.
-- [ ] If budget remains, in this order: the memory experiment (Phase 09), the
+- [x] If budget remains, in this order: the memory experiment (Phase 09), the
       non-selected mode on held-out cases as a secondary result, then RCAEval's
       reference agent as a second baseline.
-- [ ] Commit result files under `results/final/`; record total spend from the guard.
-- [ ] Publish with the results: the paired held-out comparison against BARO; one
+- [x] Commit result files under `results/final/`; record total spend from the guard.
+- [x] Publish with the results: the paired held-out comparison against BARO; one
       representative failure with its full trajectory; and replay instructions that
       work with no API keys, using the past-runs viewer on the committed trajectories.
 
 **Verification**
-- [ ] `make lint` and `make test` clean; no skipped tests other than `live` and
+- [x] `make lint` and `make test` clean; no skipped tests other than `live` and
       dataset-dependent ones, each explained.
-- [ ] Search for stray debug code, TODOs and secrets; `.env` untracked.
+- [x] Search for stray debug code, TODOs and secrets; `.env` untracked.
 - [ ] CI is green on the final commit, and `main` requires it.
-- [ ] Fresh-clone rehearsal: follow only the written instructions on a clean checkout —
+- [x] Fresh-clone rehearsal: follow only the written instructions on a clean checkout —
       install, configure one provider, export data, dry-run eval, start the app.
-- [ ] Update every phase file's status to its true final state.
+- [x] Update every phase file's status to its true final state.
 - [x] Confirm every phase file has its AI-use notes.
 
 **Write-up**
-- [ ] Final pass on the five SVGs so they match the built system; embed them in
+- [x] Final pass on the five SVGs so they match the built system; embed them in
       `README.md` and `REPORT.md`.
-- [ ] Write `REPORT.md` by aggregation (see `00` §6): how to run, what was built and
+- [x] Write `REPORT.md` by aggregation (see `00` §6): how to run, what was built and
       what's left, results, trade-offs, AI tools used.
-- [ ] State the known limits in `REPORT.md`, taken from §10 of
+- [x] State the known limits in `REPORT.md`, taken from §10 of
       [`future-improvements.md`](future-improvements.md), and link that document as
       the roadmap.
-- [ ] Write `README.md`: what the project is, one diagram, the headline table,
+- [x] Write `README.md`: what the project is, one diagram, the headline table,
       quickstart, the licence, and attribution for RCAEval with the papers to cite.
-- [ ] Read-through as a reviewer: can every decision and number be traced to
+- [x] Read-through as a reviewer: can every decision and number be traced to
       evidence in the repo? Flag anything shaky.
 
 ## 3. Architectural Decisions & Trade-offs

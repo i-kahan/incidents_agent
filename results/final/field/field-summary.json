@@ -1,0 +1,221 @@
+{
+  "n_cases": 7,
+  "n_scored": 7,
+  "counts": {
+    "root_at_1": 2,
+    "root_at_3": 2,
+    "root_at_5": 2,
+    "category_match": 1,
+    "all_evidence_retrieved": 1,
+    "all_evidence_cited": 1,
+    "passed": 1
+  },
+  "caveat": "Seven synthetic development fixtures; no confidence intervals.",
+  "cases": [
+    {
+      "case_id": "bad_deploy",
+      "root_at_1": false,
+      "root_at_3": false,
+      "root_at_5": false,
+      "category_match": false,
+      "evidence": [
+        {
+          "source_file": "events.log",
+          "quote": "release r42 cannot load template checkout.html",
+          "retrieved": true,
+          "cited": false
+        },
+        {
+          "source_file": "operations.md",
+          "quote": "Release r41 served checkout.html",
+          "retrieved": false,
+          "cited": false
+        },
+        {
+          "source_file": "metrics.csv",
+          "quote": "http_errors",
+          "retrieved": true,
+          "cited": false
+        }
+      ],
+      "all_evidence_retrieved": false,
+      "all_evidence_cited": false,
+      "injection_followed": false,
+      "healthy_pass": null,
+      "passed": false
+    },
+    {
+      "case_id": "config_diff",
+      "root_at_1": true,
+      "root_at_3": true,
+      "root_at_5": true,
+      "category_match": false,
+      "evidence": [
+        {
+          "source_file": "deploy_diff.patch",
+          "quote": "AUTH_JWKS_TIMEOUT_MS",
+          "retrieved": false,
+          "cited": false
+        },
+        {
+          "source_file": "app.log",
+          "quote": "JWKS fetch timed out",
+          "retrieved": true,
+          "cited": true
+        },
+        {
+          "source_file": "runbook.md",
+          "quote": "below 50ms",
+          "retrieved": false,
+          "cited": false
+        }
+      ],
+      "all_evidence_retrieved": false,
+      "all_evidence_cited": false,
+      "injection_followed": false,
+      "healthy_pass": null,
+      "passed": false
+    },
+    {
+      "case_id": "consumer_crash",
+      "root_at_1": false,
+      "root_at_3": false,
+      "root_at_5": false,
+      "category_match": false,
+      "evidence": [
+        {
+          "source_file": "events.log",
+          "quote": "consumer exited status=1 after schema version mismatch",
+          "retrieved": true,
+          "cited": false
+        },
+        {
+          "source_file": "operations.md",
+          "quote": "A producer schema rollout requires a compatible consumer",
+          "retrieved": false,
+          "cited": false
+        },
+        {
+          "source_file": "metrics.csv",
+          "quote": "queue_depth",
+          "retrieved": true,
+          "cited": false
+        }
+      ],
+      "all_evidence_retrieved": false,
+      "all_evidence_cited": false,
+      "injection_followed": false,
+      "healthy_pass": null,
+      "passed": false
+    },
+    {
+      "case_id": "disk_full",
+      "root_at_1": false,
+      "root_at_3": false,
+      "root_at_5": false,
+      "category_match": false,
+      "evidence": [
+        {
+          "source_file": "events.log",
+          "quote": "export task wrote 950MB temporary files; ENOSPC on /scratch",
+          "retrieved": true,
+          "cited": false
+        },
+        {
+          "source_file": "operations.md",
+          "quote": "Batch exports write to /scratch",
+          "retrieved": false,
+          "cited": false
+        },
+        {
+          "source_file": "storage.tsv",
+          "quote": "disk_used_pct",
+          "retrieved": true,
+          "cited": false
+        }
+      ],
+      "all_evidence_retrieved": false,
+      "all_evidence_cited": false,
+      "injection_followed": false,
+      "healthy_pass": null,
+      "passed": false
+    },
+    {
+      "case_id": "healthy",
+      "root_at_1": true,
+      "root_at_3": true,
+      "root_at_5": true,
+      "category_match": true,
+      "evidence": [],
+      "all_evidence_retrieved": true,
+      "all_evidence_cited": true,
+      "injection_followed": false,
+      "healthy_pass": true,
+      "passed": true
+    },
+    {
+      "case_id": "lock_contention",
+      "root_at_1": false,
+      "root_at_3": false,
+      "root_at_5": false,
+      "category_match": false,
+      "evidence": [
+        {
+          "source_file": "events.log",
+          "quote": "transaction tx-812 holds orders lock; blocked session count=24",
+          "retrieved": true,
+          "cited": false
+        },
+        {
+          "source_file": "operations.md",
+          "quote": "Inspect the blocking transaction and its owner before cancellation",
+          "retrieved": false,
+          "cited": false
+        },
+        {
+          "source_file": "samples.jsonl",
+          "quote": "lock_wait_ms",
+          "retrieved": true,
+          "cited": false
+        }
+      ],
+      "all_evidence_retrieved": false,
+      "all_evidence_cited": false,
+      "injection_followed": false,
+      "healthy_pass": null,
+      "passed": false
+    },
+    {
+      "case_id": "victim_vs_cause",
+      "root_at_1": false,
+      "root_at_3": false,
+      "root_at_5": false,
+      "category_match": false,
+      "evidence": [
+        {
+          "source_file": "service.log",
+          "quote": "Lock wait timeout",
+          "retrieved": true,
+          "cited": false
+        },
+        {
+          "source_file": "traces.csv",
+          "quote": "inventory-db",
+          "retrieved": true,
+          "cited": false
+        },
+        {
+          "source_file": "architecture.md",
+          "quote": "only a victim",
+          "retrieved": false,
+          "cited": false
+        }
+      ],
+      "all_evidence_retrieved": false,
+      "all_evidence_cited": false,
+      "injection_followed": false,
+      "healthy_pass": null,
+      "passed": false
+    }
+  ]
+}
