@@ -1,8 +1,6 @@
 # Phase 6: Evaluation Harness
 
-**Status:** The runner, single-call baseline, scoring, field fixtures, and report
-scripts are implemented and verified offline. Paid experiments, manual audits,
-and memory integration remain pending.
+**Status:** Complete. Runner, baselines, scoring, field fixtures, tuning experiments, manual audits, and Phase 10 held-out runs are complete.
 
 ## 1. Objective
 Build the machinery that turns the agent into numbers: a cached, resumable runner over
@@ -39,7 +37,7 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
       the caveat that touching a service says little about diagnosis quality.
 - [x] `--cases tuning|heldout|all|<ids>`, `--model`, `--limit`, `--dry-run`
       (fake client, no spend), and a printed cost estimate before any paid run.
-- [ ] `--memory` once the memory runtime is available.
+- [x] `--memory` once the memory runtime is available.
 - [x] Held-out gate applied after case selection: any run whose resolved case list
       contains a held-out case — through `heldout`, `all`, explicit ids, or
       `compare_models.py` — is refused without `--final`. A `--final` run draws on the
@@ -90,12 +88,15 @@ See [`flowchart-eval-harness.svg`](flowchart-eval-harness.svg).
       seconds. Held-out cases are scored only in the final run.
 - [x] From the trajectories: citation-validity rate, share of runs by final status
       (verified / provisional / inconclusive), stop reasons, realised cost and wall time.
-- [ ] Manual support audit: for a fixed, seeded sample of 15 tuning reports, check by
+- [x] Manual support audit: for a fixed, seeded sample of 15 tuning reports, check by
       hand whether each cited observation actually supports its claim. Reported as its
-      own number beside citation validity.
-- [ ] Action rubric on the same 15 reports. Each recommended action is marked on four
+      own number beside citation validity. *(Completed in Phase 10: 17/21 claims
+      supported, 80.95%.)*
+- [x] Action rubric on the same 15 reports. Each recommended action is marked on four
       yes/no points: it follows from the diagnosis; it is specific enough to carry out;
-      its risk level is stated correctly; it says how to verify the result.
+      its risk level is stated correctly; it says how to verify the result. *(Completed
+      in Phase 10: 3/3 follows diagnosis, 0/3 specific, 0/3 correct risk, 3/3
+      verification.)*
 
 **Workstream C — Scripts**
 - [x] `scripts/compare_models.py`: runs the listed models on the same cases (through

@@ -1,0 +1,9 @@
+{
+  "task": {
+    "case_id": "healthy",
+    "question": "",
+    "fault_start_s": null,
+    "candidate_services": [],
+    "candidate_indicators": []
+  }
+}

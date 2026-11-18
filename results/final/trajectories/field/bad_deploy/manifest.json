@@ -1,0 +1,9 @@
+{
+  "task": {
+    "case_id": "bad_deploy",
+    "question": "",
+    "fault_start_s": null,
+    "candidate_services": [],
+    "candidate_indicators": []
+  }
+}

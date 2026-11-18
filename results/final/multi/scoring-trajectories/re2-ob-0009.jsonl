@@ -1,0 +1,11 @@
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "checkoutservice"}, "derived": true, "source_call_id": "call_0001", "source_tool": "find_onset"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "currencyservice"}, "derived": true, "source_call_id": "call_0001", "source_tool": "find_onset"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "duration"}, "derived": true, "source_call_id": "call_0001", "source_tool": "find_onset"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "frontend"}, "derived": true, "source_call_id": "call_0001", "source_tool": "find_onset"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "frontend"}, "derived": true, "source_call_id": "call_0001", "source_tool": "find_onset"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "checkoutservice"}, "derived": true, "source_call_id": "call_0002", "source_tool": "compare_windows"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "currencyservice"}, "derived": true, "source_call_id": "call_0002", "source_tool": "compare_windows"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "currencyservice"}, "derived": true, "source_call_id": "call_0002", "source_tool": "compare_windows"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "frontend"}, "derived": true, "source_call_id": "call_0002", "source_tool": "compare_windows"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "frontend"}, "derived": true, "source_call_id": "call_0002", "source_tool": "compare_windows"}
+{"type": "tool_call", "tool": "submit", "args": {}}

@@ -73,13 +73,13 @@ Diagrams (kept in this folder, see §8):
 | 01 | [Foundation & Environment](01-foundation-and-environment.md) | — | Merged (#1) |
 | 02 | [Baseline & Headroom Study](02-baseline-and-headroom-study.md) | 01 | Merged (#2, #6) |
 | 03 | [Ingest & Tools](03-ingest-and-tools.md) | 01 (its optional model fallback: 04) | Merged (#3, #5) |
-| 04 | [Model Layer](04-model-layer.md) | 01 | Offline checks complete |
-| 05 | [Agent](05-agent.md) | 03, 04 | Merged (#11–#16, #20, #21) |
-| 06 | [Evaluation Harness](06-evaluation-harness.md) | 02, 05 | Built; paid experiments in progress |
-| 07 | [Multi-Agent Investigation](07-multi-agent.md) | 05, 06 | Complete (#27, #30–#32; single selected) |
-| 08 | [Upload App](08-upload-app.md) | 05, 07 | Built (#23, #28); owner click-through remains |
-| 09 | [Incident Memory](09-incident-memory.md) | 05, 06, 07, 08 | Built (#22, #29); memory experiment remains |
-| 10 | [Verification & Report](10-verification-and-report.md) | 01–09 | Release tooling implemented; final gates open |
+| 04 | [Model Layer](04-model-layer.md) | 01 | Complete (offline + live probe + Phase 10 served `gpt-4o-mini-2024-07-18`) |
+| 05 | [Agent](05-agent.md) | 03, 04 | Complete (#11–#16, #20, #21, #40; evaluated in Phase 10) |
+| 06 | [Evaluation Harness](06-evaluation-harness.md) | 02, 05 | Complete (tuning, baselines, audits, field & held-out runs) |
+| 07 | [Multi-Agent Investigation](07-multi-agent.md) | 05, 06 | Complete (#27, #30–#32; single selected; multi secondary) |
+| 08 | [Upload App](08-upload-app.md) | 05, 07 | Complete (#23, #28, #41; browser & published replay verified) |
+| 09 | [Incident Memory](09-incident-memory.md) | 05, 06, 07, 08 | Complete (#22, #29; held-out memory experiment complete) |
+| 10 | [Verification & Report](10-verification-and-report.md) | 01–09 | Complete (`results/final/`, `REPORT.md`, clean-clone replay) |
 
 Phases 01–10 are the **core pipeline**. Its **end-to-end milestone** is reached when a
 folder of files goes in through the CLI and through the upload page in single mode and

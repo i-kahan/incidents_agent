@@ -1,0 +1,9 @@
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "errors"}, "derived": true, "source_call_id": "call_0001", "source_tool": "find_onset"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "http"}, "derived": true, "source_call_id": "call_0001", "source_tool": "find_onset"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "cpu"}, "derived": true, "source_call_id": "call_0003", "source_tool": "compare_windows"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "errors"}, "derived": true, "source_call_id": "call_0003", "source_tool": "compare_windows"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "http"}, "derived": true, "source_call_id": "call_0003", "source_tool": "compare_windows"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "cpu"}, "derived": true, "source_call_id": "call_0009", "source_tool": "compare_windows"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "errors"}, "derived": true, "source_call_id": "call_0009", "source_tool": "compare_windows"}
+{"type": "tool_call", "tool": "observed_target", "args": {"service": "http"}, "derived": true, "source_call_id": "call_0009", "source_tool": "compare_windows"}
+{"type": "tool_call", "tool": "submit", "args": {}}
