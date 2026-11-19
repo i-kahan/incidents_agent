@@ -142,3 +142,97 @@ def test_find_onset_reports_no_onset_on_healthy_table(
         assert res['estimated_onset_time_s'] is None
     finally:
         ingested.close()
+
+
+def test_find_onset_skips_struct_columns_containing_int_substring(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Nested STRUCT columns (even with 'container' fields) are not numeric."""
+    src = tmp_path / 'case'
+    src.mkdir()
+    lines = [
+        (
+            f'{{"time": {1_700_000_000 + i * 10}, '
+            f'"labels": {{"container": "web", "point": "a"}}, '
+            f'"value": {10.0 if i < 10 else 90.0}}}'
+        )
+        for i in range(20)
+    ]
+    (src / 'alerts.jsonl').write_text('\n'.join(lines) + '\n', encoding='utf-8')
+    ingested = ingest.ingest_folder(src, workdir=tmp_path / 'db')
+    try:
+        reg = tools.create_default_registry(ingested)
+
+        res = reg.call('find_onset', {'num_buckets': 20})
+
+        assert res['ok'] is True
+        assert res['onset_detected'] is True
+        signals = res['signals']
+        assert isinstance(signals, list)
+        cols = [sig['column'] for sig in signals]
+        assert 'value' in cols
+        assert 'labels' not in cols
+    finally:
+        ingested.close()
+
+
+def test_long_format_metric_name_table_groups_by_series(
+    tmp_path: pathlib.Path,
+) -> None:
+    """Long-format (metric_name, value) tables rank and detect per series."""
+    src = tmp_path / 'case'
+    src.mkdir()
+    rows: list[str] = []
+    for i in range(20):
+        ts = 1_700_000_000 + i * 10
+        steady = 10.0 + (i % 2) * 0.1
+        spiked = 1.0 + (i % 2) * 0.1 if i < 10 else 100.0 + (i % 2) * 0.1
+        rows.append(f'{ts},steady_metric,{steady}')
+        rows.append(f'{ts},spiked_metric,{spiked}')
+    (src / 'pod_metrics.tsv').write_text(
+        'time\tmetric_name\tvalue\n'
+        + '\n'.join(rows).replace(',', '\t')
+        + '\n',
+        encoding='utf-8',
+    )
+    ingested = ingest.ingest_folder(src, workdir=tmp_path / 'db')
+    try:
+        reg = tools.create_default_registry(ingested)
+
+        onset = reg.call('find_onset', {'num_buckets': 20})
+        assert onset['ok'] is True
+        assert onset['onset_detected'] is True
+        signals = onset['signals']
+        assert isinstance(signals, list)
+        assert signals[0]['column'] == 'spiked_metric'
+
+        cmp_res = reg.call(
+            'compare_windows',
+            {'table': 'pod_metrics', 'split_time': 1_700_000_095},
+        )
+        assert cmp_res['ok'] is True
+        assert cmp_res['group_by'] == 'metric_name'
+        ranked = cmp_res['ranked']
+        assert isinstance(ranked, list)
+        assert ranked[0]['series'] == 'spiked_metric'
+        assert ranked[0]['direction'] == 'up'
+    finally:
+        ingested.close()
+
+
+def test_find_onset_expands_glob_table_patterns(
+    tmp_path: pathlib.Path,
+) -> None:
+    """find_onset expands wildcard patterns like metrics__* cleanly."""
+    src = tmp_path / 'case'
+    _write_metrics_fixture(src)
+    ingested = ingest.ingest_folder(src, workdir=tmp_path / 'db')
+    try:
+        reg = tools.create_default_registry(ingested)
+
+        res = reg.call('find_onset', {'tables': ['met*'], 'num_buckets': 40})
+
+        assert res['ok'] is True
+        assert res['onset_detected'] is True
+    finally:
+        ingested.close()

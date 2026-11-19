@@ -461,8 +461,34 @@ def build_session(
             agent_config.limits, reserve=agent_config.verify, clock=clock
         ),
         record=record,
-        briefing=prompts.briefing(task, ingested.catalog, agent_config),
+        briefing=prompts.briefing(
+            task,
+            ingested.catalog,
+            agent_config,
+            triage_lines=_orient_triage(ingested.catalog),
+        ),
     )
+
+
+def _orient_triage(catalog: ingest_schema.Catalog) -> list[str]:
+    """Return free pre-scan hints for large multi-table catalogs."""
+    if len(catalog.tables) <= 30:
+        return []
+    hints: list[str] = []
+    dep_tables = [t.name for t in catalog.tables if t.relationships]
+    if dep_tables:
+        hints.append(
+            f'Dependency tables: {", ".join(dep_tables)} '
+            '(call dependency_graph with split_time to check call surges).'
+        )
+    for doc in catalog.documents[:2]:
+        if 'alert' in doc.doc_id.lower():
+            hints.append(
+                f'Alert document present: {doc.doc_id} '
+                f'(call read_document with chunk_id="{doc.doc_id}::chunk_0000" '
+                'to inspect and cite firing alerts).'
+            )
+    return hints
 
 
 def catalog_summary(catalog: ingest_schema.Catalog) -> dict[str, object]:

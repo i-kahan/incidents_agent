@@ -258,7 +258,9 @@ def create_default_registry(
         tool_schema.ToolSpec(
             name='compare_windows',
             description=(
-                'Rank numeric columns by robust shift across split_time.'
+                'Rank numeric metric columns by robust shift across split_time '
+                '(for tables with numeric columns; use search_text or run_sql '
+                'for log/event/object tables).'
             ),
             parameters_schema={
                 'type': 'object',
@@ -270,6 +272,7 @@ def create_default_registry(
                         'type': 'array',
                         'items': {'type': 'string'},
                     },
+                    'group_by': {'type': 'string'},
                 },
                 'required': ['table', 'split_time'],
                 'additionalProperties': False,
