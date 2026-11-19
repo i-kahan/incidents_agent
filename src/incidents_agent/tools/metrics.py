@@ -1,5 +1,6 @@
 """Numeric window comparison, time-series downsampling, and onset detection."""
 
+import fnmatch
 import math
 import statistics
 from collections.abc import Sequence
@@ -20,13 +21,47 @@ _IGNORED_NUMERIC_COLS = frozenset(
     }
 )
 _VALID_AGGS = frozenset({'avg', 'min', 'max', 'sum', 'count'})
+_SERIES_KEY_NAMES = (
+    'metric_name',
+    'metric',
+    'indicator',
+    'series',
+    'series_name',
+)
+_NUMERIC_SCALAR_DTYPES = frozenset(
+    {
+        'TINYINT',
+        'SMALLINT',
+        'INTEGER',
+        'INT',
+        'INT1',
+        'INT2',
+        'INT4',
+        'INT8',
+        'BIGINT',
+        'HUGEINT',
+        'UTINYINT',
+        'USMALLINT',
+        'UINTEGER',
+        'UBIGINT',
+        'UHUGEINT',
+        'FLOAT',
+        'FLOAT4',
+        'FLOAT8',
+        'REAL',
+        'DOUBLE',
+        'DECIMAL',
+        'NUMERIC',
+    }
+)
 
 
 def _is_numeric_col(col: ingest_schema.ColumnInfo) -> bool:
-    upper = col.dtype.upper()
-    return any(
-        tok in upper for tok in ('INT', 'DOUBLE', 'FLOAT', 'DECIMAL', 'NUMERIC')
-    )
+    upper = col.dtype.strip().upper()
+    if '[' in upper or upper.startswith(('STRUCT', 'MAP', 'LIST', 'UNION')):
+        return False
+    base = upper.split('(', 1)[0].strip()
+    return base in _NUMERIC_SCALAR_DTYPES
 
 
 def _require_usable_time_table(
@@ -198,6 +233,105 @@ def _finite_or_none(value: object) -> float | None:
     return None
 
 
+def _detect_series_column(
+    entry: ingest_schema.TableCatalogEntry,
+    cols: Sequence[str],
+) -> str | None:
+    """Return a metric-name key column for long-format single-value tables."""
+    if len(cols) != 1:
+        return None
+    by_lower = {
+        col.name.lower(): col
+        for col in entry.columns
+        if not _is_numeric_col(col) and col.name != entry.time_info.column
+    }
+    for name in _SERIES_KEY_NAMES:
+        col = by_lower.get(name)
+        if col is not None and 'VARCHAR' in col.dtype.upper():
+            return col.name
+    return None
+
+
+def _score_window_shift(
+    b: dict[str, float | int | None],
+    a: dict[str, float | int | None],
+) -> tuple[float, str] | None:
+    """Score robust median/mean shift between before and after stats."""
+    b_med = b.get('median')
+    a_med = a.get('median')
+    b_mean = b.get('mean')
+    a_mean = a.get('mean')
+    if (
+        not isinstance(b_med, float)
+        or not isinstance(a_med, float)
+        or not isinstance(b_mean, float)
+        or not isinstance(a_mean, float)
+    ):
+        return None
+    b_iqr = b.get('iqr')
+    b_std = b.get('std')
+    scale = max(
+        float(b_iqr) if isinstance(b_iqr, (int, float)) else 0.0,
+        float(b_std) if isinstance(b_std, (int, float)) else 0.0,
+        abs(b_med) * 0.05,
+        1e-3,
+    )
+    med_diff = a_med - b_med
+    mean_diff = a_mean - b_mean
+    med_score = abs(med_diff) / scale
+    mean_score = abs(mean_diff) / scale
+    score = med_score if med_score > 0.0 else 0.5 * mean_score
+    direction = (
+        'up'
+        if (med_diff > 0 or (med_diff == 0 and mean_diff > 0))
+        else ('down' if (med_diff < 0 or mean_diff < 0) else 'flat')
+    )
+    return (round(score, 4), direction)
+
+
+def _fetch_grouped_window_stats(
+    ctx: tables.ToolContext,
+    table_name: str,
+    time_col: str,
+    group_col: str,
+    value_col: str,
+    split_time: float,
+) -> dict[str, dict[str, dict[str, float | int | None]]]:
+    """Compute before and after stats grouped by a long-format series key."""
+    table_sql = time_detect.quote_ident(table_name)
+    time_sql = time_detect.quote_ident(time_col)
+    group_sql = time_detect.quote_ident(group_col)
+    col_sql = time_detect.quote_ident(value_col)
+    stats: dict[str, dict[str, dict[str, float | int | None]]] = {}
+    select_expr = (
+        f'CAST({group_sql} AS VARCHAR) AS grp, '
+        f'COUNT({col_sql}), '
+        f'AVG(CAST({col_sql} AS DOUBLE)), '
+        f'STDDEV_SAMP(CAST({col_sql} AS DOUBLE)), '
+        f'MEDIAN(CAST({col_sql} AS DOUBLE)), '
+        f'(QUANTILE_CONT(CAST({col_sql} AS DOUBLE), 0.75) - '
+        f'QUANTILE_CONT(CAST({col_sql} AS DOUBLE), 0.25))'
+    )
+    for label, op in (('before', '<='), ('after', '>')):
+        rows = ctx.connection.execute(
+            f'SELECT {select_expr} FROM {table_sql} '
+            f'WHERE {time_sql} {op} ? AND {group_sql} IS NOT NULL '
+            f'GROUP BY grp LIMIT 200',
+            [split_time],
+        ).fetchall()
+        for row in rows:
+            key = str(row[0])
+            entry = stats.setdefault(key, {})
+            entry[label] = {
+                'count': int(row[1] or 0),
+                'mean': _finite_or_none(row[2]),
+                'std': _finite_or_none(row[3]),
+                'median': _finite_or_none(row[4]),
+                'iqr': _finite_or_none(row[5]),
+            }
+    return stats
+
+
 def compare_windows(
     ctx: tables.ToolContext, args: dict[str, object]
 ) -> dict[str, object]:
@@ -222,6 +356,23 @@ def compare_windows(
     if col_err is not None or cols is None:
         return col_err or tables.error_result('internal_error', 'bad columns')
 
+    raw_group_by = args.get('group_by')
+    group_col: str | None = None
+    if raw_group_by is not None:
+        if not isinstance(raw_group_by, str) or not raw_group_by.strip():
+            return tables.error_result(
+                'invalid_args', 'group_by must be a non-empty string'
+            )
+        col_map = {col.name: col for col in entry.columns}
+        if raw_group_by not in col_map:
+            return tables.error_result(
+                'unknown_column',
+                f'Column {raw_group_by!r} not found in {entry.name}',
+            )
+        group_col = raw_group_by
+    else:
+        group_col = _detect_series_column(entry, cols)
+
     table_sql = time_detect.quote_ident(entry.name)
     time_sql = time_detect.quote_ident(time_col)
     counts = ctx.connection.execute(
@@ -242,54 +393,52 @@ def compare_windows(
             f'{entry.time_info.max_time_s}].',
         )
 
-    stats = _fetch_window_stats(ctx, entry.name, time_col, cols, split_time)
     ranked: list[dict[str, object]] = []
-    for col in cols:
-        b = stats[col].get('before', {})
-        a = stats[col].get('after', {})
-        b_med = b.get('median')
-        a_med = a.get('median')
-        b_mean = b.get('mean')
-        a_mean = a.get('mean')
-        if (
-            not isinstance(b_med, float)
-            or not isinstance(a_med, float)
-            or not isinstance(b_mean, float)
-            or not isinstance(a_mean, float)
-        ):
-            continue
-        b_iqr = b.get('iqr')
-        b_std = b.get('std')
-        scale = max(
-            float(b_iqr) if isinstance(b_iqr, (int, float)) else 0.0,
-            float(b_std) if isinstance(b_std, (int, float)) else 0.0,
-            abs(b_med) * 0.05,
-            1e-3,
-        )
-        med_diff = a_med - b_med
-        mean_diff = a_mean - b_mean
-        med_score = abs(med_diff) / scale
-        mean_score = abs(mean_diff) / scale
-        score = med_score if med_score > 0.0 else 0.5 * mean_score
-        direction = (
-            'up'
-            if (med_diff > 0 or (med_diff == 0 and mean_diff > 0))
-            else ('down' if (med_diff < 0 or mean_diff < 0) else 'flat')
-        )
-        ranked.append(
-            {
-                'column': col,
-                'score': round(score, 4),
-                'direction': direction,
-                'before': b,
-                'after': a,
-            }
-        )
+    if group_col is not None:
+        for col in cols:
+            grouped = _fetch_grouped_window_stats(
+                ctx, entry.name, time_col, group_col, col, split_time
+            )
+            for series_name, pair in grouped.items():
+                b = pair.get('before', {})
+                a = pair.get('after', {})
+                scored = _score_window_shift(b, a)
+                if scored is None:
+                    continue
+                score, direction = scored
+                ranked.append(
+                    {
+                        'series': series_name,
+                        'column': col,
+                        'score': score,
+                        'direction': direction,
+                        'before': b,
+                        'after': a,
+                    }
+                )
+    else:
+        stats = _fetch_window_stats(ctx, entry.name, time_col, cols, split_time)
+        for col in cols:
+            b = stats[col].get('before', {})
+            a = stats[col].get('after', {})
+            scored = _score_window_shift(b, a)
+            if scored is None:
+                continue
+            score, direction = scored
+            ranked.append(
+                {
+                    'column': col,
+                    'score': score,
+                    'direction': direction,
+                    'before': b,
+                    'after': a,
+                }
+            )
 
     ranked.sort(key=lambda item: float(str(item['score'])), reverse=True)
     top_ranked = ranked[:top_k]
 
-    return {
+    result: dict[str, object] = {
         'ok': True,
         'table': entry.name,
         'split_time': split_time,
@@ -302,8 +451,16 @@ def compare_windows(
             window=(entry.time_info.min_time_s, entry.time_info.max_time_s),
             expression=f'split_time={split_time}',
         ).to_dict(),
-        'target_components': [str(item['column']) for item in top_ranked[:5]],
+        'target_components': list(
+            dict.fromkeys(
+                str(item.get('series') or item['column'])
+                for item in top_ranked[:5]
+            )
+        ),
     }
+    if group_col is not None:
+        result['group_by'] = group_col
+    return result
 
 
 def time_series(
@@ -503,40 +660,72 @@ def _scan_table_onset_signals(
     if entry.kind == 'tabular':
         cols, _ = _candidate_numeric_columns(entry, None)
         if cols:
-            cols_to_scan = cols[:80]
-            series_by_col: dict[str, list[float | None]] = {
-                col: [None] * num_buckets for col in cols_to_scan
-            }
-            for start in range(0, len(cols_to_scan), 20):
-                batch = cols_to_scan[start : start + 20]
-                aggs = ', '.join(
-                    f'AVG(CAST({time_detect.quote_ident(c)} AS DOUBLE))'
-                    for c in batch
-                )
+            group_col = _detect_series_column(entry, cols)
+            if group_col is not None:
+                group_sql = time_detect.quote_ident(group_col)
+                val_sql = time_detect.quote_ident(cols[0])
+                series_map: dict[str, list[float | None]] = {}
                 rows = ctx.connection.execute(
-                    f'SELECT '
+                    f'SELECT CAST({group_sql} AS VARCHAR) AS grp, '
                     f'LEAST({num_buckets - 1}, GREATEST(0, '
                     f'CAST(FLOOR(({time_sql} - ?) / ?) AS INTEGER))) AS b, '
-                    f'{aggs} '
+                    f'AVG(CAST({val_sql} AS DOUBLE)) '
                     f'FROM {table_sql} WHERE {time_sql} IS NOT NULL '
-                    f'GROUP BY b ORDER BY b',
+                    f'AND {group_sql} IS NOT NULL '
+                    f'GROUP BY grp, b ORDER BY grp, b',
                     [t_min, bucket_width],
                 ).fetchall()
-                for row in rows:
-                    b_idx = int(row[0])
-                    for offset, col in enumerate(batch):
-                        val = row[offset + 1]
-                        if isinstance(val, (int, float)) and math.isfinite(
-                            float(val)
-                        ):
-                            series_by_col[col][b_idx] = float(val)
+                for grp, b_idx, val in rows:
+                    key = str(grp)
+                    if key not in series_map:
+                        if len(series_map) >= 80:
+                            continue
+                        series_map[key] = [None] * num_buckets
+                    if isinstance(val, (int, float)) and math.isfinite(
+                        float(val)
+                    ):
+                        series_map[key][int(b_idx)] = float(val)
+                for key, vec in series_map.items():
+                    sig = _column_onset_signal(
+                        vec, t_min, bucket_width, key, entry.name
+                    )
+                    if sig is not None:
+                        signals.append(sig)
+            else:
+                cols_to_scan = cols[:80]
+                series_by_col: dict[str, list[float | None]] = {
+                    col: [None] * num_buckets for col in cols_to_scan
+                }
+                for start in range(0, len(cols_to_scan), 20):
+                    batch = cols_to_scan[start : start + 20]
+                    aggs = ', '.join(
+                        f'AVG(CAST({time_detect.quote_ident(c)} AS DOUBLE))'
+                        for c in batch
+                    )
+                    rows = ctx.connection.execute(
+                        f'SELECT '
+                        f'LEAST({num_buckets - 1}, GREATEST(0, '
+                        f'CAST(FLOOR(({time_sql} - ?) / ?) AS INTEGER))) AS b, '
+                        f'{aggs} '
+                        f'FROM {table_sql} WHERE {time_sql} IS NOT NULL '
+                        f'GROUP BY b ORDER BY b',
+                        [t_min, bucket_width],
+                    ).fetchall()
+                    for row in rows:
+                        b_idx = int(row[0])
+                        for offset, col in enumerate(batch):
+                            val = row[offset + 1]
+                            if isinstance(val, (int, float)) and math.isfinite(
+                                float(val)
+                            ):
+                                series_by_col[col][b_idx] = float(val)
 
-            for col in cols_to_scan:
-                sig = _column_onset_signal(
-                    series_by_col[col], t_min, bucket_width, col, entry.name
-                )
-                if sig is not None:
-                    signals.append(sig)
+                for col in cols_to_scan:
+                    sig = _column_onset_signal(
+                        series_by_col[col], t_min, bucket_width, col, entry.name
+                    )
+                    if sig is not None:
+                        signals.append(sig)
 
     col_names = {col.name.lower(): col.name for col in entry.columns}
     level_col = col_names.get('level')
@@ -615,19 +804,40 @@ def find_onset(
     num_buckets = max(10, min(raw_buckets, 180))
 
     target_entries: list[ingest_schema.TableCatalogEntry] = []
+    seen_names: set[str] = set()
     if raw_tables is not None:
         for name in raw_tables:
-            entry = ctx.catalog.get_table(name)
-            if entry is None:
+            if '*' in name or '?' in name:
+                matched = [
+                    t
+                    for t in ctx.catalog.tables
+                    if fnmatch.fnmatchcase(t.name, name)
+                ]
+                if not matched:
+                    return tables.error_result(
+                        'unknown_table', f'Table not found in catalog: {name}'
+                    )
+                for entry in matched:
+                    if (
+                        entry.time_info.time_usable
+                        and entry.name not in seen_names
+                    ):
+                        seen_names.add(entry.name)
+                        target_entries.append(entry)
+                continue
+            exact = ctx.catalog.get_table(name)
+            if exact is None:
                 return tables.error_result(
                     'unknown_table', f'Table not found in catalog: {name}'
                 )
-            if not entry.time_info.time_usable:
+            if not exact.time_info.time_usable:
                 return tables.error_result(
                     'unusable_time',
-                    f'Table {entry.name!r} has no usable timestamp mapping.',
+                    f'Table {exact.name!r} has no usable timestamp mapping.',
                 )
-            target_entries.append(entry)
+            if exact.name not in seen_names:
+                seen_names.add(exact.name)
+                target_entries.append(exact)
     else:
         target_entries = [
             t for t in ctx.catalog.tables if t.time_info.time_usable

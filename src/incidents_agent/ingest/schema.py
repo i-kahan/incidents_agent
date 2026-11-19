@@ -47,9 +47,9 @@ class IngestLimits:
         chunk_overlap_chars: Character overlap when splitting oversized chunks.
     """
 
-    max_file_bytes: int = 100 * 1024 * 1024
-    max_files: int = 50
-    max_total_bytes: int = 250 * 1024 * 1024
+    max_file_bytes: int = 500 * 1024 * 1024
+    max_files: int = 200
+    max_total_bytes: int = 2 * 1024 * 1024 * 1024
     max_query_rows: int = 500
     max_scan_rows: int = 2_000_000
     query_timeout_s: float = 5.0

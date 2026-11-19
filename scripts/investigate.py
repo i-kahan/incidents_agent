@@ -15,6 +15,7 @@ from incidents_agent.agent import continuation
 from incidents_agent.agent import fake_policy
 from incidents_agent.agent import graph
 from incidents_agent.agent import state
+from incidents_agent.ingest import schema as ingest_schema
 from incidents_agent.llm import client
 from incidents_agent.llm import config
 from incidents_agent.llm import contracts
@@ -95,6 +96,10 @@ def main() -> int:
     parser.add_argument('--memory-path', help='SQLite path for incident memory')
     parser.add_argument('--continue-run', metavar='RUN_DIR')
     parser.add_argument('--add', action='append', default=[], metavar='PATH')
+    parser.add_argument('--max-files', type=int)
+    parser.add_argument('--max-file-mb', type=int)
+    parser.add_argument('--max-total-mb', type=int)
+    parser.add_argument('--tool-calls', type=int)
     args = parser.parse_args()
     logging.basicConfig(
         level=logging.WARNING, format='%(levelname)s: %(message)s'
@@ -110,6 +115,11 @@ def main() -> int:
             overrides['model_alias'] = args.model
         if args.memory:
             overrides['memory'] = True
+        if args.tool_calls is not None:
+            overrides['limits'] = {
+                **settings.limits.to_dict(),
+                'tool_calls': args.tool_calls,
+            }
         if overrides:
             settings = agent_config.AgentConfig.from_dict(
                 {**settings.to_dict(), **overrides}
@@ -136,12 +146,33 @@ def main() -> int:
                 if args.runs_dir
                 else (DRY_RUNS_DIR if args.fake else RUNS_DIR)
             )
+            default_limits = ingest_schema.IngestLimits()
+            ingest_cfg = ingest_schema.IngestConfig(
+                limits=ingest_schema.IngestLimits(
+                    max_files=(
+                        args.max_files
+                        if args.max_files is not None
+                        else default_limits.max_files
+                    ),
+                    max_file_bytes=(
+                        args.max_file_mb * 1024 * 1024
+                        if args.max_file_mb is not None
+                        else default_limits.max_file_bytes
+                    ),
+                    max_total_bytes=(
+                        args.max_total_mb * 1024 * 1024
+                        if args.max_total_mb is not None
+                        else default_limits.max_total_bytes
+                    ),
+                )
+            )
             result = graph.run_investigation(
                 task,
                 model,
                 settings,
                 runs_dir=runs_dir,
                 memory_path=memory_path,
+                ingest_config=ingest_cfg,
             )
     except (config.ConfigError, OSError, ValueError) as exc:
         parser.error(str(exc))
